@@ -14,8 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Bot,
-  Bell,
-  HelpCircle,
+  Users,
   Menu,
   X,
 } from "lucide-react";
@@ -37,6 +36,11 @@ const navItems = [
     icon: MessageCircle,
   },
   {
+    label: "Leads",
+    href: "/dashboard/leads",
+    icon: Users,
+  },
+  {
     label: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
@@ -44,8 +48,6 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-  { label: "Help", href: "/dashboard/help", icon: HelpCircle },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

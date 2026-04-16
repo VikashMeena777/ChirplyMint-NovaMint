@@ -2,18 +2,27 @@
 
 import { useState } from "react";
 import { Mail, Send, Loader2, MessageCircle, MapPin, Check } from "lucide-react";
+import { submitContactForm } from "@/lib/actions/contact";
+import { toast } from "sonner";
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+
+    const formData = new FormData(e.currentTarget);
+    const result = await submitContactForm(formData);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
       setIsSubmitted(true);
-    }, 1500);
+      toast.success("Message sent successfully!");
+    }
+    setIsSubmitting(false);
   };
 
   return (
@@ -77,6 +86,7 @@ export default function ContactPage() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">Name</label>
                   <input
+                    name="name"
                     type="text"
                     placeholder="Your name"
                     className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
@@ -86,6 +96,7 @@ export default function ContactPage() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">Email</label>
                   <input
+                    name="email"
                     type="email"
                     placeholder="you@example.com"
                     className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
@@ -96,6 +107,7 @@ export default function ContactPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Subject</label>
                 <input
+                  name="subject"
                   type="text"
                   placeholder="How can we help?"
                   className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
@@ -105,6 +117,7 @@ export default function ContactPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Message</label>
                 <textarea
+                  name="message"
                   rows={5}
                   placeholder="Tell us more..."
                   className="w-full px-4 py-3 rounded-xl border border-border bg-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"

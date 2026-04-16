@@ -107,3 +107,45 @@ export async function updateProfile(formData: FormData) {
   if (error) return { error: error.message };
   return { success: true };
 }
+
+export async function getNotificationPreferences() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("notification_preferences")
+    .eq("id", user.id)
+    .single();
+
+  const defaults = {
+    dm_delivery_alerts: true,
+    weekly_report: true,
+    new_lead_alerts: false,
+    product_updates: true,
+  };
+
+  return {
+    ...defaults,
+    ...((profile as Record<string, unknown>)?.notification_preferences as Record<string, boolean> ?? {}),
+  };
+}
+
+export async function updateNotificationPreferences(prefs: Record<string, boolean>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ notification_preferences: prefs })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}

@@ -10,7 +10,7 @@ import {
   Check,
   Sparkles,
 } from "lucide-react";
-import { getProfile, updateProfile } from "@/lib/actions/dashboard";
+import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
 
 type TabId = "account" | "instagram" | "billing" | "notifications";
@@ -38,9 +38,16 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+    dm_delivery_alerts: true,
+    weekly_report: true,
+    new_lead_alerts: false,
+    product_updates: true,
+  });
 
   useEffect(() => {
     loadProfile();
+    loadNotifPrefs();
   }, []);
 
   async function loadProfile() {
@@ -51,6 +58,22 @@ export default function SettingsPage() {
       setName(data.name);
     }
     setLoading(false);
+  }
+
+  async function loadNotifPrefs() {
+    const prefs = await getNotificationPreferences();
+    if (prefs) setNotifPrefs(prefs);
+  }
+
+  async function handleToggleNotif(key: string, checked: boolean) {
+    const updated = { ...notifPrefs, [key]: checked };
+    setNotifPrefs(updated);
+    const result = await updateNotificationPreferences(updated);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Notification preference saved");
+    }
   }
 
   async function handleSaveProfile(e: React.FormEvent<HTMLFormElement>) {
@@ -243,28 +266,28 @@ export default function SettingsPage() {
           <div className="space-y-4 max-w-md">
             {[
               {
+                key: "dm_delivery_alerts",
                 title: "DM Delivery Alerts",
                 desc: "Get notified when DMs fail to send",
-                defaultOn: true,
               },
               {
+                key: "weekly_report",
                 title: "Weekly Report",
                 desc: "Summary of your automation performance",
-                defaultOn: true,
               },
               {
+                key: "new_lead_alerts",
                 title: "New Lead Alerts",
                 desc: "Notify when a new lead is captured",
-                defaultOn: false,
               },
               {
+                key: "product_updates",
                 title: "Product Updates",
                 desc: "Learn about new features and improvements",
-                defaultOn: true,
               },
             ].map((item) => (
               <label
-                key={item.title}
+                key={item.key}
                 className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer"
               >
                 <div>
@@ -275,7 +298,8 @@ export default function SettingsPage() {
                 </div>
                 <input
                   type="checkbox"
-                  defaultChecked={item.defaultOn}
+                  checked={notifPrefs[item.key] ?? false}
+                  onChange={(e) => handleToggleNotif(item.key, e.target.checked)}
                   className="w-5 h-5 rounded border-border text-[oklch(0.52_0.19_162)] focus:ring-[oklch(0.52_0.19_162)] cursor-pointer"
                 />
               </label>

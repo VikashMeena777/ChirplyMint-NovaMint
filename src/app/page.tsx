@@ -462,7 +462,7 @@ function Pricing() {
               </div>
 
               <Link
-                href="/signup"
+                href={plan.cta === "Contact Us" ? "/contact" : "/signup"}
                 className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
                   plan.highlight
                     ? "bg-gradient-mint text-white glow-mint hover:scale-[1.02]"
