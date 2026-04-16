@@ -1,0 +1,187 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "@/lib/actions/auth";
+import {
+  LayoutDashboard,
+  MessageCircle,
+  BarChart3,
+  Settings,
+  LogOut,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Bot,
+  Bell,
+  HelpCircle,
+  Menu,
+  X,
+} from "lucide-react";
+
+const navItems = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Automations",
+    href: "/dashboard/automations",
+    icon: Bot,
+  },
+  {
+    label: "Messages",
+    href: "/dashboard/messages",
+    icon: MessageCircle,
+  },
+  {
+    label: "Analytics",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
+  },
+];
+
+const bottomItems = [
+  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
+  { label: "Help", href: "/dashboard/help", icon: HelpCircle },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isActive = (href: string) =>
+    href === "/dashboard"
+      ? pathname === "/dashboard"
+      : pathname.startsWith(href);
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] flex items-center justify-center shrink-0">
+          <Sparkles className="w-4 h-4 text-white" />
+        </div>
+        {!collapsed && (
+          <span className="text-lg font-bold tracking-tight text-foreground">
+            Chirply<span className="text-[oklch(0.52_0.19_162)]">Mint</span>
+          </span>
+        )}
+      </div>
+
+      {/* Main nav */}
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isActive(item.href)
+                ? "bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+          >
+            <item.icon className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>{item.label}</span>}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Bottom nav */}
+      <div className="px-3 py-3 border-t border-border space-y-1">
+        {bottomItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              isActive(item.href)
+                ? "bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+          >
+            <item.icon className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>{item.label}</span>}
+          </Link>
+        ))}
+
+        {/* Logout */}
+        <button
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-all"
+          onClick={() => signOut()}
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Sign Out</span>}
+        </button>
+      </div>
+
+      {/* Collapse toggle — desktop only */}
+      <div className="hidden lg:block px-3 py-3 border-t border-border">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
+        >
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <>
+              <ChevronLeft className="w-4 h-4" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl border border-border bg-white shadow-sm"
+        aria-label="Open sidebar"
+      >
+        <Menu className="w-5 h-5 text-foreground" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/30"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <div
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border transform transition-transform duration-200 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+          aria-label="Close sidebar"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <SidebarContent />
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={`hidden lg:flex flex-col border-r border-border bg-white transition-all duration-200 ${
+          collapsed ? "w-[72px]" : "w-[240px]"
+        }`}
+      >
+        <SidebarContent />
+      </aside>
+    </>
+  );
+}
