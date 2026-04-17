@@ -12,7 +12,10 @@ import {
   Sparkles,
   CheckCircle2,
   Unlink,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react";
+import { deleteAccount } from "@/lib/actions/account";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { getInstagramConnection, disconnectInstagram } from "@/lib/actions/instagram";
 import { toast } from "sonner";
@@ -48,6 +51,9 @@ export default function SettingsPage() {
     new_lead_alerts: false,
     product_updates: true,
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -133,6 +139,7 @@ export default function SettingsPage() {
       {/* Tab Content */}
       <div className="rounded-2xl bg-card border border-border shadow-sm p-6">
         {activeTab === "account" && (
+          <>
           <form onSubmit={handleSaveProfile} className="space-y-5 max-w-md">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
@@ -170,6 +177,60 @@ export default function SettingsPage() {
               Save Changes
             </button>
           </form>
+
+          {/* Danger Zone: Delete Account */}
+          <div className="mt-10 pt-6 border-t border-red-200 dark:border-red-900/50">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">Danger Zone</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Account
+              </button>
+            ) : (
+              <div className="space-y-3 p-4 rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                  Type <span className="font-mono font-bold">DELETE</span> to confirm:
+                </p>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmText("");
+                    }}
+                    className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted/30 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={deleteConfirmText !== "DELETE" || deleting}
+                    onClick={async () => {
+                      setDeleting(true);
+                      await deleteAccount();
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition-colors"
+                  >
+                    {deleting ? "Deleting…" : "Permanently Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          </>
         )}
 
         {activeTab === "instagram" && (

@@ -1,13 +1,34 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDMReply } from "@/lib/ai/nvidia-nim";
+import crypto from "crypto";
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
+const APP_SECRET = process.env.META_APP_SECRET || "";
 
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+
+/**
+ * Verify Meta webhook signature (HMAC SHA-256)
+ */
+function verifySignature(payload: string, signature: string | null): boolean {
+  if (!APP_SECRET) {
+    console.warn("[Meta Webhook] META_APP_SECRET not set — skipping signature verification");
+    return true; // Allow in dev, but log warning
+  }
+  if (!signature) return false;
+
+  const expectedSignature =
+    "sha256=" + crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expectedSignature)
   );
 }
 
@@ -33,7 +54,16 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+
+    // Verify webhook signature
+    const signature = request.headers.get("x-hub-signature-256");
+    if (!verifySignature(rawBody, signature)) {
+      console.error("[Meta Webhook] Invalid signature — rejecting payload");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
 
     if (body.object === "instagram") {
       for (const entry of body.entry || []) {
