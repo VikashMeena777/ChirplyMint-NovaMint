@@ -1,3 +1,5 @@
+"use client";
+
 import { Sparkles, Globe, Send } from "lucide-react";
 import Link from "next/link";
 
@@ -25,7 +27,7 @@ export function Footer() {
                 href="https://instagram.com/chirplymint"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
+                className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
                 aria-label="Instagram"
               >
                 <Globe className="w-4 h-4" />
@@ -34,7 +36,7 @@ export function Footer() {
                 href="https://twitter.com/chirplymint"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-lg border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
+                className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
                 aria-label="Twitter"
               >
                 <Send className="w-4 h-4" />
@@ -48,7 +50,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link
-                  href="#features"
+                  href="/#features"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Features
@@ -56,7 +58,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="#pricing"
+                  href="/pricing"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Pricing
@@ -64,7 +66,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="#demo"
+                  href="/#demo"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   How It Works
@@ -87,10 +89,10 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/blog"
+                  href="/help"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Blog
+                  Help Center
                 </Link>
               </li>
               <li>
@@ -131,6 +133,19 @@ export function Footer() {
                 >
                   Data Policy
                 </Link>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    // Clear consent cookie and show banner again
+                    document.cookie =
+                      "cookie_consent=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+                    window.location.reload();
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
+                >
+                  Manage Preferences
+                </button>
               </li>
             </ul>
           </div>

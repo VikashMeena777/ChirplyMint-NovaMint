@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Bot,
   Users,
+  Bell,
   Menu,
   X,
 } from "lucide-react";
@@ -48,6 +49,7 @@ const navItems = [
 ];
 
 const bottomItems = [
+  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -114,7 +116,7 @@ export function Sidebar() {
 
         {/* Logout */}
         <button
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
           onClick={() => signOut()}
         >
           <LogOut className="w-5 h-5 shrink-0" />
@@ -146,7 +148,7 @@ export function Sidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl border border-border bg-white shadow-sm"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl border border-border bg-card shadow-sm"
         aria-label="Open sidebar"
       >
         <Menu className="w-5 h-5 text-foreground" />
@@ -162,7 +164,7 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-border transform transition-transform duration-200 ${
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -178,7 +180,7 @@ export function Sidebar() {
 
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex flex-col border-r border-border bg-white transition-all duration-200 ${
+        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-200 ${
           collapsed ? "w-[72px]" : "w-[240px]"
         }`}
       >

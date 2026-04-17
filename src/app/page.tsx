@@ -103,7 +103,7 @@ function Hero() {
           </Link>
           <Link
             href="#demo"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-border bg-white font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
           >
             See How It Works
             <ChevronRight className="w-4 h-4" />

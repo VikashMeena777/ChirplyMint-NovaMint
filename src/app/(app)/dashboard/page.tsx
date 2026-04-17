@@ -86,7 +86,7 @@ export default async function DashboardPage() {
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl bg-white border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
+            className="rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between">
               <div
@@ -114,7 +114,7 @@ export default async function DashboardPage() {
               <Link
                 key={action.label}
                 href={action.href}
-                className="group flex flex-col gap-3 p-4 rounded-2xl bg-white border border-border hover:border-[oklch(0.52_0.19_162/40%)] hover:shadow-md transition-all"
+                className="group flex flex-col gap-3 p-4 rounded-2xl bg-card border border-border hover:border-[oklch(0.52_0.19_162/40%)] hover:shadow-md transition-all"
               >
                 <div className="w-9 h-9 rounded-xl bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center group-hover:bg-[oklch(0.52_0.19_162/15%)] transition-colors">
                   <action.icon className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -146,9 +146,9 @@ export default async function DashboardPage() {
             </p>
             <p className="text-sm opacity-80 mt-1">used this month</p>
             {/* Progress bar */}
-            <div className="mt-3 w-full h-2 rounded-full bg-white/20">
+            <div className="mt-3 w-full h-2 rounded-full bg-card/20">
               <div
-                className="h-full rounded-full bg-white transition-all"
+                className="h-full rounded-full bg-card transition-all"
                 style={{
                   width: `${Math.min(
                     ((data?.stats.dmsSentThisMonth ?? 0) /
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
       {/* Recent Activity */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
-        <div className="rounded-2xl bg-white border border-border shadow-sm divide-y divide-border">
+        <div className="rounded-2xl bg-card border border-border shadow-sm divide-y divide-border">
           {(data?.recentActivity ?? []).length > 0 ? (
             (data?.recentActivity ?? []).map(
               (activity: Record<string, unknown>, i: number) => (

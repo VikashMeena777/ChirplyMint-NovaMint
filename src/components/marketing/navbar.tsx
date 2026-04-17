@@ -6,9 +6,10 @@ import { Menu, X, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How it Works", href: "#demo" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Features", href: "/#features" },
+  { label: "How it Works", href: "/#demo" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Help", href: "/help" },
 ];
 
 export function Navbar() {
@@ -74,7 +75,7 @@ export function Navbar() {
           {/* Mobile Menu Toggle */}
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="md:hidden p-2 rounded-lg border border-border bg-white"
+            className="md:hidden p-2 rounded-lg border border-border bg-card"
             aria-label="Toggle menu"
           >
             {isMobileOpen ? (
@@ -96,7 +97,7 @@ export function Navbar() {
             transition={{ duration: 0.2 }}
             className="fixed inset-x-0 top-16 z-40 p-4 md:hidden"
           >
-            <div className="bg-white rounded-2xl p-6 space-y-4 shadow-xl border border-border">
+            <div className="bg-card rounded-2xl p-6 space-y-4 shadow-xl border border-border">
               {navLinks.map((link) => (
                 <Link
                   key={link.label}

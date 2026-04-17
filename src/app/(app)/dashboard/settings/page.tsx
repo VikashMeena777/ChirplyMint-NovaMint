@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   User,
   Link2,
@@ -9,8 +10,11 @@ import {
   Loader2,
   Check,
   Sparkles,
+  CheckCircle2,
+  Unlink,
 } from "lucide-react";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
+import { getInstagramConnection, disconnectInstagram } from "@/lib/actions/instagram";
 import { toast } from "sonner";
 
 type TabId = "account" | "instagram" | "billing" | "notifications";
@@ -127,7 +131,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="rounded-2xl bg-white border border-border shadow-sm p-6">
+      <div className="rounded-2xl bg-card border border-border shadow-sm p-6">
         {activeTab === "account" && (
           <form onSubmit={handleSaveProfile} className="space-y-5 max-w-md">
             <div className="space-y-1.5">
@@ -137,7 +141,7 @@ export default function SettingsPage() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
               />
             </div>
             <div className="space-y-1.5">
@@ -169,26 +173,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "instagram" && (
-          <div className="space-y-4 max-w-md">
-            <div className="rounded-xl border border-dashed border-border p-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-3">
-                <Link2 className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">
-                Connect Instagram
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Link your Instagram Business or Creator account to start
-                automating DMs.
-              </p>
-              <button className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all">
-                Connect Account
-              </button>
-              <p className="text-xs text-muted-foreground mt-3">
-                Requires a Facebook Page linked to your Instagram account.
-              </p>
-            </div>
-          </div>
+          <InstagramConnectionTab />
         )}
 
         {activeTab === "billing" && (
@@ -306,6 +291,127 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Instagram Connection Sub-component ─── */
+function InstagramConnectionTab() {
+  const searchParams = useSearchParams();
+  const [igState, setIgState] = useState<{
+    connected: boolean;
+    username: string;
+    loading: boolean;
+  }>({ connected: false, username: "", loading: true });
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const load = useCallback(async () => {
+    const data = await getInstagramConnection();
+    setIgState({
+      connected: data.connected,
+      username: data.username,
+      loading: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const error = searchParams.get("error");
+    if (success === "instagram_connected") {
+      toast.success("Instagram connected successfully!");
+      load();
+    }
+    if (error) {
+      const messages: Record<string, string> = {
+        instagram_denied: "Instagram authorization was denied.",
+        token_exchange_failed: "Failed to exchange token. Try again.",
+        no_facebook_page: "No Facebook Page found. Link one to your Instagram first.",
+        no_instagram_business: "No Instagram Business account found on that page.",
+        save_failed: "Failed to save connection. Try again.",
+        oauth_failed: "OAuth error. Please try again.",
+      };
+      toast.error(messages[error] || "Connection failed.");
+    }
+  }, [searchParams, load]);
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    const result = await disconnectInstagram();
+    if (result.success) {
+      toast.success("Instagram disconnected.");
+      setIgState({ connected: false, username: "", loading: false });
+    } else {
+      toast.error("Failed to disconnect.");
+    }
+    setDisconnecting(false);
+  };
+
+  if (igState.loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (igState.connected) {
+    return (
+      <div className="space-y-4 max-w-md">
+        <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-green-800 dark:text-green-300">Connected</p>
+              <p className="text-sm text-green-700 dark:text-green-400">@{igState.username}</p>
+            </div>
+          </div>
+          <p className="text-xs text-green-700 dark:text-green-400 mb-4">
+            Your Instagram Business account is connected or linked. DM automations are active.
+          </p>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 bg-card text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-60"
+          >
+            {disconnecting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Unlink className="w-4 h-4" />
+            )}
+            Disconnect
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 max-w-md">
+      <div className="rounded-xl border border-dashed border-border p-8 text-center">
+        <div className="w-12 h-12 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-3">
+          <Link2 className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">Connect Instagram</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Link your Instagram Business or Creator account to start automating DMs.
+        </p>
+        <a
+          href="/api/auth/instagram"
+          className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all"
+        >
+          <Link2 className="w-4 h-4" />
+          Connect Account
+        </a>
+        <p className="text-xs text-muted-foreground mt-3">
+          Requires a Facebook Page linked to your Instagram account.
+        </p>
       </div>
     </div>
   );

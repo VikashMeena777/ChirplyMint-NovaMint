@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/utils/activity-logger";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -15,6 +16,9 @@ export async function login(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) logActivity(user.id, "auth.login", { method: "email" }).catch(() => {});
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
@@ -37,6 +41,9 @@ export async function signup(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) logActivity(user.id, "auth.signup", { method: "email" }).catch(() => {});
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
@@ -63,6 +70,8 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) logActivity(user.id, "auth.signout").catch(() => {});
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");

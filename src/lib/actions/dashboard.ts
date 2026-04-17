@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/utils/activity-logger";
 
 export async function getDashboardStats() {
   const supabase = await createClient();
@@ -105,6 +106,8 @@ export async function updateProfile(formData: FormData) {
     .eq("id", user.id);
 
   if (error) return { error: error.message };
+
+  logActivity(user.id, "profile.update", { name: formData.get("name") as string }).catch(() => {});
   return { success: true };
 }
 
@@ -147,5 +150,7 @@ export async function updateNotificationPreferences(prefs: Record<string, boolea
     .eq("id", user.id);
 
   if (error) return { error: error.message };
+
+  logActivity(user.id, "notifications.update", prefs).catch(() => {});
   return { success: true };
 }

@@ -11,6 +11,7 @@ import {
   Users,
   Search,
   Loader2,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -122,7 +123,7 @@ export default function AutomationsPage() {
           placeholder="Search automations..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+          className="w-full h-10 pl-10 pr-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
         />
       </div>
 
@@ -132,7 +133,7 @@ export default function AutomationsPage() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl bg-white border border-border p-12 text-center">
+        <div className="rounded-2xl bg-card border border-border p-12 text-center">
           <div className="w-14 h-14 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-4">
             <Bot className="w-6 h-6 text-[oklch(0.52_0.19_162)]" />
           </div>
@@ -156,7 +157,7 @@ export default function AutomationsPage() {
           {filtered.map((a) => (
             <div
               key={a.id}
-              className="rounded-2xl bg-white border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
+              className="rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1 min-w-0">
@@ -167,8 +168,8 @@ export default function AutomationsPage() {
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                         a.status === "active"
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                          ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+                          : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
                       }`}
                     >
                       {a.status === "active" ? "Active" : "Paused"}
@@ -198,8 +199,8 @@ export default function AutomationsPage() {
                     onClick={() => handleToggle(a.id, a.status)}
                     className={`p-2 rounded-lg border transition-colors ${
                       a.status === "active"
-                        ? "border-amber-200 text-amber-600 hover:bg-amber-50"
-                        : "border-green-200 text-green-600 hover:bg-green-50"
+                        ? "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                        : "border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
                     }`}
                     title={a.status === "active" ? "Pause" : "Resume"}
                   >
@@ -211,7 +212,7 @@ export default function AutomationsPage() {
                   </button>
                   <button
                     onClick={() => handleDelete(a.id)}
-                    className="p-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                    className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -226,7 +227,7 @@ export default function AutomationsPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl border border-border shadow-xl w-full max-w-lg p-6 space-y-5 relative">
+          <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-lg p-6 space-y-5 relative">
             <button
               onClick={() => setShowCreate(false)}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -252,7 +253,7 @@ export default function AutomationsPage() {
                   name="name"
                   required
                   placeholder="e.g. Free Guide Giveaway"
-                  className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                  className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                 />
               </div>
 
@@ -264,7 +265,7 @@ export default function AutomationsPage() {
                   name="keyword"
                   required
                   placeholder="e.g. FREE, GUIDE, LINK"
-                  className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                  className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                 />
                 <p className="text-xs text-muted-foreground">
                   When someone comments this keyword, they&apos;ll receive a DM.
@@ -280,7 +281,7 @@ export default function AutomationsPage() {
                   required
                   rows={3}
                   placeholder="Hey {name}! 👋 Here's your free guide..."
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
                   Use {"{name}"} to personalize. Supports links and emojis.
@@ -297,7 +298,25 @@ export default function AutomationsPage() {
                 <input
                   name="post_url"
                   placeholder="https://instagram.com/p/..."
-                  className="w-full h-11 px-4 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                  className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[oklch(0.52_0.19_162/5%)] border border-[oklch(0.52_0.19_162/15%)]">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+                    AI Smart Replies
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Generate personalized DMs using AI instead of static templates
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  name="ai_enabled"
+                  value="true"
+                  className="w-5 h-5 rounded border-border text-[oklch(0.52_0.19_162)] focus:ring-[oklch(0.52_0.19_162)] cursor-pointer"
                 />
               </div>
 

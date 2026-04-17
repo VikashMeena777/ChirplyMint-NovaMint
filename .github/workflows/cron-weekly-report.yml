@@ -1,0 +1,26 @@
+name: "Cron: Weekly Performance Report"
+
+on:
+  schedule:
+    # Every Monday at 3:30 AM UTC (9:00 AM IST)
+    - cron: "30 3 * * 1"
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Weekly Reports
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/weekly-report")
+          
+          echo "Status: $response"
+          
+          if [ "$response" -ne 200 ]; then
+            echo "❌ Weekly report cron failed with status $response"
+            exit 1
+          fi
+          
+          echo "✅ Weekly reports generated successfully"
