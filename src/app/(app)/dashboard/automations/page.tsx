@@ -35,6 +35,9 @@ import {
   CalendarCheck,
   Rocket,
   MessageSquare,
+  GitBranch,
+  Tag,
+  Send,
 } from "lucide-react";
 import {
   getAutomations,
@@ -43,6 +46,7 @@ import {
   deleteAutomation,
 } from "@/lib/actions/automations";
 import { getInstagramPosts, getInstagramPostByUrl } from "@/lib/actions/instagram-api";
+import { getPostbackFlows, savePostbackFlows, type PostbackFlow } from "@/lib/actions/postback-flows";
 import { toast } from "sonner";
 
 interface Automation {
@@ -80,10 +84,22 @@ interface IGPost {
 }
 
 interface TemplateButton {
-  type: "web_url";
+  type: "web_url" | "postback";
   title: string;
   url?: string;
   payload?: string;
+}
+
+interface PostbackFlowForm {
+  payload: string;
+  label: string;
+  response_type: "text" | "button";
+  response_text: string;
+  response_template_title: string;
+  response_template_subtitle: string;
+  response_template_image_url: string;
+  response_template_buttons: { type: "web_url"; title: string; url?: string }[];
+  lead_tag: string;
 }
 
 // ── Preset Templates ──
@@ -185,6 +201,39 @@ export default function AutomationsPage() {
     template_image_url: "",
     template_buttons: [] as TemplateButton[],
   });
+  const [postbackFlows, setPostbackFlows] = useState<PostbackFlowForm[]>([]);
+
+  function updatePostbackFlow(payload: string, field: string, value: string) {
+    setPostbackFlows((prev) => {
+      const idx = prev.findIndex((f) => f.payload === payload);
+      if (idx >= 0) {
+        const updated = [...prev];
+        if (field === "response_template_buttons") {
+          try {
+            updated[idx] = { ...updated[idx], [field]: JSON.parse(value) };
+          } catch {
+            // invalid JSON, skip
+          }
+        } else {
+          updated[idx] = { ...updated[idx], [field]: value };
+        }
+        return updated;
+      }
+      // Create new flow entry
+      const newFlow: PostbackFlowForm = {
+        payload,
+        label: formData.template_buttons.find((b) => b.payload === payload)?.title || payload,
+        response_type: field === "response_type" ? (value as "text" | "button") : "text",
+        response_text: field === "response_text" ? value : "",
+        response_template_title: field === "response_template_title" ? value : "",
+        response_template_subtitle: field === "response_template_subtitle" ? value : "",
+        response_template_image_url: field === "response_template_image_url" ? value : "",
+        response_template_buttons: field === "response_template_buttons" ? JSON.parse(value) : [],
+        lead_tag: field === "lead_tag" ? value : "",
+      };
+      return [...prev, newFlow];
+    });
+  }
 
   useEffect(() => {
     loadAutomations();
@@ -324,7 +373,10 @@ export default function AutomationsPage() {
           formData.template_title.trim().length > 0 &&
           formData.template_buttons.length > 0 &&
           formData.template_buttons.every(
-            (b) => b.title.trim().length > 0 && (b.type !== "web_url" || (b.url?.trim().length ?? 0) > 0)
+            (b) => b.title.trim().length > 0 && (
+              b.type === "web_url" ? (b.url?.trim().length ?? 0) > 0 :
+              b.type === "postback" ? (b.payload?.trim().length ?? 0) > 0 : true
+            )
           )
         );
       }
@@ -361,8 +413,31 @@ export default function AutomationsPage() {
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Automation created successfully! 🚀");
+      // Save postback flows if any
+      const postbackButtons = formData.template_buttons.filter((b) => b.type === "postback" && b.payload);
+      if (postbackButtons.length > 0 && postbackFlows.length > 0 && result.id) {
+        const flowsToSave = postbackFlows
+          .filter((f) => postbackButtons.some((b) => b.payload === f.payload))
+          .map((f) => ({
+            ...f,
+            label: f.label || formData.template_buttons.find((b) => b.payload === f.payload)?.title || f.payload,
+          }));
+
+        if (flowsToSave.length > 0) {
+          const flowResult = await savePostbackFlows(result.id, flowsToSave);
+          if (flowResult.error) {
+            toast.error(`Automation created but flows failed: ${flowResult.error}`);
+          } else {
+            toast.success(`Automation created with ${flowsToSave.length} postback flow(s)! 🚀`);
+          }
+        } else {
+          toast.success("Automation created successfully! 🚀");
+        }
+      } else {
+        toast.success("Automation created successfully! 🚀");
+      }
       setShowCreate(false);
+      setPostbackFlows([]);
       loadAutomations();
     }
     setCreating(false);
@@ -1052,9 +1127,15 @@ export default function AutomationsPage() {
                             </div>
 
                             <div className="flex gap-2">
-                              <div className="flex items-center h-9 px-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
-                                🔗 URL Button
-                              </div>
+                              {/* Type Selector */}
+                              <select
+                                value={btn.type}
+                                onChange={(e) => updateButton(i, "type", e.target.value)}
+                                className="h-9 px-2 rounded-lg border border-border bg-muted/30 text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] cursor-pointer"
+                              >
+                                <option value="web_url">🔗 URL</option>
+                                <option value="postback">⚡ Postback</option>
+                              </select>
                               <input
                                 value={btn.title}
                                 onChange={(e) => updateButton(i, "title", e.target.value.slice(0, 20))}
@@ -1064,12 +1145,27 @@ export default function AutomationsPage() {
                               />
                             </div>
 
-                            <input
-                              value={btn.url || ""}
-                              onChange={(e) => updateButton(i, "url", e.target.value)}
-                              placeholder="https://your-link.com"
-                              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
-                            />
+                            {btn.type === "web_url" ? (
+                              <input
+                                value={btn.url || ""}
+                                onChange={(e) => updateButton(i, "url", e.target.value)}
+                                placeholder="https://your-link.com"
+                                className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                              />
+                            ) : (
+                              <div className="space-y-1.5">
+                                <input
+                                  value={btn.payload || ""}
+                                  onChange={(e) => updateButton(i, "payload", e.target.value.toLowerCase().replace(/\s+/g, "_"))}
+                                  placeholder="e.g. interest_course"
+                                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                                />
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <GitBranch className="w-3 h-3" />
+                                  Configure what happens when tapped in the Postback Flows section below
+                                </p>
+                              </div>
+                            )}
                           </div>
                         ))}
 
@@ -1334,6 +1430,181 @@ export default function AutomationsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* ── Postback Flows Builder ── */}
+                  {formData.template_type === "button" &&
+                    formData.template_buttons.some((b) => b.type === "postback") && (
+                    <div className="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden">
+                      <div className="px-4 py-3 flex items-center gap-2 border-b border-amber-200 dark:border-amber-800">
+                        <GitBranch className="w-4 h-4 text-amber-500" />
+                        <h4 className="text-sm font-semibold text-foreground">Postback Flows</h4>
+                        <span className="ml-auto text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
+                          PREMIUM
+                        </span>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                          Configure what happens when a user taps each postback button. Each flow can send a text reply or another rich card.
+                        </p>
+
+                        {formData.template_buttons
+                          .filter((b) => b.type === "postback" && b.payload)
+                          .map((btn) => {
+                            const existingFlow = postbackFlows.find(
+                              (f) => f.payload === btn.payload
+                            );
+                            return (
+                              <div
+                                key={btn.payload}
+                                className="p-3 rounded-xl border border-border bg-background space-y-3"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                    <Zap className="w-3 h-3 text-amber-600" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">
+                                      &quot;{btn.title || "Untitled"}&quot; tapped
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      payload: <code className="bg-muted px-1 rounded">{btn.payload}</code>
+                                    </p>
+                                  </div>
+                                  <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto" />
+                                </div>
+
+                                {/* Response Type */}
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updatePostbackFlow(btn.payload!, "response_type", "text")}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      (existingFlow?.response_type || "text") === "text"
+                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                        : "bg-muted/30 text-muted-foreground border border-border"
+                                    }`}
+                                  >
+                                    💬 Text Reply
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updatePostbackFlow(btn.payload!, "response_type", "button")}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      existingFlow?.response_type === "button"
+                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                        : "bg-muted/30 text-muted-foreground border border-border"
+                                    }`}
+                                  >
+                                    🃏 Card + Buttons
+                                  </button>
+                                </div>
+
+                                {/* Text Response */}
+                                {(existingFlow?.response_type || "text") === "text" && (
+                                  <textarea
+                                    value={existingFlow?.response_text || ""}
+                                    onChange={(e) => updatePostbackFlow(btn.payload!, "response_text", e.target.value)}
+                                    placeholder="Type the response message..."
+                                    rows={2}
+                                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  />
+                                )}
+
+                                {/* Button Template Response */}
+                                {existingFlow?.response_type === "button" && (
+                                  <div className="space-y-2">
+                                    <input
+                                      value={existingFlow.response_template_title || ""}
+                                      onChange={(e) => updatePostbackFlow(btn.payload!, "response_template_title", e.target.value)}
+                                      placeholder="Card title"
+                                      className="w-full h-8 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                    <input
+                                      value={existingFlow.response_template_subtitle || ""}
+                                      onChange={(e) => updatePostbackFlow(btn.payload!, "response_template_subtitle", e.target.value)}
+                                      placeholder="Card subtitle (optional)"
+                                      className="w-full h-8 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                    <input
+                                      value={existingFlow.response_template_image_url || ""}
+                                      onChange={(e) => updatePostbackFlow(btn.payload!, "response_template_image_url", e.target.value)}
+                                      placeholder="Image URL (optional)"
+                                      className="w-full h-8 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    />
+                                    {/* Flow buttons — only URL type for simplicity */}
+                                    {(existingFlow.response_template_buttons || []).map((fb, fi) => (
+                                      <div key={fi} className="flex gap-2 items-center">
+                                        <input
+                                          value={fb.title}
+                                          onChange={(e) => {
+                                            const newBtns = [...(existingFlow.response_template_buttons || [])];
+                                            newBtns[fi] = { ...newBtns[fi], title: e.target.value.slice(0, 20) };
+                                            updatePostbackFlow(btn.payload!, "response_template_buttons", JSON.stringify(newBtns));
+                                          }}
+                                          placeholder="Button label"
+                                          maxLength={20}
+                                          className="flex-1 h-7 px-2 rounded border border-border bg-background text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                        />
+                                        <input
+                                          value={fb.url || ""}
+                                          onChange={(e) => {
+                                            const newBtns = [...(existingFlow.response_template_buttons || [])];
+                                            newBtns[fi] = { ...newBtns[fi], url: e.target.value };
+                                            updatePostbackFlow(btn.payload!, "response_template_buttons", JSON.stringify(newBtns));
+                                          }}
+                                          placeholder="https://link"
+                                          className="flex-1 h-7 px-2 rounded border border-border bg-background text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const newBtns = (existingFlow.response_template_buttons || []).filter((_, j) => j !== fi);
+                                            updatePostbackFlow(btn.payload!, "response_template_buttons", JSON.stringify(newBtns));
+                                          }}
+                                          className="p-0.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    {(existingFlow.response_template_buttons || []).length < 3 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newBtns = [...(existingFlow.response_template_buttons || []), { type: "web_url" as const, title: "", url: "" }];
+                                          updatePostbackFlow(btn.payload!, "response_template_buttons", JSON.stringify(newBtns));
+                                        }}
+                                        className="w-full py-1.5 rounded-lg border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-colors flex items-center justify-center gap-1"
+                                      >
+                                        <Plus className="w-3 h-3" /> Add URL Button
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Lead Tag */}
+                                <div className="flex items-center gap-2">
+                                  <Tag className="w-3 h-3 text-muted-foreground" />
+                                  <input
+                                    value={existingFlow?.lead_tag || ""}
+                                    onChange={(e) => updatePostbackFlow(btn.payload!, "lead_tag", e.target.value)}
+                                    placeholder="Lead tag (e.g. interested_course)"
+                                    className="flex-1 h-7 px-2 rounded border border-border bg-background text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {formData.template_buttons.filter((b) => b.type === "postback" && !b.payload).length > 0 && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-950/30 px-3 py-2 rounded-lg flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5" />
+                            Add a payload to your postback buttons above to configure their flows here
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -78,7 +78,7 @@ export async function createAutomation(formData: FormData) {
   if (templateType === "button" && !templateTitle?.trim())
     return { error: "Template title is required for button templates" };
 
-  const { error } = await supabase.from("automations").insert({
+  const { data: inserted, error } = await supabase.from("automations").insert({
     user_id: user.id,
     instagram_account_id: igAccounts[0].id,
     name: name.trim(),
@@ -98,7 +98,7 @@ export async function createAutomation(formData: FormData) {
     template_subtitle: templateSubtitle,
     template_image_url: templateImageUrl,
     template_buttons: templateButtons,
-  });
+  }).select("id").single();
 
   if (error) return { error: error.message };
 
@@ -111,7 +111,7 @@ export async function createAutomation(formData: FormData) {
   }).catch(() => {});
 
   revalidatePath("/dashboard/automations");
-  return { success: true };
+  return { success: true, id: (inserted as Record<string, string>)?.id };
 }
 
 export async function toggleAutomation(

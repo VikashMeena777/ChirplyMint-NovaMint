@@ -88,10 +88,12 @@ export async function POST(request: Request) {
           }
         }
 
-        // Handle incoming DMs
+        // Handle incoming DMs and Postbacks
         if (entry.messaging) {
           for (const messagingEvent of entry.messaging) {
-            if (messagingEvent.message) {
+            if (messagingEvent.postback) {
+              await handlePostback(messagingEvent);
+            } else if (messagingEvent.message) {
               await handleIncomingDM(messagingEvent);
             }
           }
@@ -484,5 +486,155 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
 
   console.log(
     `[Meta Webhook] AI reply ${sendResult.success ? "sent ✅" : "failed ❌"} for DM from ${senderId}`
+  );
+}
+
+/**
+ * Handle a postback button tap — look up the flow and send the configured response.
+ * Postback events have: sender.id, recipient.id, postback.payload, postback.title
+ */
+async function handlePostback(event: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (event.sender as Record<string, string>)?.id || "";
+  const recipientId = (event.recipient as Record<string, string>)?.id || "";
+  const postbackData = event.postback as Record<string, string> | undefined;
+  const payload = postbackData?.payload?.toLowerCase()?.trim() || "";
+  const buttonTitle = postbackData?.title || "";
+
+  if (!senderId || !payload) return;
+
+  console.log(`[Meta Webhook] Postback received: payload="${payload}" from ${senderId}`);
+
+  // Find the IG account for this recipient
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id, ig_user_id, access_token, page_access_token")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+
+  if (!igAccount) {
+    console.warn(`[Meta Webhook] No IG account found for recipient ${recipientId}`);
+    return;
+  }
+
+  const userId = igAccount.user_id as string;
+  const accessToken = (igAccount.page_access_token as string) || (igAccount.access_token as string);
+
+  // Find matching postback flow across all active automations for this user
+  const { data: flows } = await supabase
+    .from("postback_flows")
+    .select("*, automations!inner(id, name, status, instagram_account_id)")
+    .eq("payload", payload)
+    .eq("is_active", true)
+    .eq("automations.status", "active")
+    .eq("automations.instagram_account_id", igAccount.id);
+
+  if (!flows || flows.length === 0) {
+    console.log(`[Meta Webhook] No postback flow found for payload="${payload}"`);
+    return;
+  }
+
+  const flow = flows[0];
+  const automation = flow.automations as Record<string, unknown>;
+  const responseType = (flow.response_type as string) || "text";
+
+  let sendResult: { success: boolean; messageId?: string; error?: string };
+
+  if (responseType === "button" && flow.response_template_title) {
+    // Send a follow-up Generic Template
+    const buttons = (flow.response_template_buttons as { type: "web_url"; title: string; url?: string }[]) || [];
+    const templatePayload = {
+      title: (flow.response_template_title as string).slice(0, 80),
+      subtitle: (flow.response_template_subtitle as string) || undefined,
+      image_url: (flow.response_template_image_url as string) || undefined,
+      buttons: buttons.map((b) => ({
+        type: "web_url" as const,
+        title: b.title.slice(0, 20),
+        url: b.url,
+      })),
+    };
+
+    // For postback responses, we send via regular DM (not private reply)
+    // So we use sendInstagramDM for text or construct the template manually
+    const res = await fetch(`https://graph.instagram.com/v21.0/${recipientId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: senderId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: [{
+                title: templatePayload.title,
+                ...(templatePayload.subtitle ? { subtitle: templatePayload.subtitle } : {}),
+                ...(templatePayload.image_url ? { image_url: templatePayload.image_url } : {}),
+                ...(templatePayload.buttons.length > 0 ? { buttons: templatePayload.buttons } : {}),
+              }],
+            },
+          },
+        },
+      }),
+    });
+
+    const data = await res.json();
+    sendResult = data.error
+      ? { success: false, error: data.error.message }
+      : { success: true, messageId: data.message_id };
+  } else {
+    // Send plain text response
+    const responseText = (flow.response_text as string) || "Thanks for your response!";
+    sendResult = await sendInstagramDM(recipientId, accessToken, senderId, responseText);
+  }
+
+  // Tag the lead if lead_tag is set
+  if (flow.lead_tag && sendResult.success) {
+    await supabase
+      .from("leads")
+      .update({ notes: `Tag: ${flow.lead_tag}` })
+      .eq("user_id", userId)
+      .eq("ig_user_id", senderId);
+
+    console.log(`[Meta Webhook] Tagged lead ${senderId} with "${flow.lead_tag}"`);
+  }
+
+  // Log the postback response
+  await supabase.from("dm_logs").insert({
+    user_id: userId,
+    automation_id: automation.id,
+    instagram_account_id: igAccount.id,
+    recipient_ig_id: senderId,
+    recipient_username: senderId,
+    message_text: responseType === "button"
+      ? `[POSTBACK TEMPLATE] ${flow.response_template_title}`
+      : (flow.response_text as string),
+    comment_text: `[POSTBACK] Button: "${buttonTitle}" → payload: "${payload}"`,
+    status: sendResult.success ? "sent" : "failed",
+  });
+
+  // Log activity
+  void Promise.resolve(
+    supabase.from("activity_log").insert({
+      user_id: userId,
+      action: sendResult.success ? "postback.responded" : "postback.failed",
+      metadata: {
+        payload,
+        button_title: buttonTitle,
+        automation: automation.name,
+        flow_label: flow.label,
+        lead_tag: flow.lead_tag || null,
+        error: sendResult.error || null,
+      },
+    })
+  ).catch(() => {});
+
+  console.log(
+    `[Meta Webhook] Postback "${payload}" → ${responseType} response ${sendResult.success ? "sent ✅" : "failed ❌"}`
   );
 }
