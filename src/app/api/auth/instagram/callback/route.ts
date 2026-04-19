@@ -112,7 +112,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 7. Log activity
+    // 7. Also upsert into instagram_accounts (required by automations FK)
+    const { error: igAccError } = await supabase
+      .from("instagram_accounts")
+      .upsert(
+        {
+          user_id: state,
+          ig_user_id: igAccountId,
+          ig_username: igProfile.username || "",
+          ig_name: igProfile.name || "",
+          ig_profile_pic: igProfile.profile_picture_url || null,
+          access_token: page.access_token,
+          page_id: page.id,
+          page_access_token: page.access_token,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,ig_user_id" }
+      );
+
+    if (igAccError) {
+      console.error("Failed to save instagram_accounts:", igAccError);
+      // Non-fatal: user_settings already saved, so OAuth still "works"
+      // but automations won't — log and continue
+    }
+
+    // 8. Log activity
     void Promise.resolve(
       supabase.from("activity_log").insert({
         user_id: state,

@@ -48,6 +48,12 @@ export async function disconnectInstagram(): Promise<{ success: boolean }> {
     return { success: false };
   }
 
+  // Also deactivate instagram_accounts (used by automations FK)
+  await supabase
+    .from("instagram_accounts")
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+
   // Log activity (fire and forget)
   void Promise.resolve(
     supabase.from("activity_log").insert({

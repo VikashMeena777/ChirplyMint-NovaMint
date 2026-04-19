@@ -226,8 +226,8 @@ export default function AutomationsPage() {
 
       {/* Create Modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-lg p-6 space-y-5 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 overflow-y-auto">
+          <div className="bg-card rounded-2xl border border-border shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 relative">
             <button
               onClick={() => setShowCreate(false)}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
