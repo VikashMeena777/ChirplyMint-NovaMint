@@ -38,7 +38,7 @@ export async function disconnectInstagram(): Promise<{ success: boolean }> {
       instagram_user_id: null,
       instagram_username: null,
       instagram_access_token: null,
-      facebook_page_id: null,
+      instagram_page_id: null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id);
@@ -53,7 +53,7 @@ export async function disconnectInstagram(): Promise<{ success: boolean }> {
     supabase.from("activity_log").insert({
       user_id: user.id,
       action: "instagram.disconnected",
-      details: {},
+      metadata: {},
     })
   ).catch(() => {});
 

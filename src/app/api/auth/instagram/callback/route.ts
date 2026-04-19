@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         instagram_user_id: igAccountId,
         instagram_username: igProfile.username || "",
         instagram_access_token: page.access_token, // page token for messaging
-        facebook_page_id: page.id,
+        instagram_page_id: page.id,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       supabase.from("activity_log").insert({
         user_id: state,
         action: "instagram.connected",
-        details: { username: igProfile.username || igAccountId },
+        metadata: { username: igProfile.username || igAccountId },
       })
     ).catch(() => {});
 
