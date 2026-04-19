@@ -67,7 +67,7 @@ const categories = [
     faqs: [
       {
         q: "What permissions does ChirplyMint need?",
-        a: "We request: instagram_manage_messages (to send DMs), instagram_manage_comments (to read comments), and pages_messaging (required by Meta). We never post on your behalf or access your personal data.",
+        a: "We request: instagram_manage_messages (to send DMs), instagram_manage_comments (to read comments), and pages_read_engagement (required by Meta). We never post on your behalf or access your personal data.",
       },
       {
         q: "Does it work with personal accounts?",

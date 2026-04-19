@@ -26,7 +26,7 @@ export async function GET() {
     "instagram_manage_messages",
     "instagram_manage_comments",
     "pages_show_list",
-    "pages_messaging",
+    "pages_read_engagement",
   ].join(",");
 
   const authUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
