@@ -24,6 +24,17 @@ import {
   ArrowRight,
   Zap,
   Eye,
+  Shield,
+  Link2,
+  LayoutTemplate,
+  Type,
+  MousePointerClick,
+  ExternalLink,
+  Gift,
+  Flame,
+  CalendarCheck,
+  Rocket,
+  MessageSquare,
 } from "lucide-react";
 import {
   getAutomations,
@@ -31,7 +42,7 @@ import {
   toggleAutomation,
   deleteAutomation,
 } from "@/lib/actions/automations";
-import { getInstagramPosts } from "@/lib/actions/instagram-api";
+import { getInstagramPosts, getInstagramPostByUrl } from "@/lib/actions/instagram-api";
 import { toast } from "sonner";
 
 interface Automation {
@@ -49,6 +60,12 @@ interface Automation {
   ai_enabled: boolean;
   comment_reply_enabled: boolean;
   comment_reply_template: string | null;
+  require_follow: boolean;
+  template_type: string;
+  template_title: string | null;
+  template_subtitle: string | null;
+  template_image_url: string | null;
+  template_buttons: TemplateButton[];
   created_at: string;
 }
 
@@ -62,6 +79,74 @@ interface IGPost {
   timestamp: string;
 }
 
+interface TemplateButton {
+  type: "web_url" | "postback";
+  title: string;
+  url?: string;
+  payload?: string;
+}
+
+// ── Preset Templates ──
+const PRESET_TEMPLATES = [
+  {
+    id: "free_resource",
+    name: "🎁 Free Resource",
+    icon: Gift,
+    color: "emerald",
+    title: "Your Free Guide is Ready! 📚",
+    subtitle: "Tap below to grab it instantly",
+    buttons: [{ type: "web_url" as const, title: "Download Now →", url: "https://example.com" }],
+  },
+  {
+    id: "limited_offer",
+    name: "🔥 Limited Offer",
+    icon: Flame,
+    color: "orange",
+    title: "Exclusive Deal for You!",
+    subtitle: "Only for our engaged followers",
+    buttons: [
+      { type: "web_url" as const, title: "Shop Now", url: "https://example.com" },
+      { type: "web_url" as const, title: "View Details", url: "https://example.com" },
+    ],
+  },
+  {
+    id: "book_call",
+    name: "📅 Book a Call",
+    icon: CalendarCheck,
+    color: "blue",
+    title: "Let's Chat, {name}!",
+    subtitle: "I'd love to help you with your goals",
+    buttons: [
+      { type: "web_url" as const, title: "Book Free Call", url: "https://example.com" },
+      { type: "web_url" as const, title: "Learn More", url: "https://example.com" },
+    ],
+  },
+  {
+    id: "course_launch",
+    name: "🚀 Course Launch",
+    icon: Rocket,
+    color: "purple",
+    title: "You're In! 🎉",
+    subtitle: "Here's your exclusive early access",
+    buttons: [
+      { type: "web_url" as const, title: "Start Learning", url: "https://example.com" },
+      { type: "web_url" as const, title: "Join Community", url: "https://example.com" },
+    ],
+  },
+  {
+    id: "community",
+    name: "💬 Community Invite",
+    icon: MessageSquare,
+    color: "teal",
+    title: "Welcome to the Crew!",
+    subtitle: "Join our private community",
+    buttons: [
+      { type: "web_url" as const, title: "Join Now", url: "https://example.com" },
+      { type: "web_url" as const, title: "What's Inside?", url: "https://example.com" },
+    ],
+  },
+];
+
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +158,12 @@ export default function AutomationsPage() {
   const [step, setStep] = useState(1);
   const [posts, setPosts] = useState<IGPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | undefined>();
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+
+  // URL input state
+  const [reelUrl, setReelUrl] = useState("");
+  const [loadingUrlPost, setLoadingUrlPost] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -87,6 +178,12 @@ export default function AutomationsPage() {
     ai_persona: "",
     comment_reply_enabled: false,
     comment_reply_template: "",
+    require_follow: false,
+    template_type: "text" as "text" | "button",
+    template_title: "",
+    template_subtitle: "",
+    template_image_url: "",
+    template_buttons: [] as TemplateButton[],
   });
 
   useEffect(() => {
@@ -108,10 +205,43 @@ export default function AutomationsPage() {
 
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
-    const { data } = await getInstagramPosts();
+    const { data, nextCursor: cursor } = await getInstagramPosts();
     setPosts(data);
+    setNextCursor(cursor);
     setLoadingPosts(false);
   }, []);
+
+  async function loadMorePosts() {
+    if (!nextCursor || loadingMorePosts) return;
+    setLoadingMorePosts(true);
+    const { data, nextCursor: cursor } = await getInstagramPosts(nextCursor);
+    setPosts((prev) => [...prev, ...data]);
+    setNextCursor(cursor);
+    setLoadingMorePosts(false);
+  }
+
+  async function handleLoadUrlPost() {
+    if (!reelUrl.trim()) return;
+    setLoadingUrlPost(true);
+    const { data, error } = await getInstagramPostByUrl(reelUrl.trim());
+    if (error) {
+      toast.error(error);
+    } else if (data) {
+      // Prepend the found post if it's not already in the list
+      setPosts((prev) => {
+        if (prev.find((p) => p.id === data.id)) return prev;
+        return [data, ...prev];
+      });
+      setFormData((f) => ({
+        ...f,
+        media_id: data.id,
+        post_url: data.permalink,
+      }));
+      setReelUrl("");
+      toast.success("Post found and selected! ✅");
+    }
+    setLoadingUrlPost(false);
+  }
 
   function openWizard() {
     setFormData({
@@ -126,10 +256,58 @@ export default function AutomationsPage() {
       ai_persona: "",
       comment_reply_enabled: false,
       comment_reply_template: "",
+      require_follow: false,
+      template_type: "text",
+      template_title: "",
+      template_subtitle: "",
+      template_image_url: "",
+      template_buttons: [],
     });
+    setReelUrl("");
     setStep(1);
     setShowCreate(true);
     loadPosts();
+  }
+
+  function applyPreset(preset: typeof PRESET_TEMPLATES[0]) {
+    setFormData((f) => ({
+      ...f,
+      template_type: "button",
+      template_title: preset.title,
+      template_subtitle: preset.subtitle,
+      template_buttons: preset.buttons.map((b) => ({ ...b })),
+    }));
+    toast.success(`"${preset.name}" template applied!`);
+  }
+
+  function addButton() {
+    if (formData.template_buttons.length >= 3) {
+      toast.error("Maximum 3 buttons allowed");
+      return;
+    }
+    setFormData((f) => ({
+      ...f,
+      template_buttons: [
+        ...f.template_buttons,
+        { type: "web_url", title: "", url: "" },
+      ],
+    }));
+  }
+
+  function removeButton(index: number) {
+    setFormData((f) => ({
+      ...f,
+      template_buttons: f.template_buttons.filter((_, i) => i !== index),
+    }));
+  }
+
+  function updateButton(index: number, field: string, value: string) {
+    setFormData((f) => ({
+      ...f,
+      template_buttons: f.template_buttons.map((btn, i) =>
+        i === index ? { ...btn, [field]: value } : btn
+      ),
+    }));
   }
 
   function canGoNext(): boolean {
@@ -141,6 +319,15 @@ export default function AutomationsPage() {
       );
     }
     if (step === 2) {
+      if (formData.template_type === "button") {
+        return (
+          formData.template_title.trim().length > 0 &&
+          formData.template_buttons.length > 0 &&
+          formData.template_buttons.every(
+            (b) => b.title.trim().length > 0 && (b.type !== "web_url" || (b.url?.trim().length ?? 0) > 0)
+          )
+        );
+      }
       return formData.dm_template.trim().length > 0;
     }
     return true;
@@ -163,6 +350,12 @@ export default function AutomationsPage() {
       formData.comment_reply_enabled ? "true" : "false"
     );
     fd.set("comment_reply_template", formData.comment_reply_template);
+    fd.set("require_follow", formData.require_follow ? "true" : "false");
+    fd.set("template_type", formData.template_type);
+    fd.set("template_title", formData.template_title);
+    fd.set("template_subtitle", formData.template_subtitle);
+    fd.set("template_image_url", formData.template_image_url);
+    fd.set("template_buttons", JSON.stringify(formData.template_buttons));
 
     const result = await createAutomation(fd);
     if (result.error) {
@@ -288,6 +481,18 @@ export default function AutomationsPage() {
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
                         <Sparkles className="w-3 h-3" />
                         AI
+                      </span>
+                    )}
+                    {a.require_follow && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
+                        <Shield className="w-3 h-3" />
+                        Follow
+                      </span>
+                    )}
+                    {a.template_type === "button" && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                        <LayoutTemplate className="w-3 h-3" />
+                        Buttons
                       </span>
                     )}
                     {a.comment_reply_enabled && (
@@ -559,12 +764,40 @@ export default function AutomationsPage() {
                     </div>
                   )}
 
-                  {/* Post Picker Grid */}
+                  {/* Post Picker Grid + URL Input */}
                   {formData.scope_type === "media" && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <label className="text-sm font-medium text-foreground">
                         Select a Post
                       </label>
+
+                      {/* ── URL Input for older posts ── */}
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input
+                            value={reelUrl}
+                            onChange={(e) => setReelUrl(e.target.value)}
+                            placeholder="Paste a reel/post URL to load older content..."
+                            className="w-full h-10 pl-10 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                            onKeyDown={(e) => e.key === "Enter" && handleLoadUrlPost()}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleLoadUrlPost}
+                          disabled={loadingUrlPost || !reelUrl.trim()}
+                          className="h-10 px-4 rounded-lg bg-[oklch(0.52_0.19_162)] text-white text-sm font-medium hover:bg-[oklch(0.48_0.19_162)] disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                        >
+                          {loadingUrlPost ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Search className="w-4 h-4" />
+                          )}
+                          Load
+                        </button>
+                      </div>
+
                       {loadingPosts ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -581,54 +814,71 @@ export default function AutomationsPage() {
                           </p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto rounded-xl border border-border p-2 bg-background">
-                          {posts.map((post) => (
+                        <>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto rounded-xl border border-border p-2 bg-background">
+                            {posts.map((post) => (
+                              <button
+                                type="button"
+                                key={post.id}
+                                onClick={() =>
+                                  setFormData((f) => ({
+                                    ...f,
+                                    media_id: post.id,
+                                    post_url: post.permalink,
+                                  }))
+                                }
+                                className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all group ${
+                                  formData.media_id === post.id
+                                    ? "border-[oklch(0.52_0.19_162)] ring-2 ring-[oklch(0.52_0.19_162/30%)]"
+                                    : "border-transparent hover:border-muted-foreground/30"
+                                }`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={
+                                    post.media_type === "VIDEO"
+                                      ? post.thumbnail_url
+                                      : post.media_url
+                                  }
+                                  alt={post.caption?.slice(0, 50) || "Post"}
+                                  className="w-full h-full object-cover"
+                                />
+                                {post.media_type === "VIDEO" && (
+                                  <div className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5">
+                                    <Film className="w-3 h-3 text-white" />
+                                  </div>
+                                )}
+                                {formData.media_id === post.id && (
+                                  <div className="absolute inset-0 bg-[oklch(0.52_0.19_162/20%)] flex items-center justify-center">
+                                    <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162)] flex items-center justify-center">
+                                      <Check className="w-4 h-4 text-white" />
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <p className="text-[10px] text-white truncate">
+                                    {post.caption?.slice(0, 40) || "No caption"}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Load More Button */}
+                          {nextCursor && (
                             <button
                               type="button"
-                              key={post.id}
-                              onClick={() =>
-                                setFormData((f) => ({
-                                  ...f,
-                                  media_id: post.id,
-                                  post_url: post.permalink,
-                                }))
-                              }
-                              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all group ${
-                                formData.media_id === post.id
-                                  ? "border-[oklch(0.52_0.19_162)] ring-2 ring-[oklch(0.52_0.19_162/30%)]"
-                                  : "border-transparent hover:border-muted-foreground/30"
-                              }`}
+                              onClick={loadMorePosts}
+                              disabled={loadingMorePosts}
+                              className="w-full py-2 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors flex items-center justify-center gap-2"
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={
-                                  post.media_type === "VIDEO"
-                                    ? post.thumbnail_url
-                                    : post.media_url
-                                }
-                                alt={post.caption?.slice(0, 50) || "Post"}
-                                className="w-full h-full object-cover"
-                              />
-                              {post.media_type === "VIDEO" && (
-                                <div className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5">
-                                  <Film className="w-3 h-3 text-white" />
-                                </div>
-                              )}
-                              {formData.media_id === post.id && (
-                                <div className="absolute inset-0 bg-[oklch(0.52_0.19_162/20%)] flex items-center justify-center">
-                                  <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162)] flex items-center justify-center">
-                                    <Check className="w-4 h-4 text-white" />
-                                  </div>
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <p className="text-[10px] text-white truncate">
-                                  {post.caption?.slice(0, 40) || "No caption"}
-                                </p>
-                              </div>
+                              {loadingMorePosts ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : null}
+                              {loadingMorePosts ? "Loading..." : `Load More Posts (${posts.length} shown)`}
                             </button>
-                          ))}
-                        </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -638,43 +888,333 @@ export default function AutomationsPage() {
               {/* ─── STEP 2: RESPONSE CONFIG ─── */}
               {step === 2 && (
                 <div className="space-y-5">
-                  {/* DM Template */}
-                  <div className="space-y-1.5">
+                  {/* ── Template Type Selector ── */}
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">
-                      DM Message Template
+                      Message Type
                     </label>
-                    <textarea
-                      value={formData.dm_template}
-                      onChange={(e) =>
-                        setFormData((f) => ({
-                          ...f,
-                          dm_template: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      placeholder="Hey {name}! 👋 Here's your free guide..."
-                      className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent resize-none"
-                    />
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground">
-                        Variables:
-                      </span>
-                      {["{name}", "{keyword}"].map((v) => (
-                        <button
-                          type="button"
-                          key={v}
-                          onClick={() =>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, template_type: "text" }))}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                          formData.template_type === "text"
+                            ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                            : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <Type className={`w-5 h-5 mb-2 ${formData.template_type === "text" ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"}`} />
+                        <p className="text-sm font-semibold text-foreground">Plain Text</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Simple text message</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, template_type: "button" }))}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                          formData.template_type === "button"
+                            ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                            : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <MousePointerClick className={`w-5 h-5 mb-2 ${formData.template_type === "button" ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"}`} />
+                        <p className="text-sm font-semibold text-foreground">Button Card</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Rich card with CTA buttons</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── Plain Text Template ── */}
+                  {formData.template_type === "text" && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        DM Message Template
+                      </label>
+                      <textarea
+                        value={formData.dm_template}
+                        onChange={(e) =>
+                          setFormData((f) => ({
+                            ...f,
+                            dm_template: e.target.value,
+                          }))
+                        }
+                        rows={4}
+                        placeholder="Hey {name}! 👋 Here's your free guide..."
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent resize-none"
+                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          Variables:
+                        </span>
+                        {["{name}", "{keyword}"].map((v) => (
+                          <button
+                            type="button"
+                            key={v}
+                            onClick={() =>
+                              setFormData((f) => ({
+                                ...f,
+                                dm_template: f.dm_template + ` ${v}`,
+                              }))
+                            }
+                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-xs font-mono text-foreground hover:bg-muted/80 transition-colors"
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Button Template Builder ── */}
+                  {formData.template_type === "button" && (
+                    <div className="space-y-4">
+                      {/* Preset Templates */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Quick Presets
+                        </label>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {PRESET_TEMPLATES.map((preset) => (
+                            <button
+                              type="button"
+                              key={preset.id}
+                              onClick={() => applyPreset(preset)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted/50 hover:border-muted-foreground/30 transition-all whitespace-nowrap shrink-0"
+                            >
+                              <preset.icon className="w-3.5 h-3.5" />
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Title */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">
+                          Card Title <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          value={formData.template_title}
+                          onChange={(e) => setFormData((f) => ({ ...f, template_title: e.target.value.slice(0, 80) }))}
+                          placeholder="e.g. Your Free Guide is Ready! 📚"
+                          maxLength={80}
+                          className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                        />
+                        <p className="text-xs text-muted-foreground">{formData.template_title.length}/80 characters</p>
+                      </div>
+
+                      {/* Subtitle */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">
+                          Subtitle <span className="text-muted-foreground">(optional)</span>
+                        </label>
+                        <input
+                          value={formData.template_subtitle}
+                          onChange={(e) => setFormData((f) => ({ ...f, template_subtitle: e.target.value.slice(0, 80) }))}
+                          placeholder="e.g. Tap below to grab it instantly"
+                          maxLength={80}
+                          className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Image URL */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">
+                          Image URL <span className="text-muted-foreground">(optional)</span>
+                        </label>
+                        <input
+                          value={formData.template_image_url}
+                          onChange={(e) => setFormData((f) => ({ ...f, template_image_url: e.target.value }))}
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Buttons Builder */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-foreground">
+                            Buttons <span className="text-red-400">*</span>
+                          </label>
+                          <span className="text-xs text-muted-foreground">{formData.template_buttons.length}/3</span>
+                        </div>
+
+                        {formData.template_buttons.map((btn, i) => (
+                          <div key={i} className="p-3 rounded-xl border border-border bg-background space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">Button {i + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeButton(i)}
+                                className="p-1 rounded text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <select
+                                value={btn.type}
+                                onChange={(e) => updateButton(i, "type", e.target.value)}
+                                className="h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                              >
+                                <option value="web_url">🔗 URL Button</option>
+                                <option value="postback">📩 Postback</option>
+                              </select>
+                              <input
+                                value={btn.title}
+                                onChange={(e) => updateButton(i, "title", e.target.value.slice(0, 20))}
+                                placeholder="Button label (max 20)"
+                                maxLength={20}
+                                className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                              />
+                            </div>
+
+                            {btn.type === "web_url" && (
+                              <input
+                                value={btn.url || ""}
+                                onChange={(e) => updateButton(i, "url", e.target.value)}
+                                placeholder="https://your-link.com"
+                                className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                              />
+                            )}
+                          </div>
+                        ))}
+
+                        {formData.template_buttons.length < 3 && (
+                          <button
+                            type="button"
+                            onClick={addButton}
+                            className="w-full py-2.5 rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Button
+                          </button>
+                        )}
+                      </div>
+
+                      {/* DM Template (fallback text for button type) */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-foreground">
+                          Fallback Text <span className="text-muted-foreground">(shown if template fails)</span>
+                        </label>
+                        <textarea
+                          value={formData.dm_template}
+                          onChange={(e) =>
                             setFormData((f) => ({
                               ...f,
-                              dm_template: f.dm_template + ` ${v}`,
+                              dm_template: e.target.value,
                             }))
                           }
-                          className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-xs font-mono text-foreground hover:bg-muted/80 transition-colors"
-                        >
-                          {v}
-                        </button>
-                      ))}
+                          rows={2}
+                          placeholder="Hey {name}! 👋 Here's your free guide: https://..."
+                          className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent resize-none"
+                        />
+                      </div>
+
+                      {/* Live Preview */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Live Preview
+                        </label>
+                        <div className="rounded-xl border border-border bg-gradient-to-b from-muted/30 to-background p-4">
+                          <div className="max-w-[280px] mx-auto">
+                            <div className="rounded-xl overflow-hidden border border-border shadow-sm bg-card">
+                              {formData.template_image_url && (
+                                <div className="h-32 bg-muted flex items-center justify-center">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={formData.template_image_url}
+                                    alt="Template preview"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <div className="p-3.5">
+                                <p className="text-sm font-bold text-foreground">
+                                  {formData.template_title || "Card Title"}
+                                </p>
+                                {formData.template_subtitle && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {formData.template_subtitle}
+                                  </p>
+                                )}
+                              </div>
+                              {formData.template_buttons.length > 0 && (
+                                <div className="border-t border-border">
+                                  {formData.template_buttons.map((btn, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-[oklch(0.52_0.19_162)] border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors"
+                                    >
+                                      {btn.type === "web_url" ? (
+                                        <ExternalLink className="w-3 h-3" />
+                                      ) : (
+                                        <MousePointerClick className="w-3 h-3" />
+                                      )}
+                                      {btn.title || "Button"}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground text-center mt-2">
+                              📱 Best viewed on mobile — desktop shows fallback
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  )}
+
+                  {/* ── Follow-for-DM Toggle ── */}
+                  <div
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      formData.require_follow
+                        ? "border-cyan-300 dark:border-cyan-700 bg-cyan-50/50 dark:bg-cyan-950/20"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                          <Shield className="w-4 h-4 text-cyan-500" />
+                          Follow-for-DM
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Only send DMs to users who follow your account
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((f) => ({
+                            ...f,
+                            require_follow: !f.require_follow,
+                          }))
+                        }
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
+                          formData.require_follow
+                            ? "bg-cyan-500"
+                            : "bg-muted-foreground/30"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                            formData.require_follow
+                              ? "translate-x-5"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {formData.require_follow && (
+                      <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-2 bg-cyan-50 dark:bg-cyan-950/30 px-3 py-1.5 rounded-lg">
+                        ⚡ Non-followers will be skipped. Uses the Instagram User Profile API to verify.
+                      </p>
+                    )}
                   </div>
 
                   {/* AI Smart Replies */}
@@ -863,11 +1403,26 @@ export default function AutomationsPage() {
                         <MessageCircle className="w-4 h-4 text-[oklch(0.52_0.19_162)] mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            DM Message
+                            {formData.template_type === "button" ? "Button Template" : "DM Message"}
                           </p>
-                          <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap break-words">
-                            {formData.dm_template || "No template set"}
-                          </p>
+                          {formData.template_type === "button" ? (
+                            <div className="mt-1">
+                              <p className="text-sm font-medium text-foreground">{formData.template_title}</p>
+                              {formData.template_subtitle && <p className="text-xs text-muted-foreground">{formData.template_subtitle}</p>}
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {formData.template_buttons.map((btn, i) => (
+                                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-xs font-medium">
+                                    {btn.type === "web_url" ? <ExternalLink className="w-3 h-3" /> : <MousePointerClick className="w-3 h-3" />}
+                                    {btn.title}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap break-words">
+                              {formData.dm_template || "No template set"}
+                            </p>
+                          )}
                           {formData.ai_enabled && (
                             <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 text-xs font-medium">
                               <Sparkles className="w-3 h-3" />
@@ -877,20 +1432,32 @@ export default function AutomationsPage() {
                         </div>
                       </div>
 
-                      {/* Comment Reply */}
-                      {formData.comment_reply_enabled && (
-                        <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                          <MessageSquareReply className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Comment Reply
-                            </p>
-                            <p className="text-sm text-foreground mt-0.5">
-                              {formData.comment_reply_template || "No reply set"}
-                            </p>
+                      {/* Features Summary */}
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                        <Zap className="w-4 h-4 text-[oklch(0.52_0.19_162)] mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Features
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {formData.require_follow && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-100 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 text-xs font-medium">
+                                <Shield className="w-3 h-3" />
+                                Follow Required
+                              </span>
+                            )}
+                            {formData.comment_reply_enabled && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-xs font-medium">
+                                <MessageSquareReply className="w-3 h-3" />
+                                Comment Reply
+                              </span>
+                            )}
+                            {!formData.require_follow && !formData.comment_reply_enabled && (
+                              <span className="text-xs text-muted-foreground">No extra features enabled</span>
+                            )}
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>

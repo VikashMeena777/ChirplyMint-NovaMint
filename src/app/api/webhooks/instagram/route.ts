@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDMReply } from "@/lib/ai/nvidia-nim";
-import { sendInstagramDM, sendPrivateReply, replyToComment } from "@/lib/instagram/send-dm";
+import {
+  sendInstagramDM,
+  sendPrivateReply,
+  sendGenericTemplate,
+  replyToComment,
+  checkIfFollower,
+  type TemplateButton,
+} from "@/lib/instagram/send-dm";
 import crypto from "crypto";
 
 const VERIFY_TOKEN =
@@ -148,22 +155,122 @@ async function handleComment(commentData: Record<string, unknown>) {
     const accessToken = igAccount?.page_access_token || igAccount?.access_token;
     if (!userId || !accessToken || !igUserId) continue;
 
-    // Generate DM text (AI or static template)
-    const dmText = await generateDMReply({
-      automationName: automation.name as string,
-      keyword: automation.keyword as string,
-      dmTemplate: automation.dm_template as string,
-      commenterUsername,
-      commentText,
-      aiEnabled: (automation.ai_enabled as boolean) ?? false,
-    });
+    // ═══════════════════════════════════════════════
+    // FOLLOW-FOR-DM CHECK
+    // If require_follow is true, verify the commenter follows the account.
+    // Uses the IG User Profile API endpoint: is_user_follow_business
+    // If the API returns null (no consent) or false → skip this DM.
+    // ═══════════════════════════════════════════════
+    if (automation.require_follow === true) {
+      const followerCheck = await checkIfFollower(commenterId, accessToken);
+
+      if (followerCheck.isFollower === false) {
+        // Commenter does NOT follow — skip DM
+        console.log(
+          `[Meta Webhook] @${commenterUsername} does not follow — skipping DM (require_follow=true)`
+        );
+
+        // Log as skipped
+        await supabase.from("dm_logs").insert({
+          user_id: userId,
+          automation_id: automation.id,
+          instagram_account_id: (automation as Record<string, unknown>)
+            .instagram_account_id,
+          recipient_ig_id: commenterId,
+          recipient_username: commenterUsername,
+          message_text: "[SKIPPED] Commenter does not follow this account",
+          comment_text: commentText,
+          status: "skipped_not_follower",
+        });
+
+        // Still post comment reply if enabled (they might follow after seeing it)
+        if (
+          automation.comment_reply_enabled &&
+          automation.comment_reply_template &&
+          commentId
+        ) {
+          const replyText = (automation.comment_reply_template as string)
+            .replace(/\{name\}/gi, `@${commenterUsername}`)
+            .replace(/\{keyword\}/gi, commentText);
+          await replyToComment(accessToken, commentId, replyText);
+        }
+
+        continue; // Skip to next automation
+      }
+
+      if (followerCheck.isFollower === null) {
+        // API couldn't verify (no consent / first-time) — skip per strict mode
+        console.log(
+          `[Meta Webhook] Could not verify follower status for @${commenterUsername} — skipping (strict mode)`
+        );
+
+        await supabase.from("dm_logs").insert({
+          user_id: userId,
+          automation_id: automation.id,
+          instagram_account_id: (automation as Record<string, unknown>)
+            .instagram_account_id,
+          recipient_ig_id: commenterId,
+          recipient_username: commenterUsername,
+          message_text: "[SKIPPED] Follower status could not be verified",
+          comment_text: commentText,
+          status: "skipped_not_follower",
+        });
+
+        continue;
+      }
+
+      // followerCheck.isFollower === true → proceed with DM
+      console.log(`[Meta Webhook] @${commenterUsername} follows ✅ — proceeding with DM`);
+    }
 
     // ═══════════════════════════════════════════════
-    // SEND PRIVATE REPLY DM via Instagram Private Replies API
-    // Uses recipient.comment_id (NOT recipient.id) per Meta docs:
-    // https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/private-replies
+    // SEND DM: Text or Generic Template based on template_type
     // ═══════════════════════════════════════════════
-    const sendResult = await sendPrivateReply(igUserId, accessToken, commentId, dmText);
+    const templateType = (automation.template_type as string) || "text";
+    let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
+
+    if (templateType === "button" && automation.template_title) {
+      // ── BUTTON TEMPLATE DM ──
+      const buttons = (automation.template_buttons as TemplateButton[]) || [];
+      // Replace variables in title/subtitle
+      const title = ((automation.template_title as string) || "")
+        .replace(/\{name\}/gi, `@${commenterUsername}`)
+        .replace(/\{keyword\}/gi, commentText);
+      const subtitle = ((automation.template_subtitle as string) || "")
+        .replace(/\{name\}/gi, `@${commenterUsername}`)
+        .replace(/\{keyword\}/gi, commentText);
+
+      sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
+        title,
+        subtitle: subtitle || undefined,
+        image_url: (automation.template_image_url as string) || undefined,
+        buttons,
+      });
+    } else {
+      // ── PLAIN TEXT DM ──
+      const dmText = await generateDMReply({
+        automationName: automation.name as string,
+        keyword: automation.keyword as string,
+        dmTemplate: automation.dm_template as string,
+        commenterUsername,
+        commentText,
+        aiEnabled: (automation.ai_enabled as boolean) ?? false,
+      });
+
+      sendResult = await sendPrivateReply(igUserId, accessToken, commentId, dmText);
+    }
+
+    // Build display text for logging
+    const logMessageText = templateType === "button"
+      ? `[TEMPLATE] ${automation.template_title}`
+      : await generateDMReply({
+          automationName: automation.name as string,
+          keyword: automation.keyword as string,
+          dmTemplate: automation.dm_template as string,
+          commenterUsername,
+          commentText,
+          aiEnabled: (automation.ai_enabled as boolean) ?? false,
+        });
 
     // Log the DM
     await supabase.from("dm_logs").insert({
@@ -173,7 +280,7 @@ async function handleComment(commentData: Record<string, unknown>) {
         .instagram_account_id,
       recipient_ig_id: commenterId,
       recipient_username: commenterUsername,
-      message_text: dmText,
+      message_text: typeof logMessageText === "string" ? logMessageText : String(logMessageText),
       comment_text: commentText,
       status: sendResult.success ? "sent" : "failed",
     });
@@ -279,13 +386,14 @@ async function handleComment(commentData: Record<string, unknown>) {
           recipient: commenterUsername,
           automation: automation.name,
           trigger: "comment",
+          template_type: templateType,
           error: sendResult.error || null,
         },
       })
     ).catch(() => { });
 
     console.log(
-      `[Meta Webhook] Keyword "${keywords.join(",")}" matched from @${commenterUsername} → DM ${sendResult.success ? "sent ✅" : "failed ❌"}`
+      `[Meta Webhook] Keyword "${keywords.join(",")}" matched from @${commenterUsername} → ${templateType === "button" ? "Template" : "DM"} ${sendResult.success ? "sent ✅" : "failed ❌"}`
     );
   }
 }

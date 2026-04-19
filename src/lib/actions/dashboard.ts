@@ -33,6 +33,7 @@ export async function getDashboardStats() {
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user.id)
+    .eq("status", "sent")
     .gte("sent_at", startOfMonth.toISOString());
 
   // Count total leads

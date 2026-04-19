@@ -54,10 +54,29 @@ export async function createAutomation(formData: FormData) {
   const commentReplyTemplate =
     (formData.get("comment_reply_template") as string) || null;
 
+  // New fields: Follow-for-DM toggle
+  const requireFollow = formData.get("require_follow") === "true";
+
+  // New fields: Button template
+  const templateType = (formData.get("template_type") as string) || "text";
+  const templateTitle = (formData.get("template_title") as string) || null;
+  const templateSubtitle = (formData.get("template_subtitle") as string) || null;
+  const templateImageUrl = (formData.get("template_image_url") as string) || null;
+  const templateButtonsRaw = formData.get("template_buttons") as string;
+  let templateButtons: unknown[] = [];
+  try {
+    if (templateButtonsRaw) templateButtons = JSON.parse(templateButtonsRaw);
+  } catch {
+    // Ignore parse errors — use empty array
+  }
+
   // Validate required fields
   if (!name?.trim()) return { error: "Automation name is required" };
   if (!keyword?.trim()) return { error: "At least one keyword is required" };
-  if (!dmTemplate?.trim()) return { error: "DM message template is required" };
+  if (!dmTemplate?.trim() && templateType === "text")
+    return { error: "DM message template is required" };
+  if (templateType === "button" && !templateTitle?.trim())
+    return { error: "Template title is required for button templates" };
 
   const { error } = await supabase.from("automations").insert({
     user_id: user.id,
@@ -73,6 +92,12 @@ export async function createAutomation(formData: FormData) {
     ai_persona: aiPersona,
     comment_reply_enabled: commentReplyEnabled,
     comment_reply_template: commentReplyTemplate,
+    require_follow: requireFollow,
+    template_type: templateType,
+    template_title: templateTitle,
+    template_subtitle: templateSubtitle,
+    template_image_url: templateImageUrl,
+    template_buttons: templateButtons,
   });
 
   if (error) return { error: error.message };
@@ -81,6 +106,8 @@ export async function createAutomation(formData: FormData) {
     name,
     keyword,
     scope_type: scopeType,
+    require_follow: requireFollow,
+    template_type: templateType,
   }).catch(() => {});
 
   revalidatePath("/dashboard/automations");
