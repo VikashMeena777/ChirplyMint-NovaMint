@@ -62,50 +62,62 @@ export async function GET(request: NextRequest) {
     const userAccessToken =
       longTokenData.access_token || tokenData.access_token;
 
-    // 3. Get Facebook Pages
+    // 3. Get Facebook Pages — try multiple strategies
     console.log("[IG OAuth] Fetching pages...");
+
+    // Strategy 1: Standard me/accounts with explicit fields
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?access_token=${userAccessToken}`,
+      `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userAccessToken}`,
       { method: "GET" }
     );
     const pagesData = await pagesRes.json();
 
-    console.log(
-      "[IG OAuth] Pages response:",
-      JSON.stringify({
-        count: pagesData.data?.length ?? 0,
-        error: pagesData.error,
-        pages: pagesData.data?.map((p: Record<string, string>) => ({
-          id: p.id,
-          name: p.name,
-        })),
-      })
-    );
+    console.log("[IG OAuth] Strategy 1 (me/accounts):", JSON.stringify({
+      count: pagesData.data?.length ?? 0,
+      error: pagesData.error,
+    }));
 
-    const page = pagesData.data?.[0];
+    let page = pagesData.data?.[0];
 
+    // Strategy 2: If me/accounts is empty, try me?fields=accounts
     if (!page) {
-      console.error(
-        "[IG OAuth] No Facebook Page found. Full response:",
-        JSON.stringify(pagesData)
+      console.log("[IG OAuth] Strategy 1 empty, trying strategy 2...");
+      const altRes = await fetch(
+        `https://graph.facebook.com/v21.0/me?fields=accounts{id,name,access_token,instagram_business_account}&access_token=${userAccessToken}`,
+        { method: "GET" }
       );
+      const altData = await altRes.json();
+      console.log("[IG OAuth] Strategy 2 (me?fields=accounts):", JSON.stringify(altData));
+      page = altData.accounts?.data?.[0];
+    }
 
-      // Store the raw error for debugging via /api/debug/meta
+    // Strategy 3: Check permissions the token actually has
+    if (!page) {
+      console.log("[IG OAuth] Strategy 2 empty, checking token permissions...");
+      const permRes = await fetch(
+        `https://graph.facebook.com/v21.0/me/permissions?access_token=${userAccessToken}`,
+        { method: "GET" }
+      );
+      const permData = await permRes.json();
+      console.log("[IG OAuth] Token permissions:", JSON.stringify(permData));
+
+      // Store all debug info
       const supabaseDebug = await createClient();
       await supabaseDebug.from("activity_log").insert({
         user_id: state,
         action: "instagram.oauth_debug",
         metadata: {
-          step: "me/accounts",
-          api_response: pagesData,
+          step: "all_strategies_failed",
+          strategy1_me_accounts: pagesData,
+          strategy3_permissions: permData,
           token_prefix: userAccessToken.substring(0, 20),
         },
       });
 
-      const detail = pagesData.error
-        ? encodeURIComponent(pagesData.error.message || JSON.stringify(pagesData.error))
-        : encodeURIComponent("me/accounts returned 0 pages. Verify pages_show_list is enabled and your FB Page is connected to this app's business portfolio.");
-      
+      const detail = encodeURIComponent(
+        `No pages found. Token permissions: ${JSON.stringify(permData.data?.map((p: Record<string, string>) => `${p.permission}:${p.status}`))}`
+      );
+
       return NextResponse.redirect(
         `${APP_URL}/dashboard/settings?error=no_facebook_page&detail=${detail}`
       );
