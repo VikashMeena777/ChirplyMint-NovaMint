@@ -40,55 +40,118 @@ export async function GET() {
 
     results.step2_user = { status: "✅ Logged in", user_id: user.id };
 
-    // Check user_settings
-    const { data: settings } = await supabase
-      .from("user_settings")
-      .select(
-        "instagram_connected, instagram_user_id, instagram_username, instagram_access_token, instagram_page_id"
-      )
+    // Check instagram_accounts table
+    const { data: igAccount } = await supabase
+      .from("instagram_accounts")
+      .select("*")
       .eq("user_id", user.id)
+      .eq("is_active", true)
+      .limit(1)
       .single();
 
-    results.step3_stored_settings = settings || "No settings found";
+    results.step3_ig_account = igAccount
+      ? {
+          id: igAccount.id,
+          ig_user_id: igAccount.ig_user_id,
+          ig_username: igAccount.ig_username,
+          has_access_token: !!igAccount.access_token,
+          has_page_access_token: !!igAccount.page_access_token,
+          token_prefix: igAccount.access_token
+            ? (igAccount.access_token as string).substring(0, 25)
+            : "none",
+        }
+      : "❌ No active Instagram account found";
 
-    // Check the last OAuth activity logs
-    const { data: activityLogs } = await supabase
-      .from("activity_log")
-      .select("action, metadata, created_at")
-      .eq("user_id", user.id)
-      .in("action", ["instagram.connected", "instagram.oauth_debug"])
-      .order("created_at", { ascending: false })
-      .limit(3);
+    // If we have a token, test it live
+    if (igAccount?.access_token) {
+      const token = igAccount.access_token as string;
+      const igUserId = igAccount.ig_user_id as string;
 
-    results.step4_last_oauth_activity =
-      activityLogs && activityLogs.length > 0
-        ? activityLogs
-        : "No OAuth activity logged yet. Try connecting IG, then visit this page again.";
-
-    // If we have a token, test it live against graph.instagram.com
-    if (settings?.instagram_access_token) {
-      const token = settings.instagram_access_token;
-      results.step5_live_token_test = { token_prefix: token.substring(0, 20) };
-
-      // Test graph.instagram.com/me (the new Instagram Login API)
+      // Test 1: /me endpoint
       const meRes = await fetch(
-        `https://graph.instagram.com/me?fields=user_id,username,name,account_type,profile_picture_url&access_token=${token}`
+        `https://graph.instagram.com/me?fields=user_id,username,name,account_type&access_token=${token}`
       );
       const meData = await meRes.json();
-      results.step5_live_token_test = {
-        ...(results.step5_live_token_test as object),
-        instagram_api: {
-          status: meRes.status,
-          user_id: meData.user_id || meData.id,
-          username: meData.username,
-          name: meData.name,
-          account_type: meData.account_type,
-          error: meData.error || null,
-        },
+      results.step4_me_endpoint = {
+        status: meRes.status,
+        data: meData,
+      };
+
+      // Test 2: Check token permissions/scopes
+      const debugRes = await fetch(
+        `https://graph.instagram.com/debug_token?input_token=${token}&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
+      );
+      const debugData = await debugRes.json();
+      results.step5_token_debug = {
+        status: debugRes.status,
+        scopes: debugData.data?.scopes || debugData.data?.granular_scopes,
+        app_id: debugData.data?.app_id,
+        type: debugData.data?.type,
+        is_valid: debugData.data?.is_valid,
+        expires_at: debugData.data?.expires_at,
+        error: debugData.error || debugData.data?.error || null,
+      };
+
+      // Test 3: Try /<IG_ID>/media to confirm media access works
+      const mediaRes = await fetch(
+        `https://graph.instagram.com/v21.0/${igUserId}/media?fields=id,caption,media_type&limit=2&access_token=${token}`
+      );
+      const mediaData = await mediaRes.json();
+      results.step6_media_test = {
+        status: mediaRes.status,
+        post_count: mediaData.data?.length || 0,
+        first_post: mediaData.data?.[0] || null,
+        error: mediaData.error || null,
+      };
+
+      // Test 4: Try sending a DM to self (will fail but shows the exact error)
+      // We use the IG user ID as both sender and a test "recipient"
+      const testDMRes = await fetch(
+        `https://graph.instagram.com/v21.0/${igUserId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            recipient: { id: igUserId }, // sending to self — will likely error
+            message: { text: "test" },
+          }),
+        }
+      );
+      const testDMData = await testDMRes.json();
+      results.step7_dm_test = {
+        status: testDMRes.status,
+        endpoint: `graph.instagram.com/v21.0/${igUserId}/messages`,
+        auth_method: "Authorization: Bearer header",
+        response: testDMData,
+        note: "Sending to self will likely fail — check the error type to diagnose",
+      };
+
+      // Test 5: Also try with access_token as query param (old style)
+      const testDMRes2 = await fetch(
+        `https://graph.instagram.com/v21.0/${igUserId}/messages?access_token=${token}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recipient: { id: igUserId },
+            message: { text: "test" },
+          }),
+        }
+      );
+      const testDMData2 = await testDMRes2.json();
+      results.step8_dm_test_queryparam = {
+        status: testDMRes2.status,
+        endpoint: `graph.instagram.com/v21.0/${igUserId}/messages?access_token=...`,
+        auth_method: "access_token query param",
+        response: testDMData2,
       };
     } else {
-      results.step5_live_token_test =
-        "⏭️ No token stored — check step4 for OAuth activity";
+      results.step4_live_tests = "⏭️ No token stored — connect Instagram first";
     }
   } catch (err) {
     results.error = String(err);
