@@ -9,7 +9,7 @@ const APP_SECRET = process.env.META_APP_SECRET || "";
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
 
@@ -138,7 +138,7 @@ async function handleComment(commentData: Record<string, unknown>) {
       recipient_ig_id: commenterId,
       recipient_username: commenterUsername,
       message_text: dmText,
-      trigger_type: "comment",
+      comment_text: commentText,
       status: "pending", // Change to 'sent' once IG API send is implemented
     });
 
@@ -149,9 +149,9 @@ async function handleComment(commentData: Record<string, unknown>) {
         ig_username: commenterUsername,
         ig_user_id: commenterId,
         source: "comment",
-        keyword_matched: keyword,
+        notes: `Keyword: ${keyword}`,
       },
-      { onConflict: "user_id,ig_username" }
+      { onConflict: "user_id,ig_user_id" }
     );
 
     // Create new lead notification if user has it enabled
@@ -250,7 +250,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     recipient_ig_id: senderId,
     recipient_username: senderId,
     message_text: reply,
-    trigger_type: "dm_reply",
+    comment_text: messageText,
     status: "pending",
   });
 

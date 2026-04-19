@@ -193,9 +193,9 @@ export default function MessagesPage() {
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
                           <span>
-                            Trigger:{" "}
+                            Context:{" "}
                             <strong className="text-foreground">
-                              {(msg.trigger_type as string) || "unknown"}
+                              {(msg.comment_text as string) || "direct"}
                             </strong>
                           </span>
                           <span>

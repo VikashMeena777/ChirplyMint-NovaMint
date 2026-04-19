@@ -20,7 +20,7 @@ export async function getLeads(page = 1, limit = 10, search = "") {
 
   if (search) {
     query = query.or(
-      `ig_username.ilike.%${search}%,keyword_matched.ilike.%${search}%`
+      `ig_username.ilike.%${search}%,notes.ilike.%${search}%`
     );
   }
 
@@ -41,7 +41,7 @@ export async function exportLeadsCSV() {
 
   const { data } = await supabase
     .from("leads")
-    .select("ig_username, ig_user_id, source, keyword_matched, captured_at")
+    .select("ig_username, ig_user_id, source, notes, captured_at")
     .eq("user_id", user.id)
     .order("captured_at", { ascending: false });
 
@@ -49,13 +49,13 @@ export async function exportLeadsCSV() {
     return { error: "No leads to export", csv: "" };
   }
 
-  const headers = ["Username", "IG ID", "Source", "Keyword", "Captured At"];
+  const headers = ["Username", "IG ID", "Source", "Notes", "Captured At"];
   const rows = data.map((lead: Record<string, unknown>) =>
     [
       lead.ig_username,
       lead.ig_user_id,
       lead.source,
-      lead.keyword_matched || "",
+      lead.notes || "",
       lead.captured_at,
     ]
       .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)

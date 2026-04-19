@@ -134,7 +134,7 @@ export default function LeadsPage() {
             <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-3 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <div className="col-span-3">Username</div>
               <div className="col-span-2">Source</div>
-              <div className="col-span-3">Keyword</div>
+              <div className="col-span-3">Notes</div>
               <div className="col-span-3">Captured</div>
               <div className="col-span-1"></div>
             </div>
@@ -162,7 +162,7 @@ export default function LeadsPage() {
                   </div>
                   <div className="sm:col-span-3">
                     <span className="text-sm text-muted-foreground">
-                      {(lead.keyword_matched as string) || "—"}
+                      {(lead.notes as string) || "—"}
                     </span>
                   </div>
                   <div className="sm:col-span-3">

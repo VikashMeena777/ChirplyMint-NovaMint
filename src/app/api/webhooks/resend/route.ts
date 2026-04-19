@@ -41,7 +41,7 @@ export async function POST(request: Request) {
           // Could mark the lead's email as bounced
           await supabase
             .from("leads")
-            .update({ status: "bounced" })
+            .update({ notes: "Email bounced" })
             .eq("email", recipientEmail);
         }
         break;
