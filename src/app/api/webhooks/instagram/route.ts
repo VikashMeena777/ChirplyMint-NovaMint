@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDMReply } from "@/lib/ai/nvidia-nim";
-import { sendInstagramDM, replyToComment } from "@/lib/instagram/send-dm";
+import { sendInstagramDM, sendPrivateReply, replyToComment } from "@/lib/instagram/send-dm";
 import crypto from "crypto";
 
 const VERIFY_TOKEN =
@@ -159,9 +159,11 @@ async function handleComment(commentData: Record<string, unknown>) {
     });
 
     // ═══════════════════════════════════════════════
-    // ACTUALLY SEND THE DM via Instagram Graph API
+    // SEND PRIVATE REPLY DM via Instagram Private Replies API
+    // Uses recipient.comment_id (NOT recipient.id) per Meta docs:
+    // https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/private-replies
     // ═══════════════════════════════════════════════
-    const sendResult = await sendInstagramDM(igUserId, accessToken, commenterId, dmText);
+    const sendResult = await sendPrivateReply(igUserId, accessToken, commentId, dmText);
 
     // Log the DM
     await supabase.from("dm_logs").insert({
@@ -189,7 +191,7 @@ async function handleComment(commentData: Record<string, unknown>) {
             .from("automations")
             .update({ dms_sent: ((automation.dms_sent as number) || 0) + 1 })
             .eq("id", automation.id)
-            .then(() => {});
+            .then(() => { });
         }
       });
 
@@ -205,7 +207,7 @@ async function handleComment(commentData: Record<string, unknown>) {
             .from("profiles")
             .update({ dm_count_this_month: current + 1 })
             .eq("id", userId)
-            .then(() => {});
+            .then(() => { });
         });
     }
 
@@ -247,7 +249,7 @@ async function handleComment(commentData: Record<string, unknown>) {
         leads_captured: ((automation.leads_captured as number) || 0) + 1,
       })
       .eq("id", automation.id)
-      .then(() => {});
+      .then(() => { });
 
     // Create new lead notification if user has it enabled
     const { data: profile } = await supabase
@@ -280,7 +282,7 @@ async function handleComment(commentData: Record<string, unknown>) {
           error: sendResult.error || null,
         },
       })
-    ).catch(() => {});
+    ).catch(() => { });
 
     console.log(
       `[Meta Webhook] Keyword "${keywords.join(",")}" matched from @${commenterUsername} → DM ${sendResult.success ? "sent ✅" : "failed ❌"}`
@@ -368,7 +370,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
         error: sendResult.error || null,
       },
     })
-  ).catch(() => {});
+  ).catch(() => { });
 
   console.log(
     `[Meta Webhook] AI reply ${sendResult.success ? "sent ✅" : "failed ❌"} for DM from ${senderId}`
