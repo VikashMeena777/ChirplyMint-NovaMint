@@ -77,6 +77,33 @@ export async function GET() {
         data: meData,
       };
 
+      // AUTO-FIX: If stored ig_user_id is the app-scoped ID instead of
+      // the Professional Account ID, update it now.
+      const professionalId = meData.user_id;
+      if (professionalId && professionalId !== igUserId) {
+        results.step4_autofix = {
+          issue: "ig_user_id was app-scoped ID, not Professional Account ID",
+          old_ig_user_id: igUserId,
+          new_ig_user_id: professionalId,
+          fixing: true,
+        };
+
+        // Update instagram_accounts
+        await supabase
+          .from("instagram_accounts")
+          .update({ ig_user_id: professionalId })
+          .eq("id", igAccount.id);
+
+        // Update user_settings
+        await supabase
+          .from("user_settings")
+          .update({ instagram_user_id: professionalId })
+          .eq("user_id", user.id);
+
+        // Use the corrected ID for remaining tests
+        (results.step4_autofix as Record<string, unknown>).status = "✅ Fixed!";
+      }
+
       // Test 2: Check token permissions/scopes
       const debugRes = await fetch(
         `https://graph.instagram.com/debug_token?input_token=${token}&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
@@ -92,9 +119,12 @@ export async function GET() {
         error: debugData.error || debugData.data?.error || null,
       };
 
+      // Use corrected Professional Account ID for remaining tests
+      const testId = professionalId || igUserId;
+
       // Test 3: Try /<IG_ID>/media to confirm media access works
       const mediaRes = await fetch(
-        `https://graph.instagram.com/v21.0/${igUserId}/media?fields=id,caption,media_type&limit=2&access_token=${token}`
+        `https://graph.instagram.com/v21.0/${testId}/media?fields=id,caption,media_type&limit=2&access_token=${token}`
       );
       const mediaData = await mediaRes.json();
       results.step6_media_test = {
@@ -105,9 +135,8 @@ export async function GET() {
       };
 
       // Test 4: Try sending a DM to self (will fail but shows the exact error)
-      // We use the IG user ID as both sender and a test "recipient"
       const testDMRes = await fetch(
-        `https://graph.instagram.com/v21.0/${igUserId}/messages`,
+        `https://graph.instagram.com/v21.0/${testId}/messages`,
         {
           method: "POST",
           headers: {
@@ -115,7 +144,7 @@ export async function GET() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            recipient: { id: igUserId }, // sending to self — will likely error
+            recipient: { id: testId }, // sending to self — will likely error
             message: { text: "test" },
           }),
         }
@@ -123,7 +152,7 @@ export async function GET() {
       const testDMData = await testDMRes.json();
       results.step7_dm_test = {
         status: testDMRes.status,
-        endpoint: `graph.instagram.com/v21.0/${igUserId}/messages`,
+        endpoint: `graph.instagram.com/v21.0/${testId}/messages`,
         auth_method: "Authorization: Bearer header",
         response: testDMData,
         note: "Sending to self will likely fail — check the error type to diagnose",
@@ -131,14 +160,14 @@ export async function GET() {
 
       // Test 5: Also try with access_token as query param (old style)
       const testDMRes2 = await fetch(
-        `https://graph.instagram.com/v21.0/${igUserId}/messages?access_token=${token}`,
+        `https://graph.instagram.com/v21.0/${testId}/messages?access_token=${token}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            recipient: { id: igUserId },
+            recipient: { id: testId },
             message: { text: "test" },
           }),
         }

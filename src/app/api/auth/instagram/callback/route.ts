@@ -124,7 +124,16 @@ export async function GET(request: NextRequest) {
     const igName = igProfile.name || "";
     const igProfilePic = igProfile.profile_picture_url || null;
 
+    // CRITICAL: The /me endpoint returns TWO different IDs:
+    // - igProfile.id        = app-scoped ID (26857216443965604) — used in app-level queries
+    // - igProfile.user_id   = IG Professional Account ID (17841473138457034) — needed for:
+    //     1. /<IG_ID>/messages endpoint (DMs)
+    //     2. Webhook notification matching (webhook sends this as the account ID)
+    // We MUST store user_id, not id, as our ig_user_id.
+    const igProfessionalId = igProfile.user_id || igUserId;
+
     console.log(`[IG OAuth] Connected: @${igUsername} (${igName})`);
+    console.log(`[IG OAuth] App-scoped ID: ${igUserId}, Professional Account ID: ${igProfessionalId}`);
 
     // ── Step 4: Save to user_settings ────────────────────────────────
     const supabase = await createClient();
@@ -132,7 +141,7 @@ export async function GET(request: NextRequest) {
       {
         user_id: state,
         instagram_connected: true,
-        instagram_user_id: igUserId,
+        instagram_user_id: igProfessionalId,
         instagram_username: igUsername,
         instagram_access_token: accessToken,
         instagram_page_id: null, // No page in IG Login flow
@@ -154,7 +163,7 @@ export async function GET(request: NextRequest) {
       .upsert(
         {
           user_id: state,
-          ig_user_id: igUserId,
+          ig_user_id: igProfessionalId,
           ig_username: igUsername,
           ig_name: igName,
           ig_profile_pic: igProfilePic,
