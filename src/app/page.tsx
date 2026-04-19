@@ -16,6 +16,8 @@ import {
   Users,
   ChevronRight,
   Star,
+  UserCheck,
+  MousePointerClick,
 } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/marketing/navbar";
@@ -239,42 +241,56 @@ function Features() {
       icon: MessageCircle,
       title: "Smart Comment Triggers",
       description:
-        "Set keywords on any post. When someone comments that word, they get an instant DM with your content.",
+        "Set keywords on any post or reel. When someone comments that word, they instantly get your content via DM.",
       highlight: true,
     },
     {
       icon: Bot,
-      title: "AI-Powered Conversations",
+      title: "AI Persona Engine",
       description:
-        "Not a basic bot. Our AI understands context, remembers past chats, and replies like a real human assistant.",
+        "Create custom AI personalities for your brand. Your AI remembers past chats and replies in your unique voice.",
+      highlight: false,
+    },
+    {
+      icon: UserCheck,
+      title: "Follow-Check Gating",
+      description:
+        "Require users to follow your account before receiving a DM. Grow your followers while delivering value.",
+      highlight: true,
+    },
+    {
+      icon: MousePointerClick,
+      title: "Interactive Button DMs",
+      description:
+        "Send rich button templates — URL links and postback buttons — directly in DMs for higher engagement.",
       highlight: false,
     },
     {
       icon: Zap,
-      title: "Instant DM Delivery",
+      title: "Postback Flow Builder",
       description:
-        "Guides, links, PDFs, discount codes — delivered to their inbox in under 2 seconds.",
-      highlight: false,
-    },
-    {
-      icon: Users,
-      title: "Lead Capture",
-      description:
-        "Automatically collect emails, phone numbers, and preferences from DM conversations.",
+        "Build multi-step interactive funnels. When users tap a button, trigger follow-up messages, tag leads, and more.",
       highlight: true,
     },
     {
-      icon: BarChart3,
-      title: "Analytics Dashboard",
+      icon: Users,
+      title: "Lead Capture & Tagging",
       description:
-        "Track engagement rates, conversion funnels, and top-performing posts at a glance.",
+        "Automatically capture leads from DM interactions. Tag and segment them based on button clicks and behavior.",
+      highlight: false,
+    },
+    {
+      icon: BarChart3,
+      title: "Real-Time Analytics",
+      description:
+        "Track DMs sent, comment replies, lead conversions, and top-performing posts — all in one dashboard.",
       highlight: false,
     },
     {
       icon: Shield,
-      title: "100% Instagram Compliant",
+      title: "100% Meta Compliant",
       description:
-        "Official Meta API. No shadow bans, no account risks. We're fully reviewed and approved.",
+        "Built on the official Instagram API. No shadow bans, no account risks. Fully reviewed and approved by Meta.",
       highlight: false,
     },
   ];
@@ -313,7 +329,7 @@ function Features() {
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
           variants={stagger}
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {features.map((feature, i) => (
             <motion.div
@@ -353,6 +369,7 @@ function Pricing() {
         "1 Instagram account",
         "100 DMs per month",
         "3 automation rules",
+        "Comment auto-reply",
         "Basic AI responses",
         "Email support",
       ],
@@ -367,9 +384,11 @@ function Pricing() {
       features: [
         "3 Instagram accounts",
         "Unlimited DMs",
-        "Unlimited rules",
-        "Advanced AI with memory",
-        "Lead capture & export",
+        "Unlimited automation rules",
+        "Follow-check gating",
+        "Interactive button templates",
+        "AI persona customization",
+        "Lead capture & tagging",
         "Analytics dashboard",
         "Priority support",
       ],
@@ -384,9 +403,11 @@ function Pricing() {
       features: [
         "10 Instagram accounts",
         "Unlimited everything",
+        "Postback flow builder",
+        "Multi-step DM funnels",
         "Custom AI personas",
-        "API access",
         "Team members",
+        "API access",
         "White-label option",
         "Dedicated support",
       ],

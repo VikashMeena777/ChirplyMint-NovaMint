@@ -66,15 +66,17 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4 text-white" />
-        </div>
-        {!collapsed && (
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            Chirply<span className="text-[oklch(0.52_0.19_162)]">Mint</span>
-          </span>
-        )}
+      <div className="px-4 py-5 border-b border-border">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          {!collapsed && (
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              Chirply<span className="text-[oklch(0.52_0.19_162)]">Mint</span>
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Main nav */}
