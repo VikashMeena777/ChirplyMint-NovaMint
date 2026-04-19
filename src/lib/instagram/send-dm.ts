@@ -1,20 +1,32 @@
-const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
+/**
+ * Instagram API helper functions.
+ *
+ * With the "Instagram API with Instagram Login" flow:
+ * - Media/profile: graph.instagram.com
+ * - DMs/comments: graph.instagram.com (same base)
+ *
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
+ */
+const GRAPH_API_BASE = "https://graph.instagram.com/v21.0";
 
 /**
- * Send a DM to an Instagram user via the Messenger Platform.
- * Requires: page access token with instagram_manage_messages permission.
+ * Send a DM to an Instagram user via the Instagram Messaging API.
+ * Requires: instagram_business_manage_messages permission.
  *
- * @see https://developers.facebook.com/docs/messenger-platform/instagram/features/send-message
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api
  */
 export async function sendInstagramDM(
-  pageAccessToken: string,
+  accessToken: string,
   recipientIgScopedId: string,
   messageText: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const res = await fetch(`${GRAPH_API_BASE}/me/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         recipient: { id: recipientIgScopedId },
         message: { text: messageText },
@@ -41,16 +53,16 @@ export async function sendInstagramDM(
  * Reply to a comment on an Instagram post.
  * Uses the comment's ID to post a public reply.
  *
- * @see https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-comment
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/comment-moderation
  */
 export async function replyToComment(
-  pageAccessToken: string,
+  accessToken: string,
   commentId: string,
   replyText: string
 ): Promise<{ success: boolean; commentId?: string; error?: string }> {
   try {
     const res = await fetch(
-      `${GRAPH_API_BASE}/${commentId}/replies?access_token=${pageAccessToken}`,
+      `${GRAPH_API_BASE}/${commentId}/replies?access_token=${accessToken}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,7 +87,9 @@ export async function replyToComment(
 
 /**
  * Fetch the user's recent Instagram posts for the post picker.
- * Returns media with thumbnails, captions, and permalinks.
+ * Uses the Instagram API with Instagram Login media endpoint.
+ *
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
  */
 export async function fetchInstagramPosts(
   igUserId: string,
