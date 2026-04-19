@@ -86,11 +86,28 @@ export async function GET(request: NextRequest) {
 
     if (!page) {
       console.error(
-        "[IG OAuth] No Facebook Page found. Data:",
+        "[IG OAuth] No Facebook Page found. Full response:",
         JSON.stringify(pagesData)
       );
+
+      // Store the raw error for debugging via /api/debug/meta
+      const supabaseDebug = await createClient();
+      void supabaseDebug.from("activity_log").insert({
+        user_id: state,
+        action: "instagram.oauth_debug",
+        metadata: {
+          step: "me/accounts",
+          api_response: pagesData,
+          token_prefix: userAccessToken.substring(0, 20),
+        },
+      }).catch(() => {});
+
+      const detail = pagesData.error
+        ? encodeURIComponent(pagesData.error.message || JSON.stringify(pagesData.error))
+        : encodeURIComponent("me/accounts returned 0 pages. Verify pages_show_list is enabled and your FB Page is connected to this app's business portfolio.");
+      
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=no_facebook_page`
+        `${APP_URL}/dashboard/settings?error=no_facebook_page&detail=${detail}`
       );
     }
 
