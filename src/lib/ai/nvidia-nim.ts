@@ -8,6 +8,23 @@ const client = new OpenAI({
 const MODEL = "meta/llama-3.3-70b-instruct";
 
 /**
+ * Replace template variables like {name}, {keyword} with actual values.
+ */
+function replaceTemplateVars(
+  template: string,
+  vars: { name?: string; keyword?: string }
+): string {
+  let result = template;
+  if (vars.name) {
+    result = result.replace(/\{name\}/gi, vars.name);
+  }
+  if (vars.keyword) {
+    result = result.replace(/\{keyword\}/gi, vars.keyword);
+  }
+  return result;
+}
+
+/**
  * Generate an AI-powered DM reply for an Instagram automation.
  */
 export async function generateDMReply(context: {
@@ -18,10 +35,18 @@ export async function generateDMReply(context: {
   commentText?: string;
   aiEnabled: boolean;
 }): Promise<string> {
-  // If AI is not enabled, return the static template
+  const templateVars = {
+    name: context.commenterUsername,
+    keyword: context.keyword,
+  };
+
+  // If AI is not enabled, return the static template with variables replaced
   if (!context.aiEnabled || !process.env.NVIDIA_NIM_API_KEY) {
-    return context.dmTemplate;
+    return replaceTemplateVars(context.dmTemplate, templateVars);
   }
+
+  // Also replace variables in the template before sending to AI
+  const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
     const completion = await client.chat.completions.create({
@@ -42,7 +67,7 @@ export async function generateDMReply(context: {
           role: "user",
           content: `The user @${context.commenterUsername} commented "${context.commentText || context.keyword}" on our post.
 
-Our DM template is: "${context.dmTemplate}"
+Our DM template is: "${resolvedTemplate}"
 
 Generate a personalized DM reply. Make it feel natural and human.`,
         },
@@ -52,10 +77,10 @@ Generate a personalized DM reply. Make it feel natural and human.`,
     });
 
     const reply = completion.choices?.[0]?.message?.content?.trim();
-    return reply || context.dmTemplate;
+    return reply || resolvedTemplate;
   } catch (error) {
     console.error("[NIM AI] Error generating DM reply:", error);
-    return context.dmTemplate; // Fallback to static template
+    return resolvedTemplate; // Fallback to resolved template
   }
 }
 
