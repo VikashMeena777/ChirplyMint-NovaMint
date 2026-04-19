@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Instagram App ID & Secret from the App Dashboard:
+ * Instagram → API setup with Instagram login → Business login settings
+ */
 const META_APP_ID = process.env.META_APP_ID || "";
 const META_APP_SECRET = process.env.META_APP_SECRET || "";
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/instagram/callback`;
@@ -8,15 +12,16 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 /**
  * GET /api/auth/instagram/callback
- * Handles Meta OAuth callback:
- * 1) Exchange code for access token
- * 2) Get Facebook Pages
- * 3) Get Instagram Business account linked to the page
+ *
+ * Handles the NEW "Instagram API with Instagram Login" OAuth callback:
+ * 1) Exchange authorization code for short-lived token via api.instagram.com
+ * 2) Exchange short-lived token for long-lived token (60 days) via graph.instagram.com
+ * 3) Fetch Instagram profile directly (NO Facebook Page lookup needed)
  * 4) Store everything in user_settings + instagram_accounts
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
+  let code = searchParams.get("code");
   const state = searchParams.get("state"); // user.id
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description") || "";
@@ -28,154 +33,109 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Strip the #_ that Instagram appends to the code
+  if (code.endsWith("#_")) {
+    code = code.slice(0, -2);
+  }
+
   try {
-    // 1. Exchange code for short-lived user token
-    console.log("[IG OAuth] Exchanging code for token...");
+    // ── Step 1: Exchange code for short-lived token ──────────────────
+    // NEW: POST to api.instagram.com (NOT GET to graph.facebook.com)
+    console.log("[IG OAuth] Exchanging code for token via api.instagram.com...");
+
+    const tokenFormData = new URLSearchParams();
+    tokenFormData.append("client_id", META_APP_ID);
+    tokenFormData.append("client_secret", META_APP_SECRET);
+    tokenFormData.append("grant_type", "authorization_code");
+    tokenFormData.append("redirect_uri", REDIRECT_URI);
+    tokenFormData.append("code", code);
+
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?` +
-        `client_id=${META_APP_ID}` +
-        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-        `&client_secret=${META_APP_SECRET}` +
-        `&code=${code}`,
-      { method: "GET" }
+      "https://api.instagram.com/oauth/access_token",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenFormData.toString(),
+      }
     );
     const tokenData = await tokenRes.json();
 
-    if (tokenData.error || !tokenData.access_token) {
-      console.error("[IG OAuth] Token exchange failed:", tokenData.error);
+    console.log("[IG OAuth] Token response shape:", {
+      hasData: !!tokenData.data,
+      hasAccessToken: !!tokenData.access_token,
+      hasError: !!tokenData.error_type || !!tokenData.error,
+    });
+
+    // Response format: { data: [{ access_token, user_id, permissions }] }
+    // OR older: { access_token, user_id }
+    let shortLivedToken: string;
+    let igUserId: string;
+
+    if (tokenData.data && Array.isArray(tokenData.data) && tokenData.data.length > 0) {
+      shortLivedToken = tokenData.data[0].access_token;
+      igUserId = String(tokenData.data[0].user_id);
+    } else if (tokenData.access_token) {
+      shortLivedToken = tokenData.access_token;
+      igUserId = String(tokenData.user_id);
+    } else {
+      console.error("[IG OAuth] Token exchange failed:", tokenData);
+      const errorMsg =
+        tokenData.error_message ||
+        tokenData.error?.message ||
+        "Token exchange failed";
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=token_exchange_failed`
+        `${APP_URL}/dashboard/settings?error=token_exchange_failed&detail=${encodeURIComponent(errorMsg)}`
       );
     }
 
-    // 2. Exchange for long-lived token (60 days)
-    console.log("[IG OAuth] Getting long-lived token...");
+    console.log(`[IG OAuth] Got short-lived token for IG user: ${igUserId}`);
+
+    // ── Step 2: Exchange for long-lived token (60 days) ──────────────
+    // NEW: GET to graph.instagram.com/access_token with ig_exchange_token
+    console.log("[IG OAuth] Exchanging for long-lived token...");
     const longTokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?` +
-        `grant_type=fb_exchange_token` +
-        `&client_id=${META_APP_ID}` +
+      `https://graph.instagram.com/access_token` +
+        `?grant_type=ig_exchange_token` +
         `&client_secret=${META_APP_SECRET}` +
-        `&fb_exchange_token=${tokenData.access_token}`,
+        `&access_token=${shortLivedToken}`,
       { method: "GET" }
     );
     const longTokenData = await longTokenRes.json();
-    const userAccessToken =
-      longTokenData.access_token || tokenData.access_token;
 
-    // 3. Get Facebook Pages — try multiple strategies
-    console.log("[IG OAuth] Fetching pages...");
+    const accessToken = longTokenData.access_token || shortLivedToken;
+    const expiresIn = longTokenData.expires_in; // seconds (5183944 ≈ 60 days)
 
-    // Strategy 1: Standard me/accounts with explicit fields
-    const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userAccessToken}`,
+    console.log("[IG OAuth] Long-lived token:", {
+      success: !!longTokenData.access_token,
+      expires_in: expiresIn,
+      error: longTokenData.error,
+    });
+
+    // ── Step 3: Fetch Instagram profile info ─────────────────────────
+    // NEW: Direct call to graph.instagram.com/me (NO Facebook Page lookup!)
+    console.log(`[IG OAuth] Fetching IG profile for user ${igUserId}...`);
+    const profileRes = await fetch(
+      `https://graph.instagram.com/me?fields=user_id,username,name,account_type,profile_picture_url&access_token=${accessToken}`,
       { method: "GET" }
     );
-    const pagesData = await pagesRes.json();
+    const igProfile = await profileRes.json();
 
-    console.log("[IG OAuth] Strategy 1 (me/accounts):", JSON.stringify({
-      count: pagesData.data?.length ?? 0,
-      error: pagesData.error,
-    }));
+    const igUsername = igProfile.username || "";
+    const igName = igProfile.name || "";
+    const igProfilePic = igProfile.profile_picture_url || null;
 
-    let page = pagesData.data?.[0];
+    console.log(`[IG OAuth] Connected: @${igUsername} (${igName})`);
 
-    // Strategy 2: If me/accounts is empty, try me?fields=accounts
-    if (!page) {
-      console.log("[IG OAuth] Strategy 1 empty, trying strategy 2...");
-      const altRes = await fetch(
-        `https://graph.facebook.com/v21.0/me?fields=accounts{id,name,access_token,instagram_business_account}&access_token=${userAccessToken}`,
-        { method: "GET" }
-      );
-      const altData = await altRes.json();
-      console.log("[IG OAuth] Strategy 2 (me?fields=accounts):", JSON.stringify(altData));
-      page = altData.accounts?.data?.[0];
-    }
-
-    // Strategy 3: Check permissions the token actually has
-    if (!page) {
-      console.log("[IG OAuth] Strategy 2 empty, checking token permissions...");
-      const permRes = await fetch(
-        `https://graph.facebook.com/v21.0/me/permissions?access_token=${userAccessToken}`,
-        { method: "GET" }
-      );
-      const permData = await permRes.json();
-      console.log("[IG OAuth] Token permissions:", JSON.stringify(permData));
-
-      // Store all debug info
-      const supabaseDebug = await createClient();
-      await supabaseDebug.from("activity_log").insert({
-        user_id: state,
-        action: "instagram.oauth_debug",
-        metadata: {
-          step: "all_strategies_failed",
-          strategy1_me_accounts: pagesData,
-          strategy3_permissions: permData,
-          token_prefix: userAccessToken.substring(0, 20),
-        },
-      });
-
-      const detail = encodeURIComponent(
-        `No pages found. Token permissions: ${JSON.stringify(permData.data?.map((p: Record<string, string>) => `${p.permission}:${p.status}`))}`
-      );
-
-      return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=no_facebook_page&detail=${detail}`
-      );
-    }
-
-    // 4. Get Instagram Business Account linked to the page
-    console.log(
-      `[IG OAuth] Looking for IG Business on page: ${page.name} (${page.id})`
-    );
-    const igRes = await fetch(
-      `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`,
-      { method: "GET" }
-    );
-    const igData = await igRes.json();
-    const igAccountId = igData.instagram_business_account?.id;
-
-    if (!igAccountId) {
-      console.error(
-        "[IG OAuth] No IG Business account on page:",
-        JSON.stringify(igData)
-      );
-      return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=no_instagram_business`
-      );
-    }
-
-    // 5. Get Instagram profile info
-    console.log(`[IG OAuth] Fetching IG profile: ${igAccountId}`);
-    const igProfileRes = await fetch(
-      `https://graph.facebook.com/v21.0/${igAccountId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`,
-      { method: "GET" }
-    );
-    const igProfile = await igProfileRes.json();
-
-    console.log(`[IG OAuth] Connected: @${igProfile.username}`);
-
-    // 6. Subscribe the page to webhooks (so Meta sends events to us)
-    console.log(`[IG OAuth] Subscribing page ${page.id} to webhooks...`);
-    const subscribeRes = await fetch(
-      `https://graph.facebook.com/v21.0/${page.id}/subscribed_apps?subscribed_fields=feed&access_token=${page.access_token}`,
-      { method: "POST" }
-    );
-    const subscribeData = await subscribeRes.json();
-    console.log(
-      "[IG OAuth] Page webhook subscription:",
-      JSON.stringify(subscribeData)
-    );
-
-    // 7. Save to user_settings
+    // ── Step 4: Save to user_settings ────────────────────────────────
     const supabase = await createClient();
     const { error: dbError } = await supabase.from("user_settings").upsert(
       {
         user_id: state,
         instagram_connected: true,
-        instagram_user_id: igAccountId,
-        instagram_username: igProfile.username || "",
-        instagram_access_token: page.access_token,
-        instagram_page_id: page.id,
+        instagram_user_id: igUserId,
+        instagram_username: igUsername,
+        instagram_access_token: accessToken,
+        instagram_page_id: null, // No page in IG Login flow
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
@@ -188,19 +148,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 8. Also upsert into instagram_accounts (required by automations FK)
+    // ── Step 5: Upsert into instagram_accounts (used by automations FK) ──
     const { error: igAccError } = await supabase
       .from("instagram_accounts")
       .upsert(
         {
           user_id: state,
-          ig_user_id: igAccountId,
-          ig_username: igProfile.username || "",
-          ig_name: igProfile.name || "",
-          ig_profile_pic: igProfile.profile_picture_url || null,
-          access_token: page.access_token,
-          page_id: page.id,
-          page_access_token: page.access_token,
+          ig_user_id: igUserId,
+          ig_username: igUsername,
+          ig_name: igName,
+          ig_profile_pic: igProfilePic,
+          access_token: accessToken,
+          page_id: null, // No page in IG Login flow
+          page_access_token: accessToken, // Use IG token as the "page" token for backward compat
           is_active: true,
           updated_at: new Date().toISOString(),
         },
@@ -211,17 +171,22 @@ export async function GET(request: NextRequest) {
       console.error("[IG OAuth] instagram_accounts save failed:", igAccError);
     }
 
-    // 9. Log activity
+    // ── Step 6: Log activity (fire-and-forget) ──────────────────────
     void Promise.resolve(
       supabase.from("activity_log").insert({
         user_id: state,
         action: "instagram.connected",
-        metadata: { username: igProfile.username || igAccountId },
+        metadata: {
+          username: igUsername || igUserId,
+          flow: "instagram_login",
+          token_type: longTokenData.access_token ? "long_lived" : "short_lived",
+          expires_in: expiresIn,
+        },
       })
     ).catch(() => {});
 
     console.log(
-      `[IG OAuth] ✅ Complete! @${igProfile.username} connected for user ${state}`
+      `[IG OAuth] ✅ Complete! @${igUsername} connected for user ${state}`
     );
 
     return NextResponse.redirect(

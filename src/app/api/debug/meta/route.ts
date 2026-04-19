@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/debug/meta
- * Debug endpoint to test Meta API connection step by step.
- * Also shows the raw API response that caused the last OAuth failure.
+ * Debug endpoint to test Instagram API connection step by step.
+ * Updated for the NEW "Instagram API with Instagram Login" flow.
  *
  * REMOVE THIS ENDPOINT BEFORE GOING TO PRODUCTION.
  */
@@ -22,6 +22,7 @@ export async function GET() {
     META_VERIFY_TOKEN: process.env.META_VERIFY_TOKEN ? "✅ Set" : "❌ MISSING",
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "❌ MISSING",
     REDIRECT_URI: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/instagram/callback`,
+    oauth_flow: "Instagram Login (instagram.com/oauth/authorize)",
   };
 
   try {
@@ -50,45 +51,44 @@ export async function GET() {
 
     results.step3_stored_settings = settings || "No settings found";
 
-    // Check the last OAuth debug log (raw API response from the failed attempt)
-    const { data: debugLogs } = await supabase
+    // Check the last OAuth activity logs
+    const { data: activityLogs } = await supabase
       .from("activity_log")
       .select("action, metadata, created_at")
       .eq("user_id", user.id)
-      .eq("action", "instagram.oauth_debug")
+      .in("action", ["instagram.connected", "instagram.oauth_debug"])
       .order("created_at", { ascending: false })
       .limit(3);
 
-    results.step4_last_oauth_failure =
-      debugLogs && debugLogs.length > 0
-        ? debugLogs
-        : "No failed OAuth attempts logged yet. Try connecting IG, then visit this page again.";
+    results.step4_last_oauth_activity =
+      activityLogs && activityLogs.length > 0
+        ? activityLogs
+        : "No OAuth activity logged yet. Try connecting IG, then visit this page again.";
 
-    // If we have a token, test it live
+    // If we have a token, test it live against graph.instagram.com
     if (settings?.instagram_access_token) {
       const token = settings.instagram_access_token;
       results.step5_live_token_test = { token_prefix: token.substring(0, 20) };
 
-      // Test me/accounts
-      const pagesRes = await fetch(
-        `https://graph.facebook.com/v21.0/me/accounts?access_token=${token}`
+      // Test graph.instagram.com/me (the new Instagram Login API)
+      const meRes = await fetch(
+        `https://graph.instagram.com/me?fields=user_id,username,name,account_type,profile_picture_url&access_token=${token}`
       );
-      const pagesData = await pagesRes.json();
+      const meData = await meRes.json();
       results.step5_live_token_test = {
         ...(results.step5_live_token_test as object),
-        pages_api: {
-          status: pagesRes.status,
-          count: pagesData.data?.length ?? 0,
-          pages: pagesData.data?.map((p: Record<string, string>) => ({
-            id: p.id,
-            name: p.name,
-          })),
-          error: pagesData.error || null,
+        instagram_api: {
+          status: meRes.status,
+          user_id: meData.user_id || meData.id,
+          username: meData.username,
+          name: meData.name,
+          account_type: meData.account_type,
+          error: meData.error || null,
         },
       };
     } else {
       results.step5_live_token_test =
-        "⏭️ No token stored — check step4 for the raw API error from the last attempt";
+        "⏭️ No token stored — check step4 for OAuth activity";
     }
   } catch (err) {
     results.error = String(err);
