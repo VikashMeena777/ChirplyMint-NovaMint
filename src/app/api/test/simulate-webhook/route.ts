@@ -114,6 +114,7 @@ export async function POST(request: Request) {
 
       const igAccount = automation.instagram_accounts as Record<string, string>;
       const userId = igAccount?.user_id;
+      const igUserIdForDM = igAccount?.ig_user_id;
       const accessToken =
         igAccount?.page_access_token || igAccount?.access_token;
 
@@ -132,7 +133,7 @@ export async function POST(request: Request) {
 
       if (!dryRun) {
         // Actually send the DM
-        sendResult = await sendInstagramDM(accessToken, commenterId, dmText);
+        sendResult = await sendInstagramDM(igUserIdForDM, accessToken, commenterId, dmText);
 
         // Comment reply
         if (

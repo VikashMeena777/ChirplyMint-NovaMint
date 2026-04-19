@@ -144,8 +144,9 @@ async function handleComment(commentData: Record<string, unknown>) {
 
     const igAccount = automation.instagram_accounts as Record<string, string>;
     const userId = igAccount?.user_id;
+    const igUserId = igAccount?.ig_user_id;
     const accessToken = igAccount?.page_access_token || igAccount?.access_token;
-    if (!userId || !accessToken) continue;
+    if (!userId || !accessToken || !igUserId) continue;
 
     // Generate DM text (AI or static template)
     const dmText = await generateDMReply({
@@ -160,7 +161,7 @@ async function handleComment(commentData: Record<string, unknown>) {
     // ═══════════════════════════════════════════════
     // ACTUALLY SEND THE DM via Instagram Graph API
     // ═══════════════════════════════════════════════
-    const sendResult = await sendInstagramDM(accessToken, commenterId, dmText);
+    const sendResult = await sendInstagramDM(igUserId, accessToken, commenterId, dmText);
 
     // Log the DM
     await supabase.from("dm_logs").insert({
@@ -342,7 +343,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   });
 
   // ACTUALLY SEND THE REPLY
-  const sendResult = await sendInstagramDM(accessToken, senderId, reply);
+  const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, reply);
 
   // Log the reply
   await supabase.from("dm_logs").insert({

@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
     const { data: account } = await supabase
       .from("instagram_accounts")
-      .select("page_access_token, access_token, ig_username")
+      .select("page_access_token, access_token, ig_username, ig_user_id")
       .eq("is_active", true)
       .limit(1)
       .single();
@@ -69,9 +69,10 @@ export async function POST(request: Request) {
     const token =
       (account.page_access_token as string) ||
       (account.access_token as string);
+    const igUserId = account.ig_user_id as string;
 
     // Test DM sending
-    const dmResult = await sendInstagramDM(token, recipientId, message);
+    const dmResult = await sendInstagramDM(igUserId, token, recipientId, message);
 
     // Optionally test comment reply
     let commentResult = null;

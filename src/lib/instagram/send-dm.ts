@@ -11,17 +11,24 @@ const GRAPH_API_BASE = "https://graph.instagram.com/v21.0";
 
 /**
  * Send a DM to an Instagram user via the Instagram Messaging API.
+ * Uses POST /<IG_ID>/messages with Authorization Bearer header.
  * Requires: instagram_business_manage_messages permission.
+ *
+ * @param igUserId - The sender's Instagram professional account ID (IG_ID)
+ * @param accessToken - Instagram user access token
+ * @param recipientIgScopedId - The recipient's Instagram-scoped ID (IGSID)
+ * @param messageText - The message text to send
  *
  * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api
  */
 export async function sendInstagramDM(
+  igUserId: string,
   accessToken: string,
   recipientIgScopedId: string,
   messageText: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const res = await fetch(`${GRAPH_API_BASE}/me/messages`, {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -30,7 +37,6 @@ export async function sendInstagramDM(
       body: JSON.stringify({
         recipient: { id: recipientIgScopedId },
         message: { text: messageText },
-        messaging_type: "RESPONSE",
       }),
     });
 
