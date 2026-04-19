@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 
       // Store the raw error for debugging via /api/debug/meta
       const supabaseDebug = await createClient();
-      void supabaseDebug.from("activity_log").insert({
+      await supabaseDebug.from("activity_log").insert({
         user_id: state,
         action: "instagram.oauth_debug",
         metadata: {
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
           api_response: pagesData,
           token_prefix: userAccessToken.substring(0, 20),
         },
-      }).catch(() => {});
+      });
 
       const detail = pagesData.error
         ? encodeURIComponent(pagesData.error.message || JSON.stringify(pagesData.error))
