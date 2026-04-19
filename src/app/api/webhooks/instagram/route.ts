@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDMReply } from "@/lib/ai/nvidia-nim";
+import { sendInstagramDM, replyToComment } from "@/lib/instagram/send-dm";
 import crypto from "crypto";
 
-const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
+const VERIFY_TOKEN =
+  process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
 const APP_SECRET = process.env.META_APP_SECRET || "";
 
 function getSupabase() {
@@ -18,13 +20,16 @@ function getSupabase() {
  */
 function verifySignature(payload: string, signature: string | null): boolean {
   if (!APP_SECRET) {
-    console.warn("[Meta Webhook] META_APP_SECRET not set — skipping signature verification");
-    return true; // Allow in dev, but log warning
+    console.warn(
+      "[Meta Webhook] META_APP_SECRET not set — skipping signature verification"
+    );
+    return true;
   }
   if (!signature) return false;
 
   const expectedSignature =
-    "sha256=" + crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
+    "sha256=" +
+    crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
 
   return crypto.timingSafeEqual(
     Buffer.from(signature),
@@ -95,33 +100,54 @@ export async function POST(request: Request) {
 }
 
 /**
- * Handle a comment on a post — match keywords → generate DM → log
+ * Handle a comment on a post — match keywords → send DM + optional comment reply
  */
 async function handleComment(commentData: Record<string, unknown>) {
   const supabase = getSupabase();
 
   const commentText = (commentData.text as string) || "";
-  const commenterId = commentData.from?.toString() || "";
-  const commenterUsername =
-    (commentData as Record<string, Record<string, string>>).from?.username || "unknown";
+  const commentId = (commentData.id as string) || "";
+  const mediaId = (commentData.media as Record<string, string>)?.id || "";
+  const commenterData = commentData.from as
+    | Record<string, string>
+    | undefined;
+  const commenterId = commenterData?.id || "";
+  const commenterUsername = commenterData?.username || "unknown";
 
-  // Find automations that match this keyword
+  if (!commentText || !commenterId) return;
+
+  // Find active automations that match
   const { data: automations } = await supabase
     .from("automations")
-    .select("*, instagram_accounts!inner(user_id, ig_user_id)")
+    .select("*, instagram_accounts!inner(user_id, ig_user_id, access_token, page_access_token)")
     .eq("status", "active")
     .not("keyword", "is", null);
 
   if (!automations || automations.length === 0) return;
 
   for (const automation of automations) {
-    const keyword = (automation.keyword as string).toLowerCase();
-    if (!commentText.toLowerCase().includes(keyword)) continue;
+    // Match keywords (support comma-separated keywords)
+    const keywords = (automation.keyword as string)
+      .toLowerCase()
+      .split(",")
+      .map((k: string) => k.trim())
+      .filter(Boolean);
+    const commentLower = commentText.toLowerCase();
+    const matched = keywords.some((kw: string) => commentLower.includes(kw));
+    if (!matched) continue;
 
-    const userId = (automation as Record<string, Record<string, string>>).instagram_accounts?.user_id;
-    if (!userId) continue;
+    // Check scope: if automation is for a specific post, match media_id
+    const scopeType = (automation.scope_type as string) || "account";
+    if (scopeType === "media" && automation.media_id) {
+      if (mediaId !== automation.media_id) continue; // Skip — different post
+    }
 
-    // Generate AI-powered DM reply
+    const igAccount = automation.instagram_accounts as Record<string, string>;
+    const userId = igAccount?.user_id;
+    const accessToken = igAccount?.page_access_token || igAccount?.access_token;
+    if (!userId || !accessToken) continue;
+
+    // Generate DM text (AI or static template)
     const dmText = await generateDMReply({
       automationName: automation.name as string,
       keyword: automation.keyword as string,
@@ -131,16 +157,75 @@ async function handleComment(commentData: Record<string, unknown>) {
       aiEnabled: (automation.ai_enabled as boolean) ?? false,
     });
 
-    // Log the DM (actual send would happen via Instagram Graph API)
+    // ═══════════════════════════════════════════════
+    // ACTUALLY SEND THE DM via Instagram Graph API
+    // ═══════════════════════════════════════════════
+    const sendResult = await sendInstagramDM(accessToken, commenterId, dmText);
+
+    // Log the DM
     await supabase.from("dm_logs").insert({
       user_id: userId,
       automation_id: automation.id,
+      instagram_account_id: (automation as Record<string, unknown>)
+        .instagram_account_id,
       recipient_ig_id: commenterId,
       recipient_username: commenterUsername,
       message_text: dmText,
       comment_text: commentText,
-      status: "pending", // Change to 'sent' once IG API send is implemented
+      status: sendResult.success ? "sent" : "failed",
     });
+
+    // Update automation stats
+    if (sendResult.success) {
+      await supabase.rpc("increment_field", {
+        table_name: "automations",
+        field_name: "dms_sent",
+        row_id: automation.id,
+      }).then(({ error }) => {
+        // Fallback if RPC doesn't exist
+        if (error) {
+          supabase
+            .from("automations")
+            .update({ dms_sent: ((automation.dms_sent as number) || 0) + 1 })
+            .eq("id", automation.id)
+            .then(() => {});
+        }
+      });
+
+      // Increment user's monthly DM count
+      supabase
+        .from("profiles")
+        .select("dm_count_this_month")
+        .eq("id", userId)
+        .single()
+        .then(({ data: profile }) => {
+          const current = (profile?.dm_count_this_month as number) || 0;
+          supabase
+            .from("profiles")
+            .update({ dm_count_this_month: current + 1 })
+            .eq("id", userId)
+            .then(() => {});
+        });
+    }
+
+    // ═══════════════════════════════════════════════
+    // COMMENT AUTO-REPLY (if enabled)
+    // ═══════════════════════════════════════════════
+    if (
+      automation.comment_reply_enabled &&
+      automation.comment_reply_template &&
+      commentId
+    ) {
+      const replyText = (automation.comment_reply_template as string)
+        .replace(/\{name\}/gi, `@${commenterUsername}`)
+        .replace(/\{keyword\}/gi, commentText);
+
+      await replyToComment(accessToken, commentId, replyText);
+
+      console.log(
+        `[Meta Webhook] Comment reply posted on comment ${commentId}`
+      );
+    }
 
     // Create or update lead
     await supabase.from("leads").upsert(
@@ -149,10 +234,19 @@ async function handleComment(commentData: Record<string, unknown>) {
         ig_username: commenterUsername,
         ig_user_id: commenterId,
         source: "comment",
-        notes: `Keyword: ${keyword}`,
+        notes: `Keyword: ${keywords.join(", ")}`,
       },
       { onConflict: "user_id,ig_user_id" }
     );
+
+    // Increment leads_captured on automation
+    supabase
+      .from("automations")
+      .update({
+        leads_captured: ((automation.leads_captured as number) || 0) + 1,
+      })
+      .eq("id", automation.id)
+      .then(() => {});
 
     // Create new lead notification if user has it enabled
     const { data: profile } = await supabase
@@ -161,7 +255,8 @@ async function handleComment(commentData: Record<string, unknown>) {
       .eq("id", userId)
       .single();
 
-    const prefs = (profile?.notification_preferences as Record<string, boolean>) ?? {};
+    const prefs =
+      (profile?.notification_preferences as Record<string, boolean>) ?? {};
     if (prefs.new_lead_alerts !== false) {
       await supabase.from("notifications").insert({
         user_id: userId,
@@ -174,21 +269,20 @@ async function handleComment(commentData: Record<string, unknown>) {
 
     // Log activity (fire-and-forget)
     void Promise.resolve(
-      supabase
-        .from("activity_log")
-        .insert({
-          user_id: userId,
-          action: "dm.queued",
-          metadata: {
-            recipient: commenterUsername,
-            automation: automation.name,
-            trigger: "comment",
-          },
-        })
+      supabase.from("activity_log").insert({
+        user_id: userId,
+        action: sendResult.success ? "dm.sent" : "dm.failed",
+        metadata: {
+          recipient: commenterUsername,
+          automation: automation.name,
+          trigger: "comment",
+          error: sendResult.error || null,
+        },
+      })
     ).catch(() => {});
 
     console.log(
-      `[Meta Webhook] Matched keyword "${keyword}" from @${commenterUsername} → DM queued`
+      `[Meta Webhook] Keyword "${keywords.join(",")}" matched from @${commenterUsername} → DM ${sendResult.success ? "sent ✅" : "failed ❌"}`
     );
   }
 }
@@ -199,7 +293,8 @@ async function handleComment(commentData: Record<string, unknown>) {
 async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   const supabase = getSupabase();
 
-  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const senderId =
+    (messagingEvent.sender as Record<string, string>)?.id || "";
   const messageText =
     (messagingEvent.message as Record<string, string>)?.text || "";
 
@@ -211,7 +306,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
 
   const { data: igAccount } = await supabase
     .from("instagram_accounts")
-    .select("user_id, id")
+    .select("user_id, id, access_token, page_access_token")
     .eq("ig_user_id", recipientId)
     .eq("is_active", true)
     .single();
@@ -219,6 +314,9 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   if (!igAccount) return;
 
   const userId = igAccount.user_id as string;
+  const accessToken =
+    (igAccount.page_access_token as string) ||
+    (igAccount.access_token as string);
 
   // Find an AI-enabled automation
   const { data: automation } = await supabase
@@ -243,27 +341,35 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     aiEnabled: true,
   });
 
+  // ACTUALLY SEND THE REPLY
+  const sendResult = await sendInstagramDM(accessToken, senderId, reply);
+
   // Log the reply
   await supabase.from("dm_logs").insert({
     user_id: userId,
     automation_id: automation.id,
+    instagram_account_id: igAccount.id,
     recipient_ig_id: senderId,
     recipient_username: senderId,
     message_text: reply,
     comment_text: messageText,
-    status: "pending",
+    status: sendResult.success ? "sent" : "failed",
   });
 
   // Log activity
   void Promise.resolve(
-    supabase
-      .from("activity_log")
-      .insert({
-        user_id: userId,
-        action: "dm.ai_reply_queued",
-        metadata: { sender: senderId, automation: automation.name },
-      })
+    supabase.from("activity_log").insert({
+      user_id: userId,
+      action: sendResult.success ? "dm.ai_reply_sent" : "dm.ai_reply_failed",
+      metadata: {
+        sender: senderId,
+        automation: automation.name,
+        error: sendResult.error || null,
+      },
+    })
   ).catch(() => {});
 
-  console.log(`[Meta Webhook] AI reply queued for DM from ${senderId}`);
+  console.log(
+    `[Meta Webhook] AI reply ${sendResult.success ? "sent ✅" : "failed ❌"} for DM from ${senderId}`
+  );
 }
