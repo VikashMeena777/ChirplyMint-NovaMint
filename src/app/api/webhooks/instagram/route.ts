@@ -558,7 +558,7 @@ async function handlePostback(event: Record<string, unknown>) {
 
     // For postback responses, we send via regular DM (not private reply)
     // So we use sendInstagramDM for text or construct the template manually
-    const res = await fetch(`https://graph.instagram.com/v21.0/${recipientId}/messages`, {
+    const res = await fetch(`https://graph.instagram.com/v25.0/${recipientId}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

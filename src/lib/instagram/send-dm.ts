@@ -7,7 +7,7 @@
  *
  * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
  */
-const GRAPH_API_BASE = "https://graph.instagram.com/v21.0";
+const GRAPH_API_BASE = "https://graph.instagram.com/v25.0";
 
 /**
  * Send a DM to an Instagram user via the Instagram Messaging API.
@@ -325,7 +325,7 @@ export async function fetchInstagramPostByUrl(
   try {
     // Use Instagram oEmbed to get basic info and validate the URL
     const oembedRes = await fetch(
-      `https://graph.facebook.com/v21.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${accessToken}`,
+      `https://graph.facebook.com/v25.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${accessToken}`,
       { method: "GET" }
     );
     const oembedData = await oembedRes.json();

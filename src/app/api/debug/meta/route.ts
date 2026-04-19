@@ -124,7 +124,7 @@ export async function GET() {
 
       // Test 3: Try /<IG_ID>/media to confirm media access works
       const mediaRes = await fetch(
-        `https://graph.instagram.com/v21.0/${testId}/media?fields=id,caption,media_type&limit=2&access_token=${token}`
+        `https://graph.instagram.com/v25.0/${testId}/media?fields=id,caption,media_type&limit=2&access_token=${token}`
       );
       const mediaData = await mediaRes.json();
       results.step6_media_test = {
@@ -136,7 +136,7 @@ export async function GET() {
 
       // Test 4: Try sending a DM to self (will fail but shows the exact error)
       const testDMRes = await fetch(
-        `https://graph.instagram.com/v21.0/${testId}/messages`,
+        `https://graph.instagram.com/v25.0/${testId}/messages`,
         {
           method: "POST",
           headers: {
@@ -152,7 +152,7 @@ export async function GET() {
       const testDMData = await testDMRes.json();
       results.step7_dm_test = {
         status: testDMRes.status,
-        endpoint: `graph.instagram.com/v21.0/${testId}/messages`,
+        endpoint: `graph.instagram.com/v25.0/${testId}/messages`,
         auth_method: "Authorization: Bearer header",
         response: testDMData,
         note: "Sending to self will likely fail — check the error type to diagnose",
@@ -160,7 +160,7 @@ export async function GET() {
 
       // Test 5: Also try with access_token as query param (old style)
       const testDMRes2 = await fetch(
-        `https://graph.instagram.com/v21.0/${testId}/messages?access_token=${token}`,
+        `https://graph.instagram.com/v25.0/${testId}/messages?access_token=${token}`,
         {
           method: "POST",
           headers: {
@@ -175,7 +175,7 @@ export async function GET() {
       const testDMData2 = await testDMRes2.json();
       results.step8_dm_test_queryparam = {
         status: testDMRes2.status,
-        endpoint: `graph.instagram.com/v21.0/${igUserId}/messages?access_token=...`,
+        endpoint: `graph.instagram.com/v25.0/${igUserId}/messages?access_token=...`,
         auth_method: "access_token query param",
         response: testDMData2,
       };
