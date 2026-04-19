@@ -56,6 +56,59 @@ export async function sendInstagramDM(
 }
 
 /**
+ * Send a PRIVATE REPLY to a comment via the Instagram Private Replies API.
+ * This is the CORRECT way to DM a user who commented on your post.
+ *
+ * Uses POST /<IG_ID>/messages with recipient.comment_id (NOT recipient.id).
+ * Rules:
+ * - Only ONE private reply per comment is allowed.
+ * - Must be sent within 7 days of the comment.
+ * - Requires: instagram_business_manage_messages permission.
+ *
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/private-replies
+ */
+export async function sendPrivateReply(
+  igUserId: string,
+  accessToken: string,
+  commentId: string,
+  messageText: string
+): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
+  try {
+    console.log(`[IG Private Reply] Sending via /${igUserId}/messages with comment_id=${commentId}`);
+
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: { text: messageText },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      console.error("[IG Private Reply] API Error:", JSON.stringify(data.error));
+      return { success: false, error: data.error.message };
+    }
+
+    console.log(`[IG Private Reply] Success! recipient_id=${data.recipient_id}, message_id=${data.message_id}`);
+    return {
+      success: true,
+      messageId: data.message_id,
+      recipientId: data.recipient_id,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[IG Private Reply] Network error:", msg);
+    return { success: false, error: msg };
+  }
+}
+
+/**
  * Reply to a comment on an Instagram post.
  * Uses the comment's ID to post a public reply.
  *
