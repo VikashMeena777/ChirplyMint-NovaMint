@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, Building2, Instagram, Zap } from "lucide-react";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { Sparkles, ArrowRight, Building2, MessageCircle, Zap } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 const steps = [
   { id: 1, title: "Your Business", icon: Building2 },
-  { id: 2, title: "Instagram", icon: Instagram },
+  { id: 2, title: "Instagram", icon: MessageCircle },
   { id: 3, title: "Choose Plan", icon: Zap },
 ];
 
@@ -48,7 +48,7 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     setSaving(true);
     try {
-      const supabase = createBrowserClient();
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -96,19 +96,17 @@ export default function OnboardingPage() {
           {steps.map((s) => (
             <div key={s.id} className="flex items-center gap-2">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  step >= s.id
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${step >= s.id
                     ? "bg-[oklch(0.52_0.19_162)] text-white"
                     : "bg-muted text-muted-foreground"
-                }`}
+                  }`}
               >
                 {s.id}
               </div>
               {s.id < 3 && (
                 <div
-                  className={`w-8 h-0.5 rounded-full transition-all ${
-                    step > s.id ? "bg-[oklch(0.52_0.19_162)]" : "bg-border"
-                  }`}
+                  className={`w-8 h-0.5 rounded-full transition-all ${step > s.id ? "bg-[oklch(0.52_0.19_162)]" : "bg-border"
+                    }`}
                 />
               )}
             </div>
@@ -208,11 +206,10 @@ export default function OnboardingPage() {
                   <button
                     key={plan.id}
                     onClick={() => setSelectedPlan(plan.id)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                      selectedPlan === plan.id
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedPlan === plan.id
                         ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)]"
                         : "border-border hover:border-border/80"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-foreground">
