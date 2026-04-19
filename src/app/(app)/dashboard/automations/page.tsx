@@ -80,7 +80,7 @@ interface IGPost {
 }
 
 interface TemplateButton {
-  type: "web_url" | "postback";
+  type: "web_url";
   title: string;
   url?: string;
   payload?: string;
@@ -1052,14 +1052,9 @@ export default function AutomationsPage() {
                             </div>
 
                             <div className="flex gap-2">
-                              <select
-                                value={btn.type}
-                                onChange={(e) => updateButton(i, "type", e.target.value)}
-                                className="h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
-                              >
-                                <option value="web_url">🔗 URL Button</option>
-                                <option value="postback">📩 Postback</option>
-                              </select>
+                              <div className="flex items-center h-9 px-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                                🔗 URL Button
+                              </div>
                               <input
                                 value={btn.title}
                                 onChange={(e) => updateButton(i, "title", e.target.value.slice(0, 20))}
@@ -1069,14 +1064,12 @@ export default function AutomationsPage() {
                               />
                             </div>
 
-                            {btn.type === "web_url" && (
-                              <input
-                                value={btn.url || ""}
-                                onChange={(e) => updateButton(i, "url", e.target.value)}
-                                placeholder="https://your-link.com"
-                                className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
-                              />
-                            )}
+                            <input
+                              value={btn.url || ""}
+                              onChange={(e) => updateButton(i, "url", e.target.value)}
+                              placeholder="https://your-link.com"
+                              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                            />
                           </div>
                         ))}
 

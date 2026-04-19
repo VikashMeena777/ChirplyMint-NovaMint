@@ -183,16 +183,11 @@ async function handleComment(commentData: Record<string, unknown>) {
           status: "skipped_not_follower",
         });
 
-        // Still post comment reply if enabled (they might follow after seeing it)
-        if (
-          automation.comment_reply_enabled &&
-          automation.comment_reply_template &&
-          commentId
-        ) {
-          const replyText = (automation.comment_reply_template as string)
-            .replace(/\{name\}/gi, `@${commenterUsername}`)
-            .replace(/\{keyword\}/gi, commentText);
-          await replyToComment(accessToken, commentId, replyText);
+        // Reply with a "follow me first" message instead of the custom reply
+        if (commentId) {
+          const followPrompt = `Hey @${commenterUsername}! 👋 Follow us first and then comment again to receive your DM! 💌`;
+          await replyToComment(accessToken, commentId, followPrompt);
+          console.log(`[Meta Webhook] Posted "follow first" reply to @${commenterUsername}`);
         }
 
         continue; // Skip to next automation
@@ -215,6 +210,13 @@ async function handleComment(commentData: Record<string, unknown>) {
           comment_text: commentText,
           status: "skipped_not_follower",
         });
+
+        // Reply with a "follow me first" message
+        if (commentId) {
+          const followPrompt = `Hey @${commenterUsername}! 👋 Follow us first and then comment again to receive your DM! 💌`;
+          await replyToComment(accessToken, commentId, followPrompt);
+          console.log(`[Meta Webhook] Posted "follow first" reply to @${commenterUsername} (unverified)`);
+        }
 
         continue;
       }
