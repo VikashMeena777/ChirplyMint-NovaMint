@@ -160,6 +160,27 @@ async function handleComment(commentData: Record<string, unknown>) {
     if (!userId || !accessToken || !igUserId) continue;
 
     // ═══════════════════════════════════════════════
+    // DEDUPLICATION: Skip if we already sent a DM to this
+    // commenter from this same automation (prevents spam
+    // when catch-all triggers on every comment from same user)
+    // ═══════════════════════════════════════════════
+    const { data: existingDm } = await supabase
+      .from("dm_logs")
+      .select("id")
+      .eq("automation_id", automation.id)
+      .eq("recipient_ig_id", commenterId)
+      .eq("status", "sent")
+      .limit(1)
+      .maybeSingle();
+
+    if (existingDm) {
+      console.log(
+        `[Meta Webhook] Skipping duplicate DM — already sent to @${commenterUsername} from automation "${automation.name}"`
+      );
+      continue;
+    }
+
+    // ═══════════════════════════════════════════════
     // FOLLOW-FOR-DM CHECK
     // If require_follow is true, verify the commenter follows the account.
     // Uses the IG User Profile API endpoint: is_user_follow_business
@@ -256,7 +277,7 @@ async function handleComment(commentData: Record<string, unknown>) {
       // ── PLAIN TEXT DM ──
       const dmText = await generateDMReply({
         automationName: automation.name as string,
-        keyword: automation.keyword as string,
+        keyword: isCatchAll ? commentText : (automation.keyword as string),
         dmTemplate: automation.dm_template as string,
         commenterUsername,
         commentText,
@@ -271,7 +292,7 @@ async function handleComment(commentData: Record<string, unknown>) {
       ? `[TEMPLATE] ${automation.template_title}`
       : await generateDMReply({
           automationName: automation.name as string,
-          keyword: automation.keyword as string,
+          keyword: isCatchAll ? commentText : (automation.keyword as string),
           dmTemplate: automation.dm_template as string,
           commenterUsername,
           commentText,
@@ -350,7 +371,7 @@ async function handleComment(commentData: Record<string, unknown>) {
         ig_username: commenterUsername,
         ig_user_id: commenterId,
         source: "comment",
-        notes: `Keyword: ${keywords.join(", ")}`,
+        notes: isCatchAll ? `Catch-all: "${commentText.slice(0, 80)}"` : `Keyword: ${keywords.join(", ")}`,
       },
       { onConflict: "user_id,ig_user_id" }
     );
@@ -399,7 +420,7 @@ async function handleComment(commentData: Record<string, unknown>) {
     ).catch(() => { });
 
     console.log(
-      `[Meta Webhook] Keyword "${keywords.join(",")}" matched from @${commenterUsername} → ${templateType === "button" ? "Template" : "DM"} ${sendResult.success ? "sent ✅" : "failed ❌"}`
+      `[Meta Webhook] ${isCatchAll ? "Catch-all" : `Keyword "${keywords.join(",")}"`} matched from @${commenterUsername} → ${templateType === "button" ? "Template" : "DM"} ${sendResult.success ? "sent ✅" : "failed ❌"}`
     );
   }
 }
