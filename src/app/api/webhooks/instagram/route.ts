@@ -183,6 +183,16 @@ async function handleComment(commentData: Record<string, unknown>) {
     const accessToken = igAccount?.page_access_token || igAccount?.access_token;
     if (!userId || !accessToken || !igUserId) continue;
 
+    // Skip self-comments: when the automation posts a comment reply,
+    // that reply triggers the webhook again. Ignore comments from
+    // the automation's own Instagram account to prevent reply loops.
+    if (commenterId === igUserId) {
+      console.log(
+        `[Meta Webhook] Ignoring self-comment from own account ${igUserId}`
+      );
+      continue;
+    }
+
 
     // ═══════════════════════════════════════════════
     // FOLLOW-FOR-DM CHECK
