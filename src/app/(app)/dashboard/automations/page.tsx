@@ -579,15 +579,23 @@ export default function AutomationsPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                     <p className="text-sm text-muted-foreground">
-                      Keywords:{" "}
-                      {(a.keyword || "").split(",").map((kw, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex font-mono text-foreground bg-muted/50 px-1.5 py-0.5 rounded text-xs mr-1"
-                        >
-                          {kw.trim()}
+                      {(a.keyword || "").trim() === "*" ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full text-xs border border-amber-200 dark:border-amber-800">
+                          ⚡ All Comments
                         </span>
-                      ))}
+                      ) : (
+                        <>
+                          Keywords:{" "}
+                          {(a.keyword || "").split(",").map((kw, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex font-mono text-foreground bg-muted/50 px-1.5 py-0.5 rounded text-xs mr-1"
+                            >
+                              {kw.trim()}
+                            </span>
+                          ))}
+                        </>
+                      )}
                     </p>
                     <span className="text-xs text-muted-foreground">
                       {a.scope_type === "media" ? "📌 Specific post" : "🌐 All posts"}
@@ -731,12 +739,11 @@ export default function AutomationsPage() {
                       onChange={(e) =>
                         setFormData((f) => ({ ...f, keyword: e.target.value }))
                       }
-                      placeholder="e.g. FREE, GUIDE, LINK"
+                      placeholder="e.g. FREE, GUIDE, LINK  or  *  for all comments"
                       className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Comma-separated. Anyone commenting these words will
-                      receive a DM.
+                      Comma-separated. Use <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">*</code> to trigger on <strong>every comment</strong> regardless of what they type.
                     </p>
                   </div>
 

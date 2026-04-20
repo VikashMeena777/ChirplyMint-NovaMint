@@ -136,13 +136,15 @@ async function handleComment(commentData: Record<string, unknown>) {
 
   for (const automation of automations) {
     // Match keywords (support comma-separated keywords)
+    // Special: "*" is a catch-all wildcard that matches EVERY comment
     const keywords = (automation.keyword as string)
       .toLowerCase()
       .split(",")
       .map((k: string) => k.trim())
       .filter(Boolean);
     const commentLower = commentText.toLowerCase();
-    const matched = keywords.some((kw: string) => commentLower.includes(kw));
+    const isCatchAll = keywords.includes("*");
+    const matched = isCatchAll || keywords.some((kw: string) => commentLower.includes(kw));
     if (!matched) continue;
 
     // Check scope: if automation is for a specific post, match media_id
