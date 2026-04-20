@@ -109,6 +109,24 @@ export async function POST(request: Request) {
 }
 
 /**
+ * In-memory Set to deduplicate webhook deliveries.
+ * Meta sends the same comment event 2-5 times; this ensures
+ * we only process each commentId once per serverless instance.
+ * Entries auto-expire after 5 minutes to avoid memory leaks.
+ */
+const processedComments = new Map<string, number>();
+function isCommentAlreadyProcessed(commentId: string): boolean {
+  const now = Date.now();
+  // Clean up entries older than 5 minutes
+  for (const [key, timestamp] of processedComments) {
+    if (now - timestamp > 5 * 60 * 1000) processedComments.delete(key);
+  }
+  if (processedComments.has(commentId)) return true;
+  processedComments.set(commentId, now);
+  return false;
+}
+
+/**
  * Handle a comment on a post — match keywords → send DM + optional comment reply
  */
 async function handleComment(commentData: Record<string, unknown>) {
@@ -124,6 +142,12 @@ async function handleComment(commentData: Record<string, unknown>) {
   const commenterUsername = commenterData?.username || "unknown";
 
   if (!commentText || !commenterId) return;
+
+  // Skip if this exact comment was already processed (Meta duplicate webhook)
+  if (commentId && isCommentAlreadyProcessed(commentId)) {
+    console.log(`[Meta Webhook] Skipping duplicate webhook for comment ${commentId}`);
+    return;
+  }
 
   // Find active automations that match
   const { data: automations } = await supabase
@@ -159,26 +183,6 @@ async function handleComment(commentData: Record<string, unknown>) {
     const accessToken = igAccount?.page_access_token || igAccount?.access_token;
     if (!userId || !accessToken || !igUserId) continue;
 
-    // ═══════════════════════════════════════════════
-    // DEDUPLICATION: Skip if we already sent a DM to this
-    // commenter from this same automation (prevents spam
-    // when catch-all triggers on every comment from same user)
-    // ═══════════════════════════════════════════════
-    const { data: existingDm } = await supabase
-      .from("dm_logs")
-      .select("id")
-      .eq("automation_id", automation.id)
-      .eq("recipient_ig_id", commenterId)
-      .eq("status", "sent")
-      .limit(1)
-      .maybeSingle();
-
-    if (existingDm) {
-      console.log(
-        `[Meta Webhook] Skipping duplicate DM — already sent to @${commenterUsername} from automation "${automation.name}"`
-      );
-      continue;
-    }
 
     // ═══════════════════════════════════════════════
     // FOLLOW-FOR-DM CHECK
