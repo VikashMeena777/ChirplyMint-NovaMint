@@ -128,18 +128,26 @@ export default function OnboardingPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Business / Brand Name
+                  Business / Brand Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="e.g. Sunrise Café"
-                  className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent placeholder:text-muted-foreground/50"
+                  className={`w-full h-11 px-4 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent placeholder:text-muted-foreground/50 ${
+                    businessName.length > 0 && businessName.trim().length < 2
+                      ? "border-red-400"
+                      : "border-border"
+                  }`}
                 />
+                {businessName.length > 0 && businessName.trim().length < 2 && (
+                  <p className="text-xs text-red-500">Business name must be at least 2 characters.</p>
+                )}
               </div>
               <button
                 onClick={() => setStep(2)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all"
+                disabled={businessName.trim().length < 2}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 disabled:pointer-events-none"
               >
                 Next <ArrowRight className="w-4 h-4" />
               </button>

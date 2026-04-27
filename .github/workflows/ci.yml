@@ -1,0 +1,55 @@
+name: "CI: Quality Checks"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: TypeScript, Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx next lint --dir src
+        continue-on-error: true
+
+      - name: Security scan (hardcoded secrets)
+        run: |
+          echo "Scanning for hardcoded API keys..."
+          if grep -rnE "(sk_live_|sk_test_|key_live_|whsec_|sbp_)[a-zA-Z0-9]{20,}" src/ --include="*.ts" --include="*.tsx"; then
+            echo "::error::Hardcoded secrets detected!"
+            exit 1
+          fi
+          echo "No hardcoded secrets found."
+        continue-on-error: false
+
+      - name: Dependency audit
+        run: npm audit --production --audit-level=high
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          NEXT_PUBLIC_APP_NAME: "ChirplyMint"
+          NEXT_PUBLIC_CASHFREE_ENV: "sandbox"

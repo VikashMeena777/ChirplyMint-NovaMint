@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
+import { canCreateAutomation, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
 
 export async function getAutomations() {
@@ -27,6 +28,28 @@ export async function createAutomation(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // ── PLAN LIMIT CHECK: Automation count ──
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+
+  const userPlan = ((profile?.plan as string) || "free") as PlanKey;
+
+  const { count: activeAutomationCount } = await supabase
+    .from("automations")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .in("status", ["active", "paused"]);
+
+  const automationCheck = canCreateAutomation(userPlan, activeAutomationCount ?? 0);
+  if (!automationCheck.allowed) {
+    return {
+      error: `You've reached your plan limit of ${automationCheck.limit} automation(s). Upgrade your plan to create more.`,
+    };
+  }
 
   // Check if user has an instagram account connected
   const { data: igAccounts } = await supabase

@@ -9,6 +9,8 @@ import {
   checkIfFollower,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
+import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
+import { checkRateLimit, getDmLimiter } from "@/lib/utils/rate-limiter";
 import crypto from "crypto";
 
 const VERIFY_TOKEN =
@@ -262,6 +264,55 @@ async function handleComment(commentData: Record<string, unknown>) {
 
       // followerCheck.isFollower === true → proceed with DM
       console.log(`[Meta Webhook] @${commenterUsername} follows ✅ — proceeding with DM`);
+    }
+
+    // ═══════════════════════════════════════════════
+    // RATE LIMIT CHECK (Upstash Redis)
+    // Prevents abuse: max 1 DM per second per user
+    // ═══════════════════════════════════════════════
+    const dmLimiter = getDmLimiter();
+    const rateCheck = await checkRateLimit(dmLimiter, `dm:${userId}`);
+    if (!rateCheck.allowed) {
+      console.log(`[Meta Webhook] Rate limited for user ${userId} — skipping DM`);
+      await supabase.from("dm_logs").insert({
+        user_id: userId,
+        automation_id: automation.id,
+        instagram_account_id: (automation as Record<string, unknown>).instagram_account_id,
+        recipient_ig_id: commenterId,
+        recipient_username: commenterUsername,
+        message_text: "[SKIPPED] Rate limited",
+        comment_text: commentText,
+        status: "skipped_rate_limited",
+      });
+      continue;
+    }
+
+    // ═══════════════════════════════════════════════
+    // PLAN LIMIT CHECK: Monthly DM quota
+    // ═══════════════════════════════════════════════
+    const { data: senderProfile } = await supabase
+      .from("profiles")
+      .select("plan, dm_count_this_month")
+      .eq("id", userId)
+      .single();
+
+    const senderPlan = ((senderProfile?.plan as string) || "free") as PlanKey;
+    const currentDmCount = (senderProfile?.dm_count_this_month as number) || 0;
+    const dmCheck = canSendDM(senderPlan, currentDmCount);
+
+    if (!dmCheck.allowed) {
+      console.log(`[Meta Webhook] User ${userId} hit DM limit (${dmCheck.limit}) — skipping`);
+      await supabase.from("dm_logs").insert({
+        user_id: userId,
+        automation_id: automation.id,
+        instagram_account_id: (automation as Record<string, unknown>).instagram_account_id,
+        recipient_ig_id: commenterId,
+        recipient_username: commenterUsername,
+        message_text: `[SKIPPED] Plan DM limit reached (${dmCheck.limit}/month)`,
+        comment_text: commentText,
+        status: "skipped_plan_limit",
+      });
+      continue;
     }
 
     // ═══════════════════════════════════════════════

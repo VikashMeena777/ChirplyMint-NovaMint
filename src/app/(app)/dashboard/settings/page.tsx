@@ -238,74 +238,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "billing" && (
-          <div className="space-y-6 max-w-lg">
-            <div className="rounded-xl border border-[oklch(0.52_0.19_162/30%)] bg-[oklch(0.52_0.19_162/5%)] p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
-                <span className="text-sm font-semibold text-[oklch(0.52_0.19_162)]">
-                  {(profile?.plan ?? "free").charAt(0).toUpperCase() +
-                    (profile?.plan ?? "free").slice(1)}{" "}
-                  Plan
-                </span>
-              </div>
-              <p className="text-sm text-foreground">
-                <strong>
-                  {profile?.dmCountThisMonth ?? 0} / {profile?.dmLimit ?? 100}
-                </strong>{" "}
-                DMs used this month
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                {
-                  plan: "Pro",
-                  price: "₹999/mo",
-                  features: [
-                    "1,000 DMs/month",
-                    "3 Automations",
-                    "AI Replies",
-                    "Priority Support",
-                  ],
-                },
-                {
-                  plan: "Business",
-                  price: "₹2,499/mo",
-                  features: [
-                    "Unlimited DMs",
-                    "Unlimited Automations",
-                    "Advanced AI",
-                    "Team Access",
-                    "API Access",
-                  ],
-                },
-              ].map((tier) => (
-                <div
-                  key={tier.plan}
-                  className="rounded-xl border border-border p-5 space-y-3"
-                >
-                  <h4 className="font-semibold text-foreground">{tier.plan}</h4>
-                  <p className="text-2xl font-bold text-foreground">
-                    {tier.price}
-                  </p>
-                  <ul className="space-y-1.5">
-                    {tier.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-center gap-2 text-sm text-muted-foreground"
-                      >
-                        <Check className="w-3.5 h-3.5 text-[oklch(0.52_0.19_162)]" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button className="w-full py-2.5 rounded-xl border border-[oklch(0.52_0.19_162)] text-[oklch(0.52_0.19_162)] text-sm font-semibold hover:bg-[oklch(0.52_0.19_162/5%)] transition-colors">
-                    Upgrade
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BillingTab profile={profile} />
         )}
 
         {activeTab === "notifications" && (
@@ -473,6 +406,149 @@ function InstagramConnectionTab() {
         <p className="text-xs text-muted-foreground mt-3">
           Requires a Facebook Page linked to your Instagram account.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Billing Sub-component ─── */
+function BillingTab({ profile }: { profile: UserProfile | null }) {
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+
+  const tiers = [
+    {
+      key: "pro",
+      plan: "Pro",
+      price: "₹999/mo",
+      features: [
+        "1,000 DMs/month",
+        "3 Automations",
+        "AI Smart Replies",
+        "Priority Support",
+      ],
+    },
+    {
+      key: "business",
+      plan: "Business",
+      price: "₹2,499/mo",
+      features: [
+        "Unlimited DMs",
+        "Unlimited Automations",
+        "Advanced AI",
+        "Team Access",
+        "API Access",
+      ],
+    },
+  ];
+
+  const currentPlan = profile?.plan ?? "free";
+
+  async function handleUpgrade(planKey: string) {
+    setUpgradingPlan(planKey);
+    try {
+      const res = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.paymentSessionId) {
+        toast.error(data.error || "Failed to create payment order");
+        setUpgradingPlan(null);
+        return;
+      }
+
+      // Load Cashfree JS SDK and open checkout
+      const cashfreeEnv = process.env.NEXT_PUBLIC_CASHFREE_ENV === "production" ? "production" : "sandbox";
+
+      // Dynamically load Cashfree SDK if not already loaded
+      if (!(window as unknown as Record<string, unknown>).Cashfree) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load Cashfree SDK"));
+          document.head.appendChild(script);
+        });
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cf = new (window as any).Cashfree({ mode: cashfreeEnv });
+      await cf.checkout({
+        paymentSessionId: data.paymentSessionId,
+        redirectTarget: "_self",
+      });
+    } catch (err) {
+      console.error("[Billing] Upgrade error:", err);
+      toast.error("Something went wrong. Please try again.");
+      setUpgradingPlan(null);
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      <div className="rounded-xl border border-[oklch(0.52_0.19_162/30%)] bg-[oklch(0.52_0.19_162/5%)] p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+          <span className="text-sm font-semibold text-[oklch(0.52_0.19_162)]">
+            {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} Plan
+          </span>
+        </div>
+        <p className="text-sm text-foreground">
+          <strong>
+            {profile?.dmCountThisMonth ?? 0} / {profile?.dmLimit === -1 ? "∞" : (profile?.dmLimit ?? 100)}
+          </strong>{" "}
+          DMs used this month
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {tiers.map((tier) => {
+          const isCurrentPlan = currentPlan === tier.key;
+          const isHigherPlan =
+            (currentPlan === "business" && tier.key === "pro");
+
+          return (
+            <div
+              key={tier.key}
+              className="rounded-xl border border-border p-5 space-y-3"
+            >
+              <h4 className="font-semibold text-foreground">{tier.plan}</h4>
+              <p className="text-2xl font-bold text-foreground">{tier.price}</p>
+              <ul className="space-y-1.5">
+                {tier.features.map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Check className="w-3.5 h-3.5 text-[oklch(0.52_0.19_162)]" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleUpgrade(tier.key)}
+                disabled={isCurrentPlan || isHigherPlan || upgradingPlan !== null}
+                className="w-full py-2.5 rounded-xl border border-[oklch(0.52_0.19_162)] text-[oklch(0.52_0.19_162)] text-sm font-semibold hover:bg-[oklch(0.52_0.19_162/5%)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {upgradingPlan === tier.key ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing…
+                  </>
+                ) : isCurrentPlan ? (
+                  "Current Plan"
+                ) : isHigherPlan ? (
+                  "Included"
+                ) : (
+                  "Upgrade"
+                )}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
