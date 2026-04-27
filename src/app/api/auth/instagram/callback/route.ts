@@ -38,24 +38,25 @@ export async function GET(request: NextRequest) {
     code = code.slice(0, -2);
   }
 
-  try {
+   try {
     // ── Step 1: Exchange code for short-lived token ──────────────────
-    // NEW: POST to api.instagram.com (NOT GET to graph.facebook.com)
+    // Official Meta docs use multipart/form-data (curl -F), NOT x-www-form-urlencoded
     console.log("[IG OAuth] Exchanging code for token via api.instagram.com...");
+    console.log("[IG OAuth] Using redirect_uri:", REDIRECT_URI);
+    console.log("[IG OAuth] Using client_id:", META_APP_ID);
 
-    const tokenFormData = new URLSearchParams();
-    tokenFormData.append("client_id", META_APP_ID);
-    tokenFormData.append("client_secret", META_APP_SECRET);
-    tokenFormData.append("grant_type", "authorization_code");
-    tokenFormData.append("redirect_uri", REDIRECT_URI);
-    tokenFormData.append("code", code);
+    const formData = new FormData();
+    formData.append("client_id", META_APP_ID);
+    formData.append("client_secret", META_APP_SECRET);
+    formData.append("grant_type", "authorization_code");
+    formData.append("redirect_uri", REDIRECT_URI);
+    formData.append("code", code);
 
     const tokenRes = await fetch(
       "https://api.instagram.com/oauth/access_token",
       {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: tokenFormData.toString(),
+        body: formData,
       }
     );
     const tokenData = await tokenRes.json();
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
       hasData: !!tokenData.data,
       hasAccessToken: !!tokenData.access_token,
       hasError: !!tokenData.error_type || !!tokenData.error,
+      errorMessage: tokenData.error_message || null,
     });
 
     // Response format: { data: [{ access_token, user_id, permissions }] }
