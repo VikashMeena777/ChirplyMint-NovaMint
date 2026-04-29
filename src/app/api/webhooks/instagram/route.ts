@@ -16,7 +16,8 @@ import crypto from "crypto";
 
 const VERIFY_TOKEN =
   process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
-const APP_SECRET = process.env.META_APP_SECRET || "";
+// Webhook signatures use the App Secret from Settings → Basic (NOT the Instagram App Secret)
+const APP_SECRET = process.env.META_WEBHOOK_SECRET || process.env.META_APP_SECRET || "";
 
 function getSupabase() {
   return createClient(
