@@ -54,11 +54,40 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const searchParamsMain = useSearchParams();
+
+  // Verify payment when returning from Cashfree checkout
+  const verifyPayment = useCallback(async (orderId: string) => {
+    try {
+      const res = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (data.status === "paid" || data.status === "already_paid") {
+        toast.success(`🎉 Plan upgraded to ${data.planName || data.plan}!`);
+        loadProfile(); // Reload to show new plan
+      } else if (data.status === "not_paid") {
+        toast.error("Payment not confirmed yet. Please wait a moment and refresh.");
+      }
+    } catch {
+      console.error("[Payment] Verification failed");
+    }
+  }, []);
 
   useEffect(() => {
     loadProfile();
     loadNotifPrefs();
-  }, []);
+
+    // Auto-verify payment on return from Cashfree
+    const paymentStatus = searchParamsMain.get("payment");
+    const orderId = searchParamsMain.get("order_id");
+    if (paymentStatus === "success" && orderId) {
+      setActiveTab("billing");
+      verifyPayment(orderId);
+    }
+  }, [searchParamsMain, verifyPayment]);
 
   async function loadProfile() {
     setLoading(true);

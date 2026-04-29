@@ -16,19 +16,26 @@ export async function POST(request: Request) {
     const timestamp = request.headers.get("x-webhook-timestamp") || "";
     const signature = request.headers.get("x-webhook-signature") || "";
 
+    console.log("[Cashfree Webhook] Received webhook event");
+
     // Verify webhook signature
     if (process.env.CASHFREE_WEBHOOK_SECRET) {
       const isValid = verifyWebhookSignature(rawBody, timestamp, signature);
       if (!isValid) {
-        console.error("[Cashfree Webhook] Invalid signature");
+        console.error("[Cashfree Webhook] Invalid signature — rejecting");
         return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
       }
+      console.log("[Cashfree Webhook] Signature verified ✅");
+    } else {
+      console.warn("[Cashfree Webhook] CASHFREE_WEBHOOK_SECRET not set — skipping verification");
     }
 
     const payload = JSON.parse(rawBody);
     const eventType = payload.type;
     const orderData = payload.data?.order;
     const paymentData = payload.data?.payment;
+
+    console.log("[Cashfree Webhook] Event type:", eventType, "Order ID:", orderData?.order_id);
 
     if (!orderData?.order_id) {
       return NextResponse.json({ error: "Missing order_id" }, { status: 400 });
