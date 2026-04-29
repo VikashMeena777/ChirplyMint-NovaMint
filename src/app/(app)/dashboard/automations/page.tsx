@@ -48,6 +48,8 @@ import {
 import { getInstagramPosts, getInstagramPostByUrl } from "@/lib/actions/instagram-api";
 import { getPostbackFlows, savePostbackFlows, type PostbackFlow } from "@/lib/actions/postback-flows";
 import { toast } from "sonner";
+import { DMPreview } from "@/components/dm-preview";
+import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
 
 interface Automation {
   id: string;
@@ -200,6 +202,7 @@ export default function AutomationsPage() {
     template_subtitle: "",
     template_image_url: "",
     template_buttons: [] as TemplateButton[],
+    trigger_type: "comment_trigger" as "comment_trigger" | "story_reply" | "both",
   });
   const [postbackFlows, setPostbackFlows] = useState<PostbackFlowForm[]>([]);
 
@@ -311,6 +314,7 @@ export default function AutomationsPage() {
       template_subtitle: "",
       template_image_url: "",
       template_buttons: [],
+      trigger_type: "comment_trigger",
     });
     setReelUrl("");
     setStep(1);
@@ -408,6 +412,7 @@ export default function AutomationsPage() {
     fd.set("template_subtitle", formData.template_subtitle);
     fd.set("template_image_url", formData.template_image_url);
     fd.set("template_buttons", JSON.stringify(formData.template_buttons));
+    fd.set("trigger_type", formData.trigger_type);
 
     const result = await createAutomation(fd);
     if (result.error) {
@@ -639,6 +644,11 @@ export default function AutomationsPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Drip Sequence Builder (inline) */}
+              <div className="mt-4 pt-4 border-t border-border">
+                <DripSequenceBuilder automationId={a.id} userPlan="starter" />
+              </div>
             </div>
           ))}
         </div>
@@ -727,6 +737,43 @@ export default function AutomationsPage() {
                       placeholder="e.g. Free Guide Giveaway"
                       className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                     />
+                  </div>
+
+                  {/* Trigger Type Selector */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Trigger Type
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: "comment_trigger", label: "💬 Comments", desc: "Keyword comments" },
+                        { value: "story_reply", label: "📸 Story Replies", desc: "Story mentions" },
+                        { value: "both", label: "⚡ Both", desc: "Comments + Stories" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            setFormData((f) => ({
+                              ...f,
+                              trigger_type: opt.value as "comment_trigger" | "story_reply" | "both",
+                            }))
+                          }
+                          className={`p-3 rounded-xl border-2 text-center transition-all ${
+                            formData.trigger_type === opt.value
+                              ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                              : "border-border hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-foreground">
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Trigger Keywords */}
@@ -1437,6 +1484,17 @@ export default function AutomationsPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* ── iPhone DM Preview ── */}
+                  <DMPreview
+                    senderUsername={formData.name || "your_brand"}
+                    templateType={formData.template_type as "text" | "button"}
+                    messageText={formData.dm_template}
+                    templateTitle={formData.template_title}
+                    templateSubtitle={formData.template_subtitle}
+                    templateImageUrl={formData.template_image_url}
+                    templateButtons={formData.template_buttons}
+                  />
 
                   {/* ── Postback Flows Builder ── */}
                   {formData.template_type === "button" &&

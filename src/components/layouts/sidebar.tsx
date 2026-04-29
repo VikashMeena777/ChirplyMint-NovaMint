@@ -15,9 +15,12 @@ import {
   ChevronRight,
   Bot,
   Users,
+  Link2,
   Bell,
   Menu,
   X,
+  Lightbulb,
+  BrainCircuit,
 } from "lucide-react";
 
 const navItems = [
@@ -42,9 +45,24 @@ const navItems = [
     icon: Users,
   },
   {
+    label: "AI Agent",
+    href: "/dashboard/ai-agent",
+    icon: BrainCircuit,
+  },
+  {
+    label: "Link-in-Bio",
+    href: "/dashboard/bio",
+    icon: Link2,
+  },
+  {
     label: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
+  },
+  {
+    label: "Insights",
+    href: "/dashboard/insights",
+    icon: Lightbulb,
   },
 ];
 

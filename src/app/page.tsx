@@ -24,6 +24,8 @@ import {
 import Link from "next/link";
 import { Navbar } from "@/components/marketing/navbar";
 import { Footer } from "@/components/marketing/footer";
+import { LiveActivityFeed } from "@/components/marketing/live-activity-feed";
+import { getLiveFeedItems } from "@/lib/actions/live-feed";
 import { createClient } from "@/lib/supabase/client";
 
 /* ─── Animation Variants ─── */
@@ -581,11 +583,19 @@ function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
 /* ─── PAGE ─── */
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [feedItems, setFeedItems] = useState<
+    { id: string; detail: string; timeAgo: string }[]
+  >([]);
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsLoggedIn(!!user);
+    });
+
+    // Fetch live feed data
+    getLiveFeedItems(12).then((items) => {
+      setFeedItems(items);
     });
   }, []);
 
@@ -598,6 +608,7 @@ export default function Home() {
       <Pricing />
       <FinalCTA isLoggedIn={isLoggedIn} />
       <Footer />
+      {feedItems.length > 0 && <LiveActivityFeed initialItems={feedItems} />}
     </main>
   );
 }

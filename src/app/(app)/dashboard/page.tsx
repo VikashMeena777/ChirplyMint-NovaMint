@@ -10,9 +10,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getDashboardStats } from "@/lib/actions/dashboard";
+import { getSetupStatus } from "@/lib/actions/setup";
+import { SetupChecklist } from "@/components/setup-checklist";
 
 export default async function DashboardPage() {
-  const data = await getDashboardStats();
+  const [data, setupStatus] = await Promise.all([
+    getDashboardStats(),
+    getSetupStatus(),
+  ]);
 
   const stats = [
     {
@@ -80,6 +85,11 @@ export default async function DashboardPage() {
           Here&apos;s what&apos;s happening with your automations.
         </p>
       </div>
+
+      {/* Setup Checklist */}
+      {setupStatus && !setupStatus.dismissed && !setupStatus.allComplete && (
+        <SetupChecklist initialStatus={setupStatus} />
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

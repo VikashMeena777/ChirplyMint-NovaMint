@@ -25,6 +25,7 @@ import {
   CreditCard,
   Link2,
   HelpCircle,
+  BrainCircuit,
 } from "lucide-react";
 
 export function CommandPalette() {
@@ -90,6 +91,20 @@ export function CommandPalette() {
             >
               <Users className="w-4 h-4 text-muted-foreground" />
               Leads
+            </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/dashboard/ai-agent")}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm aria-selected:bg-primary/10"
+            >
+              <BrainCircuit className="w-4 h-4 text-muted-foreground" />
+              AI Agent
+            </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/dashboard/bio")}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm aria-selected:bg-primary/10"
+            >
+              <Link2 className="w-4 h-4 text-muted-foreground" />
+              Link-in-Bio
             </CommandItem>
             <CommandItem
               onSelect={() => navigate("/dashboard/analytics")}

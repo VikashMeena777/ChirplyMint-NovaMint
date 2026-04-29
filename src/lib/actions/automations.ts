@@ -93,6 +93,9 @@ export async function createAutomation(formData: FormData) {
     // Ignore parse errors — use empty array
   }
 
+  // New field: Trigger type (comment_trigger, story_reply, both)
+  const triggerType = (formData.get("trigger_type") as string) || "comment_trigger";
+
   // Validate required fields
   if (!name?.trim()) return { error: "Automation name is required" };
   if (!keyword?.trim()) return { error: "At least one keyword is required" };
@@ -121,6 +124,7 @@ export async function createAutomation(formData: FormData) {
     template_subtitle: templateSubtitle,
     template_image_url: templateImageUrl,
     template_buttons: templateButtons,
+    trigger_type: triggerType,
   }).select("id").single();
 
   if (error) return { error: error.message };

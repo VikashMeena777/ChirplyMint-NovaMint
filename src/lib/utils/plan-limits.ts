@@ -8,9 +8,11 @@ export const PLANS = {
     price: 0,
     dmLimit: 100,
     automationLimit: 1,
+    dripStepLimit: 2,
     features: [
       "100 DMs/month",
       "1 Automation",
+      "2 Drip Steps",
       "Basic Analytics",
       "Community Support",
     ],
@@ -20,11 +22,15 @@ export const PLANS = {
     price: 999,
     dmLimit: 1000,
     automationLimit: 3,
+    dripStepLimit: 5,
     features: [
       "1,000 DMs/month",
       "3 Automations",
+      "5 Drip Steps",
       "AI Smart Replies",
+      "A/B Testing",
       "Advanced Analytics",
+      "Lead Export (CSV + Webhook)",
       "Priority Support",
     ],
   },
@@ -33,9 +39,11 @@ export const PLANS = {
     price: 2499,
     dmLimit: -1, // unlimited
     automationLimit: -1, // unlimited
+    dripStepLimit: 10,
     features: [
       "Unlimited DMs",
       "Unlimited Automations",
+      "10 Drip Steps",
       "Advanced AI",
       "Team Access",
       "API Access",
@@ -86,6 +94,23 @@ export function canCreateAutomation(
 }
 
 /**
+ * Check if the user can add more drip steps to a sequence.
+ */
+export function canAddDripStep(
+  plan: PlanKey,
+  currentStepCount: number
+): { allowed: boolean; limit: number; remaining: number } {
+  const planConfig = PLANS[plan] || PLANS.free;
+  const limit = planConfig.dripStepLimit;
+  const remaining = Math.max(0, limit - currentStepCount);
+  return {
+    allowed: currentStepCount < limit,
+    limit,
+    remaining,
+  };
+}
+
+/**
  * Check if a feature is available for the user's plan.
  */
 export function hasFeature(plan: PlanKey, feature: string): boolean {
@@ -94,3 +119,4 @@ export function hasFeature(plan: PlanKey, feature: string): boolean {
     f.toLowerCase().includes(feature.toLowerCase())
   );
 }
+

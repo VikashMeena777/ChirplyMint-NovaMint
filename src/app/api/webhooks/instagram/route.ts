@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateDMReply } from "@/lib/ai/nvidia-nim";
+import { generateAgentReply } from "@/lib/ai/agent-reply";
 import {
   sendInstagramDM,
   sendPrivateReply,
@@ -87,16 +88,26 @@ export async function POST(request: Request) {
             if (change.field === "comments") {
               await handleComment(change.value);
             }
+            // Handle story mentions/replies
+            if (change.field === "story_insights" || change.field === "mentions") {
+              await handleStoryReply(change.value);
+            }
           }
         }
 
-        // Handle incoming DMs and Postbacks
+        // Handle incoming DMs (including story replies via messaging)
         if (entry.messaging) {
           for (const messagingEvent of entry.messaging) {
             if (messagingEvent.postback) {
               await handlePostback(messagingEvent);
             } else if (messagingEvent.message) {
-              await handleIncomingDM(messagingEvent);
+              // Check if this is a story reply (has story reference)
+              const storyRef = (messagingEvent.message as Record<string, unknown>)?.reply_to;
+              if (storyRef && (storyRef as Record<string, unknown>)?.story) {
+                await handleStoryReplyDM(messagingEvent);
+              } else {
+                await handleIncomingDM(messagingEvent);
+              }
             }
           }
         }
@@ -450,6 +461,64 @@ async function handleComment(commentData: Record<string, unknown>) {
       .eq("id", automation.id)
       .then(() => { });
 
+    // ═══════════════════════════════════════════════
+    // DRIP SEQUENCE ENROLLMENT (fire-and-forget)
+    // If this automation has an active drip sequence, enroll the commenter.
+    // The cron job (/api/cron/drip-processor) will send follow-up DMs.
+    // ═══════════════════════════════════════════════
+    if (sendResult.success) {
+      void (async () => {
+        try {
+          const { data: dripSeq } = await supabase
+            .from("drip_sequences")
+            .select("id")
+            .eq("automation_id", automation.id)
+            .eq("is_active", true)
+            .single();
+
+          if (dripSeq) {
+            const seqId = (dripSeq as Record<string, string>).id;
+
+            // Get the first step to calculate next_send_at
+            const { data: firstStep } = await supabase
+              .from("drip_steps")
+              .select("delay_hours")
+              .eq("sequence_id", seqId)
+              .eq("step_number", 1)
+              .single();
+
+            if (firstStep) {
+              const delayHours = (firstStep as Record<string, number>).delay_hours;
+              const nextSendAt = new Date(
+                Date.now() + delayHours * 60 * 60 * 1000
+              ).toISOString();
+
+              await supabase.from("drip_enrollments").upsert(
+                {
+                  sequence_id: seqId,
+                  user_id: userId,
+                  automation_id: automation.id as string,
+                  recipient_ig_id: commenterId,
+                  recipient_username: commenterUsername,
+                  current_step: 0,
+                  status: "active",
+                  next_send_at: nextSendAt,
+                  enrolled_at: new Date().toISOString(),
+                },
+                { onConflict: "sequence_id,recipient_ig_id" }
+              );
+
+              console.log(
+                `[Meta Webhook] @${commenterUsername} enrolled in drip sequence (next step in ${delayHours}h)`
+              );
+            }
+          }
+        } catch (err) {
+          console.error("[Meta Webhook] Drip enrollment error:", err);
+        }
+      })();
+    }
+
     // Create new lead notification if user has it enabled
     const { data: profile } = await supabase
       .from("profiles")
@@ -491,7 +560,8 @@ async function handleComment(commentData: Record<string, unknown>) {
 }
 
 /**
- * Handle an incoming DM — generate AI response if automation is AI-enabled
+ * Handle an incoming DM — try AI Agent first (persona-based),
+ * then fall back to automation-based AI reply.
  */
 async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   const supabase = getSupabase();
@@ -503,13 +573,12 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
 
   if (!senderId || !messageText) return;
 
-  // Find any active AI-enabled automation for the recipient account
   const recipientId =
     (messagingEvent.recipient as Record<string, string>)?.id || "";
 
   const { data: igAccount } = await supabase
     .from("instagram_accounts")
-    .select("user_id, id, access_token, page_access_token")
+    .select("user_id, id, ig_user_id, access_token, page_access_token")
     .eq("ig_user_id", recipientId)
     .eq("is_active", true)
     .single();
@@ -521,7 +590,47 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     (igAccount.page_access_token as string) ||
     (igAccount.access_token as string);
 
-  // Find an AI-enabled automation
+  // ── Strategy 1: AI Agent (persona + FAQs + conversation memory) ──
+  try {
+    const agentResult = await generateAgentReply({
+      userId,
+      senderIgId: senderId,
+      senderUsername: senderId,
+      incomingMessage: messageText,
+    });
+
+    if (agentResult) {
+      const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, agentResult.reply);
+
+      await supabase.from("dm_logs").insert({
+        user_id: userId,
+        instagram_account_id: igAccount.id,
+        recipient_ig_id: senderId,
+        recipient_username: senderId,
+        message_text: agentResult.reply,
+        comment_text: messageText,
+        status: sendResult.success ? "sent" : "failed",
+      });
+
+      void Promise.resolve(
+        supabase.from("activity_log").insert({
+          user_id: userId,
+          action: sendResult.success ? "dm.agent_reply_sent" : "dm.agent_reply_failed",
+          metadata: { sender: senderId, error: sendResult.error || null },
+        })
+      ).catch(() => {});
+
+      console.log(
+        `[AI Agent] Reply ${sendResult.success ? "sent ✅" : "failed ❌"} for DM from ${senderId}`
+      );
+      return; // AI Agent handled it
+    }
+  } catch (err) {
+    console.error("[AI Agent] Error:", err);
+    // Fall through to automation-based AI
+  }
+
+  // ── Strategy 2: Automation-based AI reply (legacy) ──
   const { data: automation } = await supabase
     .from("automations")
     .select("*")
@@ -534,7 +643,6 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
 
   if (!automation) return;
 
-  // Generate AI reply
   const reply = await generateDMReply({
     automationName: automation.name as string,
     keyword: "",
@@ -544,10 +652,8 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     aiEnabled: true,
   });
 
-  // ACTUALLY SEND THE REPLY
   const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, reply);
 
-  // Log the reply
   await supabase.from("dm_logs").insert({
     user_id: userId,
     automation_id: automation.id,
@@ -559,7 +665,6 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     status: sendResult.success ? "sent" : "failed",
   });
 
-  // Log activity
   void Promise.resolve(
     supabase.from("activity_log").insert({
       user_id: userId,
@@ -724,5 +829,115 @@ async function handlePostback(event: Record<string, unknown>) {
 
   console.log(
     `[Meta Webhook] Postback "${payload}" → ${responseType} response ${sendResult.success ? "sent ✅" : "failed ❌"}`
+  );
+}
+
+/**
+ * Handle story mentions (from changes webhook).
+ * Meta sends story_insights / mentions when someone mentions the account in their story.
+ */
+async function handleStoryReply(data: Record<string, unknown>) {
+  // Story mentions via changes don't contain enough user info to DM directly.
+  // The actual story reply DMs come through the messaging channel (handleStoryReplyDM).
+  // This handler logs the mention for analytics.
+  const supabase = getSupabase();
+  const mediaId = (data.media_id as string) || "";
+
+  console.log(`[Meta Webhook] Story mention received, media: ${mediaId}`);
+
+  // We don't take action here — the DM reply comes via messaging webhook.
+  // This is logged for future analytics integration.
+}
+
+/**
+ * Handle a story reply sent via DM (messaging webhook with reply_to.story).
+ * Find automations with trigger_type = 'story_reply' or 'both' and send an auto-DM.
+ */
+async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+  const messageText = (messagingEvent.message as Record<string, string>)?.text || "";
+
+  if (!senderId || !recipientId) return;
+
+  console.log(`[Meta Webhook] Story reply DM from ${senderId}: "${messageText?.slice(0, 50)}"`);
+
+  // Find the IG account
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id, ig_user_id, access_token, page_access_token")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+
+  if (!igAccount) return;
+
+  const userId = igAccount.user_id as string;
+  const accessToken = (igAccount.page_access_token as string) || (igAccount.access_token as string);
+
+  // Find active automations with trigger_type 'story_reply' or 'both'
+  const { data: automations } = await supabase
+    .from("automations")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("instagram_account_id", igAccount.id)
+    .eq("status", "active")
+    .in("trigger_type", ["story_reply", "both"]);
+
+  if (!automations || automations.length === 0) return;
+
+  const automation = automations[0];
+  const dmTemplate = (automation.dm_template as string) || "Thanks for replying to my story! 💜";
+
+  // Replace variables
+  const dmText = dmTemplate
+    .replace(/\{name\}/gi, senderId)
+    .replace(/\{story_reply\}/gi, messageText || "");
+
+  // Send the auto-DM
+  const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
+
+  // Log the DM
+  await supabase.from("dm_logs").insert({
+    user_id: userId,
+    automation_id: automation.id,
+    instagram_account_id: igAccount.id,
+    recipient_ig_id: senderId,
+    recipient_username: senderId,
+    message_text: dmText,
+    comment_text: `[STORY_REPLY] ${messageText?.slice(0, 100) || ""}`,
+    status: sendResult.success ? "sent" : "failed",
+  });
+
+  // Create lead
+  await supabase.from("leads").upsert(
+    {
+      user_id: userId,
+      ig_username: senderId,
+      ig_user_id: senderId,
+      source: "story_reply",
+      notes: `Story reply: "${messageText?.slice(0, 80) || ""}"`,
+    },
+    { onConflict: "user_id,ig_user_id" }
+  );
+
+  // Log activity
+  void Promise.resolve(
+    supabase.from("activity_log").insert({
+      user_id: userId,
+      action: sendResult.success ? "dm.story_reply_sent" : "dm.story_reply_failed",
+      metadata: {
+        sender: senderId,
+        automation: automation.name,
+        trigger: "story_reply",
+        error: sendResult.error || null,
+      },
+    })
+  ).catch(() => {});
+
+  console.log(
+    `[Meta Webhook] Story reply auto-DM ${sendResult.success ? "sent ✅" : "failed ❌"} to ${senderId}`
   );
 }
