@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, X, Sparkles, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const navLinks = [
   { label: "Features", href: "/#features" },
@@ -15,11 +17,34 @@ const navLinks = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Check auth state
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Get initial session
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setIsLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -56,20 +81,37 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* Desktop CTA */}
+          {/* Desktop CTA — Auth Aware */}
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-mint text-white text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
-            >
-              Get Started
-            </Link>
+            {isLoading ? (
+              /* Skeleton while checking auth */
+              <div className="w-28 h-10 rounded-xl bg-secondary animate-pulse" />
+            ) : user ? (
+              /* Logged in — show Dashboard button */
+              <Link
+                href="/dashboard"
+                className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-mint text-white text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </Link>
+            ) : (
+              /* Not logged in — show Login + Get Started */
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-mint text-white text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -109,18 +151,35 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="pt-4 border-t border-border space-y-3">
-                <Link
-                  href="/login"
-                  className="block text-center py-3 rounded-xl border border-border font-medium text-foreground"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/signup"
-                  className="block text-center py-3 rounded-xl bg-gradient-mint text-white font-semibold"
-                >
-                  Get Started
-                </Link>
+                {user ? (
+                  /* Logged in — show Dashboard */
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setIsMobileOpen(false)}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-mint text-white font-semibold"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </Link>
+                ) : (
+                  /* Not logged in — show Login + Get Started */
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="block text-center py-3 rounded-xl border border-border font-medium text-foreground"
+                    >
+                      Log in
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="block text-center py-3 rounded-xl bg-gradient-mint text-white font-semibold"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

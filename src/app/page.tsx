@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle,
@@ -18,10 +19,12 @@ import {
   Star,
   UserCheck,
   MousePointerClick,
+  LayoutDashboard,
 } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/marketing/navbar";
 import { Footer } from "@/components/marketing/footer";
+import { createClient } from "@/lib/supabase/client";
 
 /* ─── Animation Variants ─── */
 const fadeUp = {
@@ -38,7 +41,7 @@ const stagger = {
 };
 
 /* ─── HERO ─── */
-function Hero() {
+function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
       {/* Soft gradient background */}
@@ -97,19 +100,30 @@ function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Link
-            href="/signup"
+            href={isLoggedIn ? "/dashboard" : "/signup"}
             className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-mint text-white font-semibold text-lg glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Start Free
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            {isLoggedIn ? (
+              <>
+                <LayoutDashboard className="w-5 h-5" />
+                Go to Dashboard
+              </>
+            ) : (
+              <>
+                Start Free
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </Link>
-          <Link
-            href="#demo"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
-          >
-            See How It Works
-            <ChevronRight className="w-4 h-4" />
-          </Link>
+          {!isLoggedIn && (
+            <Link
+              href="#demo"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
+            >
+              See How It Works
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
         </motion.div>
 
         {/* Social proof */}
@@ -512,7 +526,7 @@ function Pricing() {
 }
 
 /* ─── CTA ─── */
-function FinalCTA() {
+function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <section className="relative py-24 md:py-32">
       <div className="absolute inset-0 bg-gradient-section" />
@@ -529,24 +543,34 @@ function FinalCTA() {
           variants={fadeUp}
           className="text-3xl md:text-5xl font-bold mb-6 text-foreground"
         >
-          Ready to Automate
+          {isLoggedIn ? "Welcome Back" : "Ready to Automate"}
           <br />
-          <span className="text-gradient">Your Instagram?</span>
+          <span className="text-gradient">{isLoggedIn ? "to ChirplyMint" : "Your Instagram?"}</span>
         </motion.h2>
         <motion.p
           variants={fadeUp}
           className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto"
         >
-          Join thousands of creators who save hours every week with ChirplyMint.
-          Start free — no credit card required.
+          {isLoggedIn
+            ? "Head to your dashboard to manage automations, track leads, and grow."
+            : "Join thousands of creators who save hours every week with ChirplyMint. Start free — no credit card required."}
         </motion.p>
         <motion.div variants={fadeUp}>
           <Link
-            href="/signup"
+            href={isLoggedIn ? "/dashboard" : "/signup"}
             className="group inline-flex items-center gap-2 px-10 py-5 rounded-2xl bg-gradient-mint text-white font-semibold text-lg glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Get Started — It&apos;s Free
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            {isLoggedIn ? (
+              <>
+                <LayoutDashboard className="w-5 h-5" />
+                Go to Dashboard
+              </>
+            ) : (
+              <>
+                Get Started — It&apos;s Free
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
           </Link>
         </motion.div>
       </motion.div>
@@ -556,14 +580,23 @@ function FinalCTA() {
 
 /* ─── PAGE ─── */
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
+
   return (
     <main className="relative overflow-hidden bg-background">
       <Navbar />
-      <Hero />
+      <Hero isLoggedIn={isLoggedIn} />
       <HowItWorks />
       <Features />
       <Pricing />
-      <FinalCTA />
+      <FinalCTA isLoggedIn={isLoggedIn} />
       <Footer />
     </main>
   );
