@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
+import { isUnlimitedDM } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { getInstagramConnection, disconnectInstagram } from "@/lib/actions/instagram";
 import { toast } from "sonner";
@@ -556,7 +557,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
         </div>
         <p className="text-sm text-foreground">
           <strong>
-            {profile?.dmCountThisMonth ?? 0} / {profile?.dmLimit === -1 ? "∞" : (profile?.dmLimit ?? 100)}
+            {profile?.dmCountThisMonth ?? 0} / {isUnlimitedDM(profile?.dmLimit) ? "∞" : (profile?.dmLimit ?? 100)}
           </strong>{" "}
           DMs used this month
         </p>

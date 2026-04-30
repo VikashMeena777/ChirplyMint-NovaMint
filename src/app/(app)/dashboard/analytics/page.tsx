@@ -128,32 +128,42 @@ export default async function AnalyticsPage() {
           <h2 className="text-lg font-semibold text-foreground mb-4">
             DMs Sent (Last 7 Days)
           </h2>
-          <div className="flex items-end gap-2 h-48">
-            {dailyDMs.map((day, i) => {
-              const height =
-                dmsSent > 0
-                  ? Math.max(8, (day.count / maxDM) * 100)
-                  : 8;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">
-                    {day.count > 0 ? day.count : ""}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/60%)] transition-all"
-                    style={{ height: `${height}%` }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {day.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {dmsSent === 0 && (
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              No data yet — start sending DMs to see your trends here.
-            </p>
+          {dmsSent === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <div className="w-12 h-12 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mb-3">
+                <MessageCircle className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+              </div>
+              <p className="text-sm font-medium text-foreground">No DMs sent yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Start sending DMs to see your trends here.</p>
+            </div>
+          ) : (
+            <div className="relative h-48">
+              {/* Gridlines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="border-t border-border/40 w-full" />
+                ))}
+              </div>
+              <div className="relative flex items-end gap-2 h-full">
+                {dailyDMs.map((day, i) => {
+                  const height = Math.max(6, (day.count / maxDM) * 100);
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
+                      <span className="text-xs font-semibold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                        {day.count}
+                      </span>
+                      <div
+                        className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/60%)] transition-all duration-500 group-hover:from-[oklch(0.55_0.2_162)] group-hover:to-[oklch(0.55_0.2_162/70%)]"
+                        style={{ height: `${height}%` }}
+                      />
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {day.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 
@@ -162,32 +172,42 @@ export default async function AnalyticsPage() {
           <h2 className="text-lg font-semibold text-foreground mb-4">
             Leads Captured (Last 7 Days)
           </h2>
-          <div className="flex items-end gap-2 h-48">
-            {dailyLeads.map((day, i) => {
-              const height =
-                leadsCount > 0
-                  ? Math.max(8, (day.count / maxLead) * 100)
-                  : 8;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">
-                    {day.count > 0 ? day.count : ""}
-                  </span>
-                  <div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.65_0.15_250)] to-[oklch(0.65_0.15_250/60%)] transition-all"
-                    style={{ height: `${height}%` }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {day.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {leadsCount === 0 && (
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              No leads captured yet — they&apos;ll appear once automations run.
-            </p>
+          {leadsCount === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <div className="w-12 h-12 rounded-full bg-[oklch(0.65_0.15_250/10%)] flex items-center justify-center mb-3">
+                <Users className="w-5 h-5 text-[oklch(0.65_0.15_250)]" />
+              </div>
+              <p className="text-sm font-medium text-foreground">No leads captured yet</p>
+              <p className="text-xs text-muted-foreground mt-1">They&apos;ll appear once automations run.</p>
+            </div>
+          ) : (
+            <div className="relative h-48">
+              {/* Gridlines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="border-t border-border/40 w-full" />
+                ))}
+              </div>
+              <div className="relative flex items-end gap-2 h-full">
+                {dailyLeads.map((day, i) => {
+                  const height = Math.max(6, (day.count / maxLead) * 100);
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
+                      <span className="text-xs font-semibold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                        {day.count}
+                      </span>
+                      <div
+                        className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.65_0.15_250)] to-[oklch(0.65_0.15_250/60%)] transition-all duration-500 group-hover:from-[oklch(0.68_0.16_250)] group-hover:to-[oklch(0.68_0.16_250/70%)]"
+                        style={{ height: `${height}%` }}
+                      />
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {day.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>

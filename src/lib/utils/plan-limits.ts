@@ -106,6 +106,16 @@ export const PLANS = {
 export type PlanKey = keyof typeof PLANS;
 
 /**
+ * Check if a DM limit value represents "unlimited".
+ * Treats -1, negative values, and absurdly large values (>=100000) as unlimited.
+ * This handles both the canonical -1 and legacy 999999 values from old DB records.
+ */
+export function isUnlimitedDM(limit: number | null | undefined): boolean {
+  if (limit == null) return false;
+  return limit < 0 || limit >= 100000;
+}
+
+/**
  * Check if the user can send more DMs this month.
  */
 export function canSendDM(
@@ -113,7 +123,7 @@ export function canSendDM(
   currentCount: number
 ): { allowed: boolean; limit: number; remaining: number } {
   const planConfig = PLANS[plan] || PLANS.free;
-  if (planConfig.dmLimit === -1) {
+  if (isUnlimitedDM(planConfig.dmLimit)) {
     return { allowed: true, limit: -1, remaining: -1 };
   }
   const remaining = Math.max(0, planConfig.dmLimit - currentCount);

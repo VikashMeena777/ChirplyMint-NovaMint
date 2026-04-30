@@ -338,29 +338,37 @@ export default async function InsightsPage() {
               </p>
             </div>
           ) : (
-            <div className="flex items-end gap-[2px] h-40">
-              {insights.dailyTrend.map((day, i) => {
-                const dmH = Math.max(4, (day.dms / maxTrendDM) * 100);
-                const leadH = Math.max(2, (day.leads / maxTrendLead) * 50);
-                return (
-                  <div
-                    key={i}
-                    className="flex-1 flex flex-col items-center gap-0.5"
-                    title={`${day.date}: ${day.dms} DMs, ${day.leads} leads`}
-                  >
+            <div className="relative h-40">
+              {/* Gridlines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="border-t border-border/30 w-full" />
+                ))}
+              </div>
+              <div className="relative flex items-end gap-[2px] h-full">
+                {insights.dailyTrend.map((day, i) => {
+                  const dmH = day.dms > 0 ? Math.max(6, (day.dms / maxTrendDM) * 100) : 2;
+                  const leadH = day.leads > 0 ? Math.max(4, (day.leads / maxTrendLead) * 50) : 0;
+                  return (
                     <div
-                      className="w-full rounded-t bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/50%)]"
-                      style={{ height: `${dmH}%` }}
-                    />
-                    {day.leads > 0 && (
+                      key={i}
+                      className="flex-1 flex flex-col items-center gap-0.5 group cursor-default"
+                      title={`${day.date}: ${day.dms} DMs, ${day.leads} leads`}
+                    >
                       <div
-                        className="w-full rounded-t bg-blue-400/60"
-                        style={{ height: `${leadH}%` }}
+                        className={`w-full rounded-t bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/50%)] transition-all duration-300 ${day.dms > 0 ? 'group-hover:from-[oklch(0.55_0.2_162)] group-hover:to-[oklch(0.55_0.2_162/60%)]' : 'opacity-20'}`}
+                        style={{ height: `${dmH}%` }}
                       />
-                    )}
-                  </div>
-                );
-              })}
+                      {day.leads > 0 && (
+                        <div
+                          className="w-full rounded-t bg-blue-400/60 transition-all duration-300 group-hover:bg-blue-400/80"
+                          style={{ height: `${leadH}%` }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 

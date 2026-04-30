@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { isUnlimitedDM } from "@/lib/utils/plan-limits";
 
 /**
  * Client component that wraps dashboard stat cards with staggered fade-in animations
@@ -69,7 +70,7 @@ export function AnimatedPlanCard({
   dmsSent: number;
   dmLimit: number;
 }) {
-  const isUnlimited = dmLimit === -1;
+  const isUnlimited = isUnlimitedDM(dmLimit);
   const progressPercent = isUnlimited
     ? Math.min((dmsSent / 5000) * 100, 100) // visual cap for unlimited
     : Math.min((dmsSent / dmLimit) * 100, 100);

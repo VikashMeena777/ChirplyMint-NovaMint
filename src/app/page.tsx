@@ -19,14 +19,13 @@ import {
   Star,
   UserCheck,
   MousePointerClick,
-  LayoutDashboard,
 } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/marketing/navbar";
 import { Footer } from "@/components/marketing/footer";
 import { LiveActivityFeed } from "@/components/marketing/live-activity-feed";
 import { getLiveFeedItems } from "@/lib/actions/live-feed";
-import { createClient } from "@/lib/supabase/client";
+
 
 /* ─── Animation Variants ─── */
 const fadeUp = {
@@ -43,7 +42,7 @@ const stagger = {
 };
 
 /* ─── HERO ─── */
-function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
+function Hero() {
   return (
     <section className="relative min-h-[92vh] flex items-center justify-center overflow-hidden">
       {/* Soft gradient background */}
@@ -102,30 +101,19 @@ function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Link
-            href={isLoggedIn ? "/dashboard" : "/signup"}
+            href="/signup"
             className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-mint text-white font-semibold text-base glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            {isLoggedIn ? (
-              <>
-                <LayoutDashboard className="w-5 h-5" />
-                Go to Dashboard
-              </>
-            ) : (
-              <>
-                Start Free
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </>
-            )}
+            Start Free
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
-          {!isLoggedIn && (
-            <Link
-              href="#demo"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
-            >
-              See How It Works
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-          )}
+          <Link
+            href="#demo"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
+          >
+            See How It Works
+            <ChevronRight className="w-4 h-4" />
+          </Link>
         </motion.div>
 
         {/* Social proof */}
@@ -258,56 +246,48 @@ function Features() {
       title: "Smart Comment Triggers",
       description:
         "Set keywords on any post or reel. When someone comments that word, they instantly get your content via DM.",
-      highlight: true,
     },
     {
       icon: Bot,
       title: "AI Persona Engine",
       description:
         "Create custom AI personalities for your brand. Your AI remembers past chats and replies in your unique voice.",
-      highlight: false,
     },
     {
       icon: UserCheck,
       title: "Follow-Check Gating",
       description:
         "Require users to follow your account before receiving a DM. Grow your followers while delivering value.",
-      highlight: true,
     },
     {
       icon: MousePointerClick,
       title: "Interactive Button DMs",
       description:
         "Send rich button templates — URL links and postback buttons — directly in DMs for higher engagement.",
-      highlight: false,
     },
     {
       icon: Zap,
       title: "Postback Flow Builder",
       description:
         "Build multi-step interactive funnels. When users tap a button, trigger follow-up messages, tag leads, and more.",
-      highlight: true,
     },
     {
       icon: Users,
       title: "Lead Capture & Tagging",
       description:
         "Automatically capture leads from DM interactions. Tag and segment them based on button clicks and behavior.",
-      highlight: false,
     },
     {
       icon: BarChart3,
       title: "Real-Time Analytics",
       description:
         "Track DMs sent, comment replies, lead conversions, and top-performing posts — all in one dashboard.",
-      highlight: false,
     },
     {
       icon: Shield,
       title: "100% Meta Compliant",
       description:
         "Built on the official Instagram API. No shadow bans, no account risks. Fully reviewed and approved by Meta.",
-      highlight: false,
     },
   ];
 
@@ -352,11 +332,7 @@ function Features() {
               key={feature.title}
               custom={i}
               variants={fadeUp}
-              className={`group relative p-8 rounded-2xl transition-all duration-300 hover:border-mint/60 hover:shadow-[0_0_24px_oklch(0.52_0.19_162/15%)] hover:-translate-y-1 ${
-                feature.highlight
-                  ? "card-highlight"
-                  : "card-elevated-hover"
-              }`}
+              className="group relative p-8 rounded-2xl card-elevated-hover transition-all duration-300 hover:border-mint/60 hover:shadow-[0_0_24px_oklch(0.52_0.19_162/15%)] hover:-translate-y-1"
             >
               <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center mb-5 group-hover:bg-mint/15 transition-colors">
                 <feature.icon className="w-6 h-6 text-mint" />
@@ -546,7 +522,7 @@ function Pricing() {
 }
 
 /* ─── CTA ─── */
-function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
+function FinalCTA() {
   return (
     <section className="relative py-24 md:py-32">
       <div className="absolute inset-0 bg-gradient-section" />
@@ -563,34 +539,23 @@ function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
           variants={fadeUp}
           className="text-3xl md:text-5xl font-bold mb-6 text-foreground"
         >
-          {isLoggedIn ? "Welcome Back" : "Ready to Automate"}
+          Ready to Automate
           <br />
-          <span className="text-gradient">{isLoggedIn ? "to ChirplyMint" : "Your Instagram?"}</span>
+          <span className="text-gradient">Your Instagram?</span>
         </motion.h2>
         <motion.p
           variants={fadeUp}
           className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto"
         >
-          {isLoggedIn
-            ? "Head to your dashboard to manage automations, track leads, and grow."
-            : "Join thousands of creators who save hours every week with ChirplyMint. Start free — no credit card required."}
+          Join thousands of creators who save hours every week with ChirplyMint. Start free — no credit card required.
         </motion.p>
         <motion.div variants={fadeUp}>
           <Link
-            href={isLoggedIn ? "/dashboard" : "/signup"}
+            href="/signup"
             className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-mint text-white font-semibold text-base glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            {isLoggedIn ? (
-              <>
-                <LayoutDashboard className="w-5 h-5" />
-                Go to Dashboard
-              </>
-            ) : (
-              <>
-                Get Started — It&apos;s Free
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-              </>
-            )}
+            Get Started — It&apos;s Free
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
       </motion.div>
@@ -600,17 +565,11 @@ function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
 
 /* ─── PAGE ─── */
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [feedItems, setFeedItems] = useState<
     { id: string; detail: string; timeAgo: string }[]
   >([]);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsLoggedIn(!!user);
-    });
-
     // Fetch live feed data
     getLiveFeedItems(12).then((items) => {
       setFeedItems(items);
@@ -620,11 +579,11 @@ export default function Home() {
   return (
     <main className="relative overflow-hidden bg-background">
       <Navbar />
-      <Hero isLoggedIn={isLoggedIn} />
+      <Hero />
       <HowItWorks />
       <Features />
       <Pricing />
-      <FinalCTA isLoggedIn={isLoggedIn} />
+      <FinalCTA />
       <Footer />
       {feedItems.length > 0 && <LiveActivityFeed initialItems={feedItems} />}
     </main>
