@@ -103,7 +103,7 @@ function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
         >
           <Link
             href={isLoggedIn ? "/dashboard" : "/signup"}
-            className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-mint text-white font-semibold text-lg glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-mint text-white font-semibold text-base glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             {isLoggedIn ? (
               <>
@@ -120,7 +120,7 @@ function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
           {!isLoggedIn && (
             <Link
               href="#demo"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl border border-border bg-card font-medium text-foreground transition-all hover:border-mint/30 hover:shadow-md"
             >
               See How It Works
               <ChevronRight className="w-4 h-4" />
@@ -352,7 +352,7 @@ function Features() {
               key={feature.title}
               custom={i}
               variants={fadeUp}
-              className={`group relative p-8 rounded-2xl transition-all duration-300 hover:ring-2 hover:ring-mint/50 ${
+              className={`group relative p-8 rounded-2xl transition-all duration-300 hover:border-mint/60 hover:shadow-[0_0_24px_oklch(0.52_0.19_162/15%)] hover:-translate-y-1 ${
                 feature.highlight
                   ? "card-highlight"
                   : "card-elevated-hover"
@@ -578,7 +578,7 @@ function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
         <motion.div variants={fadeUp}>
           <Link
             href={isLoggedIn ? "/dashboard" : "/signup"}
-            className="group inline-flex items-center gap-2 px-10 py-5 rounded-2xl bg-gradient-mint text-white font-semibold text-lg glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-mint text-white font-semibold text-base glow-mint transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             {isLoggedIn ? (
               <>

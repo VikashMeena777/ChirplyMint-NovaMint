@@ -326,8 +326,20 @@ export default function LeadsPage() {
       {/* Table */}
       <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="divide-y divide-border animate-pulse">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 p-4">
+                <div className="w-10 h-10 rounded-full bg-muted/50 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 rounded bg-muted/50" />
+                  <div className="h-3 w-48 rounded bg-muted/30" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-16 h-6 rounded-full bg-muted/40" />
+                  <div className="w-8 h-8 rounded-lg bg-muted/30" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : leads.length === 0 ? (
           <div className="p-12 text-center">

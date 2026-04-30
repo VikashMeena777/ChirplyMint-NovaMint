@@ -10,8 +10,8 @@ import {
   AlertTriangle,
   Users,
   Sparkles,
-  Loader2,
 } from "lucide-react";
+import { NotificationsSkeleton } from "@/components/ui/page-skeleton";
 import {
   getNotifications,
   markAsRead,
@@ -99,11 +99,7 @@ export default function NotificationsPage() {
   const grouped = groupByDate(notifications);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <NotificationsSkeleton />;
   }
 
   return (

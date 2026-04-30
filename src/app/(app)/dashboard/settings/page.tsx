@@ -386,8 +386,17 @@ function InstagramConnectionTab() {
 
   if (igState.loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      <div className="space-y-4 max-w-md animate-pulse">
+        <div className="rounded-xl border border-border p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-muted/50" />
+            <div className="space-y-2">
+              <div className="h-4 w-32 rounded bg-muted/50" />
+              <div className="h-3 w-48 rounded bg-muted/30" />
+            </div>
+          </div>
+          <div className="h-10 w-full rounded-xl bg-muted/40" />
+        </div>
       </div>
     );
   }
