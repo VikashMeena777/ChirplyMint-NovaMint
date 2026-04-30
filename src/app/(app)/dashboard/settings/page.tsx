@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { SettingsSkeleton } from "@/components/ui/page-skeleton";
 import {
   User,
   Link2,
@@ -131,11 +132,7 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (
@@ -271,7 +268,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "notifications" && (
-          <div className="space-y-4 max-w-md">
+          <div className="space-y-2 max-w-md">
             {[
               {
                 key: "dm_delivery_alerts",
@@ -296,20 +293,32 @@ export default function SettingsPage() {
             ].map((item) => (
               <label
                 key={item.key}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer"
+                className="flex items-center justify-between p-4 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer group"
               >
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">
                     {item.title}
                   </p>
-                  <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={notifPrefs[item.key] ?? false}
-                  onChange={(e) => handleToggleNotif(item.key, e.target.checked)}
-                  className="w-5 h-5 rounded border-border text-[oklch(0.52_0.19_162)] focus:ring-[oklch(0.52_0.19_162)] cursor-pointer"
-                />
+                {/* Premium toggle switch */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={notifPrefs[item.key] ?? false}
+                  onClick={() => handleToggleNotif(item.key, !(notifPrefs[item.key] ?? false))}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.52_0.19_162)] focus-visible:ring-offset-2 ${
+                    notifPrefs[item.key]
+                      ? "bg-[oklch(0.52_0.19_162)]"
+                      : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ease-in-out ${
+                      notifPrefs[item.key] ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </label>
             ))}
           </div>
@@ -357,6 +366,7 @@ function InstagramConnectionTab() {
         no_instagram_business: "No Instagram Business account found on that page.",
         save_failed: "Failed to save connection. Try again.",
         oauth_failed: "OAuth error. Please try again.",
+        ig_already_linked: "This Instagram account is already connected to another ChirplyMint account. Disconnect it there first.",
       };
       toast.error(messages[error] || "Connection failed.");
     }
@@ -448,24 +458,34 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     {
       key: "pro",
       plan: "Pro",
-      price: "₹999/mo",
+      price: "₹499/mo",
       features: [
-        "1,000 DMs/month",
-        "3 Automations",
+        "2,000 DMs/month",
+        "10 Automations",
+        "5 Drip Steps",
         "AI Smart Replies",
-        "Priority Support",
+        "A/B Testing",
+        "Lead Export (CSV)",
+        "Priority Email Support",
       ],
     },
     {
       key: "business",
       plan: "Business",
-      price: "₹2,499/mo",
+      price: "₹1,499/mo",
       features: [
         "Unlimited DMs",
         "Unlimited Automations",
+        "10 Drip Steps",
         "Advanced AI",
-        "Team Access",
+        "Full Analytics & Export",
+        "Dedicated Support (WhatsApp)",
+      ],
+      comingSoon: [
+        "Multi IG Account Connect",
+        "Team Members",
         "API Access",
+        "White-Label",
       ],
     },
   ];
@@ -554,6 +574,16 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
                   >
                     <Check className="w-3.5 h-3.5 text-[oklch(0.52_0.19_162)]" />
                     {f}
+                  </li>
+                ))}
+                {(tier as { comingSoon?: string[] }).comingSoon?.map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-center gap-2 text-sm text-muted-foreground/60"
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center text-[8px]">⏳</span>
+                    {f}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">Soon</span>
                   </li>
                 ))}
               </ul>

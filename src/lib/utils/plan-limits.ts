@@ -1,55 +1,105 @@
 /**
  * Plan definitions and limit enforcement for ChirplyMint.
+ * ⚡ This is the SINGLE SOURCE OF TRUTH for all pricing data.
+ * All pricing surfaces (homepage, /pricing, settings billing, cashfree) read from here.
  */
 
 export const PLANS = {
   free: {
     name: "Starter",
     price: 0,
-    dmLimit: 100,
+    dmLimit: 50,
     automationLimit: 1,
     dripStepLimit: 2,
+    igAccountLimit: 1,
+    bioLinkLimit: 5,
+    /** Free plan forces require_follow = true (followers only). Cannot be toggled off. */
+    followCheckConfigurable: false,
     features: [
-      "100 DMs/month",
+      "50 DMs/month",
       "1 Automation",
       "2 Drip Steps",
+      "1 Instagram Account",
+      "Comment Auto-Reply",
+      "Story Reply Triggers",
+      "Text & Button DM Templates",
+      "Comment Reply Templates",
+      "Follow-Check (Followers Only)",
+      "Link-in-Bio (5 links)",
       "Basic Analytics",
       "Community Support",
+    ],
+    /** Features NOT available on this plan */
+    excluded: [
+      "AI Smart Replies",
+      "AI FAQ Knowledge Base",
+      "Postback Flow Builder",
+      "A/B Testing",
+      "Lead Capture & Tagging",
+      "Lead Export (CSV)",
+      "Advanced Analytics",
     ],
   },
   pro: {
     name: "Pro",
-    price: 999,
-    dmLimit: 1000,
-    automationLimit: 3,
+    price: 499,
+    dmLimit: 2000,
+    automationLimit: 10,
     dripStepLimit: 5,
+    igAccountLimit: 3,
+    bioLinkLimit: -1, // unlimited
+    /** Pro plan can toggle follow-check on/off */
+    followCheckConfigurable: true,
     features: [
-      "1,000 DMs/month",
-      "3 Automations",
+      "2,000 DMs/month",
+      "10 Automations",
       "5 Drip Steps",
+      "3 Instagram Accounts",
+      "Everything in Starter",
       "AI Smart Replies",
+      "AI FAQ Knowledge Base",
+      "Interactive Button DMs",
+      "Follow-Check (Configurable)",
+      "Postback Flow Builder",
       "A/B Testing",
-      "Advanced Analytics",
-      "Lead Export (CSV + Webhook)",
-      "Priority Support",
+      "Lead Capture & Tagging",
+      "Lead Export (CSV)",
+      "Comment Reply Templates",
+      "Link-in-Bio (Unlimited)",
+      "Advanced Analytics & Insights",
+      "Priority Email Support",
     ],
+    excluded: [],
   },
   business: {
     name: "Business",
-    price: 2499,
+    price: 1499,
     dmLimit: -1, // unlimited
     automationLimit: -1, // unlimited
     dripStepLimit: 10,
+    igAccountLimit: 10,
+    bioLinkLimit: -1, // unlimited
+    /** Business plan can toggle follow-check on/off */
+    followCheckConfigurable: true,
     features: [
       "Unlimited DMs",
       "Unlimited Automations",
       "10 Drip Steps",
-      "Advanced AI",
-      "Team Access",
-      "API Access",
-      "Custom Branding",
-      "Dedicated Support",
+      "10 Instagram Accounts",
+      "Everything in Pro",
+      "Advanced AI (longer context)",
+      "Multi-Step DM Funnels",
+      "Full Analytics & Export",
+      "Dedicated Support (WhatsApp)",
     ],
+    comingSoon: [
+      "Multi IG Account Connect",
+      "Team Members",
+      "API Access",
+      "Custom Branding / White-Label",
+      "Webhook Lead Export",
+    ],
+    excluded: [],
   },
 } as const;
 
@@ -120,3 +170,19 @@ export function hasFeature(plan: PlanKey, feature: string): boolean {
   );
 }
 
+/**
+ * Check if the user's plan allows configuring follow-check gating.
+ * Free plan: require_follow is ALWAYS true (forced on).
+ * Pro+: User can toggle require_follow on/off.
+ */
+export function canConfigureFollowCheck(plan: PlanKey): boolean {
+  const planConfig = PLANS[plan] || PLANS.free;
+  return planConfig.followCheckConfigurable;
+}
+
+/**
+ * Format limit for display — converts -1 to "∞"
+ */
+export function formatLimit(limit: number): string {
+  return limit === -1 ? "∞" : String(limit);
+}

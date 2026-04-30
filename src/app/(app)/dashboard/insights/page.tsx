@@ -11,6 +11,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { getAudienceInsights } from "@/lib/actions/insights";
+import { FadeInSection, AnimatedBar } from "@/components/dashboard/animated-insights";
 
 export default async function InsightsPage() {
   const insights = await getAudienceInsights();
@@ -37,7 +38,7 @@ export default async function InsightsPage() {
       </div>
 
       {/* Summary Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <FadeInSection delay={100} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             label: "Total DMs Sent",
@@ -80,10 +81,10 @@ export default async function InsightsPage() {
             <p className="text-sm text-muted-foreground">{stat.label}</p>
           </div>
         ))}
-      </div>
+      </FadeInSection>
 
       {/* Grid: Peak Hours + Top Keywords */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <FadeInSection delay={300} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Peak Hours Heatmap */}
         <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
@@ -176,9 +177,10 @@ export default async function InsightsPage() {
                         </div>
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-muted/50">
-                        <div
+                      <AnimatedBar
+                          width={`${barWidth}%`}
                           className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-500"
-                          style={{ width: `${barWidth}%` }}
+                          delay={i * 80}
                         />
                       </div>
                     </div>
@@ -188,10 +190,10 @@ export default async function InsightsPage() {
             </div>
           )}
         </div>
-      </div>
+      </FadeInSection>
 
       {/* Engagement Leaderboard */}
-      <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
+      <FadeInSection delay={500} className="rounded-2xl bg-card border border-border p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <Crown className="w-5 h-5 text-amber-500" />
           Top Engagers
@@ -262,10 +264,10 @@ export default async function InsightsPage() {
             ))}
           </div>
         )}
-      </div>
+      </FadeInSection>
 
       {/* Source Breakdown + 30-Day Trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <FadeInSection delay={700} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Source Breakdown */}
         <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
@@ -305,9 +307,10 @@ export default async function InsightsPage() {
                         </span>
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-muted/50 mt-1">
-                        <div
+                        <AnimatedBar
+                          width={`${src.percentage}%`}
                           className={`h-full rounded-full ${colors[i % colors.length]}`}
-                          style={{ width: `${src.percentage}%` }}
+                          delay={i * 100}
                         />
                       </div>
                     </div>
@@ -373,7 +376,7 @@ export default async function InsightsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </FadeInSection>
     </div>
   );
 }

@@ -137,8 +137,29 @@ export async function GET(request: NextRequest) {
     console.log(`[IG OAuth] Connected: @${igUsername} (${igName})`);
     console.log(`[IG OAuth] App-scoped ID: ${igUserId}, Professional Account ID: ${igProfessionalId}`);
 
-    // ── Step 4: Save to user_settings ────────────────────────────────
+    // ── Step 4: Prevent cross-account IG linking ──────────────────────
+    // Check if this IG account is already connected by ANOTHER user
     const supabase = await createClient();
+    const { data: existingAccount } = await supabase
+      .from("instagram_accounts")
+      .select("user_id, ig_username")
+      .eq("ig_user_id", igProfessionalId)
+      .neq("user_id", state)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (existingAccount) {
+      console.error(
+        `[IG OAuth] ❌ IG account @${igUsername} (${igProfessionalId}) is already connected to user ${existingAccount.user_id}`
+      );
+      return NextResponse.redirect(
+        `${APP_URL}/dashboard/settings?error=ig_already_linked&detail=${encodeURIComponent(
+          `@${igUsername} is already connected to another ChirplyMint account. Disconnect it there first.`
+        )}`
+      );
+    }
+
+    // ── Step 5: Save to user_settings ────────────────────────────────
     const { error: dbError } = await supabase.from("user_settings").upsert(
       {
         user_id: state,

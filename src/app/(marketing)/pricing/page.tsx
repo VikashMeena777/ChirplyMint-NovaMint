@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, Zap, Crown, Building2 } from "lucide-react";
+import { Check, X, Zap, Crown, Building2, Clock } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Pricing — ChirplyMint",
@@ -19,54 +19,75 @@ const plans = [
     href: "/signup",
     featured: false,
     features: [
-      { text: "1 active automation", included: true },
-      { text: "100 DMs / month", included: true },
-      { text: "Basic analytics", included: true },
-      { text: "Lead capture", included: true },
+      { text: "50 DMs / month", included: true },
+      { text: "1 Automation", included: true },
+      { text: "2 Drip Steps", included: true },
+      { text: "1 Instagram Account", included: true },
+      { text: "Comment Auto-Reply", included: true },
+      { text: "Story Reply Triggers", included: true },
+      { text: "Text & Button DM Templates", included: true },
+      { text: "Follow-Check (Followers Only)", included: true },
+      { text: "Link-in-Bio (5 links)", included: true },
+      { text: "Basic Analytics", included: true },
+      { text: "Community Support", included: true },
       { text: "AI Smart Replies", included: false },
-      { text: "Weekly reports", included: false },
-      { text: "Priority support", included: false },
-      { text: "Custom branding", included: false },
+      { text: "Lead Capture & Export", included: false },
+      { text: "A/B Testing", included: false },
     ],
   },
   {
     name: "Pro",
     icon: Crown,
-    price: "₹999",
+    price: "₹499",
     period: "/month",
     description: "For creators who mean business",
     cta: "Upgrade to Pro",
     href: "/signup",
     featured: true,
     features: [
-      { text: "3 automations", included: true },
-      { text: "1,000 DMs / month", included: true },
-      { text: "Advanced analytics", included: true },
-      { text: "Lead capture + CSV export", included: true },
+      { text: "2,000 DMs / month", included: true },
+      { text: "10 Automations", included: true },
+      { text: "5 Drip Steps", included: true },
+      { text: "3 Instagram Accounts", included: true },
+      { text: "Everything in Starter", included: true },
       { text: "AI Smart Replies", included: true },
-      { text: "Weekly performance reports", included: true },
-      { text: "Priority support", included: true },
-      { text: "Custom branding", included: false },
+      { text: "AI FAQ Knowledge Base", included: true },
+      { text: "Postback Flow Builder", included: true },
+      { text: "A/B Testing", included: true },
+      { text: "Lead Capture & Tagging", included: true },
+      { text: "Lead Export (CSV)", included: true },
+      { text: "Follow-Check (Configurable)", included: true },
+      { text: "Link-in-Bio (Unlimited)", included: true },
+      { text: "Advanced Analytics & Insights", included: true },
+      { text: "Priority Email Support", included: true },
     ],
   },
   {
     name: "Business",
     icon: Building2,
-    price: "₹2,499",
+    price: "₹1,499",
     period: "/month",
     description: "For teams and agencies",
     cta: "Upgrade to Business",
     href: "/signup",
     featured: false,
     features: [
-      { text: "Everything in Pro", included: true },
       { text: "Unlimited DMs", included: true },
-      { text: "Unlimited automations", included: true },
-      { text: "API access", included: true },
-      { text: "AI Smart Replies", included: true },
-      { text: "Team access", included: true },
-      { text: "Dedicated support", included: true },
-      { text: "Custom branding & white-label", included: true },
+      { text: "Unlimited Automations", included: true },
+      { text: "10 Drip Steps", included: true },
+      { text: "10 Instagram Accounts", included: true },
+      { text: "Everything in Pro", included: true },
+      { text: "Advanced AI (Longer Context)", included: true },
+      { text: "Multi-Step DM Funnels", included: true },
+      { text: "Full Analytics & Export", included: true },
+      { text: "Dedicated Support (WhatsApp)", included: true },
+    ],
+    comingSoon: [
+      "Multi IG Account Connect",
+      "Team Members",
+      "API Access",
+      "Custom Branding / White-Label",
+      "Webhook Lead Export",
     ],
   },
 ];
@@ -152,6 +173,17 @@ export default function PricingPage() {
                       }`}
                     >
                       {f.text}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Coming Soon features */}
+                {"comingSoon" in plan && (plan as typeof plans[2]).comingSoon?.map((f) => (
+                  <div key={f} className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-amber-500/60 shrink-0" />
+                    <span className="text-sm text-muted-foreground/60">{f}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium leading-none">
+                      Soon
                     </span>
                   </div>
                 ))}

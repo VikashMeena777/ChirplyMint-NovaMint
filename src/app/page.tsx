@@ -352,7 +352,7 @@ function Features() {
               key={feature.title}
               custom={i}
               variants={fadeUp}
-              className={`group relative p-8 rounded-2xl transition-all duration-300 ${
+              className={`group relative p-8 rounded-2xl transition-all duration-300 hover:ring-2 hover:ring-mint/50 ${
                 feature.highlight
                   ? "card-highlight"
                   : "card-elevated-hover"
@@ -380,54 +380,63 @@ function Pricing() {
       name: "Starter",
       price: "Free",
       period: "",
-      description: "Perfect for trying out DM automation",
+      description: "Perfect for testing the waters",
       features: [
-        "1 Instagram account",
-        "100 DMs per month",
-        "3 automation rules",
-        "Comment auto-reply",
-        "Basic AI responses",
-        "Email support",
+        "1 Instagram Account",
+        "50 DMs / month",
+        "1 Automation",
+        "Comment Auto-Reply",
+        "Story Reply Triggers",
+        "Text & Button DM Templates",
+        "Follow-Check (Followers Only)",
+        "Basic Analytics",
       ],
+      comingSoon: [] as string[],
       cta: "Start Free",
       highlight: false,
     },
     {
       name: "Pro",
-      price: "₹999",
+      price: "₹499",
       period: "/month",
-      description: "For creators who are serious about growth",
+      description: "For creators who mean business",
       features: [
-        "3 Instagram accounts",
-        "Unlimited DMs",
-        "Unlimited automation rules",
-        "Follow-check gating",
-        "Interactive button templates",
-        "AI persona customization",
-        "Lead capture & tagging",
-        "Analytics dashboard",
-        "Priority support",
+        "3 Instagram Accounts",
+        "2,000 DMs / month",
+        "10 Automations",
+        "Everything in Starter",
+        "AI Smart Replies",
+        "Postback Flow Builder",
+        "A/B Testing",
+        "Lead Capture & Export",
+        "Advanced Analytics",
+        "Priority Email Support",
       ],
-      cta: "Start Pro Trial",
+      comingSoon: [] as string[],
+      cta: "Upgrade to Pro",
       highlight: true,
     },
     {
       name: "Business",
-      price: "₹2,999",
+      price: "₹1,499",
       period: "/month",
-      description: "For agencies and large accounts",
+      description: "For teams and agencies",
       features: [
-        "10 Instagram accounts",
-        "Unlimited everything",
-        "Postback flow builder",
-        "Multi-step DM funnels",
-        "Custom AI personas",
-        "Team members",
-        "API access",
-        "White-label option",
-        "Dedicated support",
+        "10 Instagram Accounts",
+        "Unlimited DMs",
+        "Unlimited Automations",
+        "Everything in Pro",
+        "Advanced AI",
+        "Multi-Step DM Funnels",
+        "Dedicated WhatsApp Support",
       ],
-      cta: "Contact Us",
+      comingSoon: [
+        "Multi IG Account Connect",
+        "Team Members",
+        "API Access",
+        "White-Label",
+      ],
+      cta: "Upgrade to Business",
       highlight: false,
     },
   ];
@@ -499,7 +508,7 @@ function Pricing() {
               </div>
 
               <Link
-                href={plan.cta === "Contact Us" ? "/contact" : "/signup"}
+                href="/signup"
                 className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
                   plan.highlight
                     ? "bg-gradient-mint text-white glow-mint hover:scale-[1.02]"
@@ -516,6 +525,15 @@ function Pricing() {
                       <Check className="w-3 h-3 text-mint" />
                     </div>
                     <span className="text-muted-foreground">{feature}</span>
+                  </li>
+                ))}
+                {plan.comingSoon.map((feature) => (
+                  <li key={feature} className="flex items-center gap-3 text-sm">
+                    <div className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0">
+                      <Clock className="w-3 h-3 text-amber-500/60" />
+                    </div>
+                    <span className="text-muted-foreground/60">{feature}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium leading-none">Soon</span>
                   </li>
                 ))}
               </ul>

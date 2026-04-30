@@ -66,7 +66,7 @@ export async function POST(request: Request) {
           .from("profiles")
           .update({
             plan,
-            dm_limit: planConfig.dmLimit === -1 ? 999999 : planConfig.dmLimit,
+            dm_limit: planConfig.dmLimit,
             updated_at: new Date().toISOString(),
           })
           .eq("id", order.user_id);

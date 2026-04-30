@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import {
   Bot,
   Plus,
@@ -50,6 +50,9 @@ import { getPostbackFlows, savePostbackFlows, type PostbackFlow } from "@/lib/ac
 import { toast } from "sonner";
 import { DMPreview } from "@/components/dm-preview";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
+import { AutomationCardSkeleton } from "@/components/ui/page-skeleton";
+import { getProfile } from "@/lib/actions/dashboard";
+import { canConfigureFollowCheck, type PlanKey } from "@/lib/utils/plan-limits";
 
 interface Automation {
   id: string;
@@ -165,12 +168,48 @@ const PRESET_TEMPLATES = [
   },
 ];
 
+// ── Collapsible Drip Sequence Builder (Bug #8) ──
+function DripToggle({ automationId, userPlan }: { automationId: string; userPlan: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-4 pt-4 border-t border-border">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+      >
+        <ChevronRight
+          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+        />
+        <GitBranch className="w-4 h-4" />
+        Drip Sequence
+        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          {open ? "collapse" : "expand"}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "2000px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="pt-3">
+          <DripSequenceBuilder automationId={automationId} userPlan={userPlan as "free" | "starter" | "pro" | "business"} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const [userPlan, setUserPlan] = useState<PlanKey>("free");
+  const canToggleFollow = canConfigureFollowCheck(userPlan);
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -193,12 +232,13 @@ export default function AutomationsPage() {
     scope_type: "account" as "account" | "media",
     content_type: "all" as "all" | "reel" | "post",
     media_id: "",
+    media_ids: [] as string[],
     post_url: "",
     ai_enabled: false,
     ai_persona: "",
     comment_reply_enabled: false,
     comment_reply_template: "",
-    require_follow: false,
+    require_follow: true, // Default ON — free users can't change this
     template_type: "text" as "text" | "button",
     template_title: "",
     template_subtitle: "",
@@ -242,6 +282,17 @@ export default function AutomationsPage() {
 
   useEffect(() => {
     loadAutomations();
+    // Load user plan for feature gating
+    getProfile().then((profile) => {
+      if (profile) {
+        const plan = (profile.plan || "free") as PlanKey;
+        setUserPlan(plan);
+        // Free users: force require_follow = true
+        if (!canConfigureFollowCheck(plan)) {
+          setFormData((f) => ({ ...f, require_follow: true }));
+        }
+      }
+    });
   }, []);
 
   async function loadAutomations() {
@@ -312,6 +363,7 @@ export default function AutomationsPage() {
       scope_type: "account",
       content_type: "all",
       media_id: "",
+      media_ids: [],
       post_url: "",
       ai_enabled: false,
       ai_persona: "",
@@ -378,7 +430,7 @@ export default function AutomationsPage() {
       return (
         formData.name.trim().length > 0 &&
         formData.keyword.trim().length > 0 &&
-        (formData.scope_type === "account" || formData.media_id.length > 0)
+        (formData.scope_type === "account" || formData.media_id.length > 0 || formData.media_ids.length > 0)
       );
     }
     if (step === 2) {
@@ -407,7 +459,7 @@ export default function AutomationsPage() {
     fd.set("dm_template", formData.dm_template);
     fd.set("scope_type", formData.scope_type);
     fd.set("content_type", formData.content_type);
-    fd.set("media_id", formData.media_id);
+    fd.set("media_id", formData.media_ids.length > 0 ? formData.media_ids.join(",") : formData.media_id);
     fd.set("post_url", formData.post_url);
     fd.set("ai_enabled", formData.ai_enabled ? "true" : "false");
     fd.set("ai_persona", formData.ai_persona);
@@ -519,8 +571,10 @@ export default function AutomationsPage() {
 
       {/* Automation Cards */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <div className="grid gap-4">
+          {[1, 2, 3].map((i) => (
+            <AutomationCardSkeleton key={i} />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl bg-card border border-border p-12 text-center">
@@ -655,10 +709,8 @@ export default function AutomationsPage() {
                 </div>
               </div>
 
-              {/* Drip Sequence Builder (inline) */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <DripSequenceBuilder automationId={a.id} userPlan="starter" />
-              </div>
+              {/* Drip Sequence Builder (collapsible) */}
+              <DripToggle automationId={a.id} userPlan={userPlan} />
             </div>
           ))}
         </div>
@@ -985,7 +1037,7 @@ export default function AutomationsPage() {
                   {formData.scope_type === "media" && formData.trigger_type !== "story_reply" && (
                     <div className="space-y-3">
                       <label className="text-sm font-medium text-foreground">
-                        Select a Post
+                        Select Posts {formData.media_ids.length > 0 && <span className="text-xs font-normal text-[oklch(0.52_0.19_162)] ml-1">({formData.media_ids.length} selected)</span>}
                       </label>
 
                       {/* ── URL Input for older posts ── */}
@@ -1038,14 +1090,20 @@ export default function AutomationsPage() {
                                 type="button"
                                 key={post.id}
                                 onClick={() =>
-                                  setFormData((f) => ({
-                                    ...f,
-                                    media_id: post.id,
-                                    post_url: post.permalink,
-                                  }))
+                                  setFormData((f) => {
+                                    const ids = f.media_ids.includes(post.id)
+                                      ? f.media_ids.filter((id) => id !== post.id)
+                                      : [...f.media_ids, post.id];
+                                    return {
+                                      ...f,
+                                      media_ids: ids,
+                                      media_id: ids[0] || "",
+                                      post_url: post.permalink,
+                                    };
+                                  })
                                 }
                                 className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all group ${
-                                  formData.media_id === post.id
+                                  formData.media_ids.includes(post.id)
                                     ? "border-[oklch(0.52_0.19_162)] ring-2 ring-[oklch(0.52_0.19_162/30%)]"
                                     : "border-transparent hover:border-muted-foreground/30"
                                 }`}
@@ -1065,7 +1123,7 @@ export default function AutomationsPage() {
                                     <Film className="w-3 h-3 text-white" />
                                   </div>
                                 )}
-                                {formData.media_id === post.id && (
+                                {formData.media_ids.includes(post.id) && (
                                   <div className="absolute inset-0 bg-[oklch(0.52_0.19_162/20%)] flex items-center justify-center">
                                     <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162)] flex items-center justify-center">
                                       <Check className="w-4 h-4 text-white" />
@@ -1413,23 +1471,35 @@ export default function AutomationsPage() {
                         <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                           <Shield className="w-4 h-4 text-cyan-500" />
                           Follow-for-DM
+                          {!canToggleFollow && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold ml-1">PRO</span>
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Only send DMs to users who follow your account
+                          {canToggleFollow
+                            ? "Only send DMs to users who follow your account"
+                            : "Followers only (upgrade to Pro to disable)"}
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
+                        disabled={!canToggleFollow}
+                        onClick={() => {
+                          if (!canToggleFollow) {
+                            toast.info("Upgrade to Pro to configure Follow-Check");
+                            return;
+                          }
                           setFormData((f) => ({
                             ...f,
                             require_follow: !f.require_follow,
-                          }))
-                        }
+                          }));
+                        }}
                         className={`relative w-11 h-6 rounded-full transition-colors ${
-                          formData.require_follow
-                            ? "bg-cyan-500"
-                            : "bg-muted-foreground/30"
+                          !canToggleFollow
+                            ? "bg-cyan-500 opacity-60 cursor-not-allowed"
+                            : formData.require_follow
+                              ? "bg-cyan-500"
+                              : "bg-muted-foreground/30"
                         }`}
                       >
                         <span

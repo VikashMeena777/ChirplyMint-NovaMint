@@ -198,9 +198,9 @@ export function Sidebar() {
         <SidebarContent />
       </div>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — sticky so it stays visible regardless of page scroll */}
       <aside
-        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-200 ${
+        className={`hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto border-r border-border bg-card transition-all duration-200 ${
           collapsed ? "w-[72px]" : "w-[240px]"
         }`}
       >
