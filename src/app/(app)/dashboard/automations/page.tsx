@@ -870,8 +870,8 @@ export default function AutomationsPage() {
                     </div>
                   )}
 
-                  {/* Story Picker — shown when trigger_type is story_reply */}
-                  {formData.trigger_type === "story_reply" && (
+                  {/* Story Picker — shown when trigger_type is story_reply or both */}
+                  {(formData.trigger_type === "story_reply" || formData.trigger_type === "both") && (
                     <div className="space-y-3">
                       <label className="text-sm font-medium text-foreground">
                         Active Stories
