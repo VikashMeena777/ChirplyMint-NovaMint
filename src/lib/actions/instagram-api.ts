@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { fetchInstagramPosts, fetchInstagramPostByUrl, type InstagramPost } from "@/lib/instagram/send-dm";
+import { fetchInstagramPosts, fetchInstagramPostByUrl, fetchInstagramStories, type InstagramPost } from "@/lib/instagram/send-dm";
 
 /**
  * Get the current user's recent Instagram posts for the post picker.
@@ -84,4 +84,38 @@ export async function getInstagramPostByUrl(postUrl: string): Promise<{
   }
 
   return { data: post };
+}
+
+/**
+ * Get the current user's active Instagram stories for the story picker.
+ * Stories are only available while live (24-hour window).
+ */
+export async function getInstagramStories(): Promise<{
+  data: InstagramPost[];
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { data: [], error: "Not authenticated" };
+
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("ig_user_id, access_token")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .limit(1)
+    .single();
+
+  if (!igAccount) {
+    return { data: [], error: "No Instagram account connected" };
+  }
+
+  const result = await fetchInstagramStories(
+    igAccount.ig_user_id as string,
+    igAccount.access_token as string
+  );
+
+  return { data: result.stories };
 }

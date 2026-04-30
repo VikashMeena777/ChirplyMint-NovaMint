@@ -45,7 +45,7 @@ import {
   toggleAutomation,
   deleteAutomation,
 } from "@/lib/actions/automations";
-import { getInstagramPosts, getInstagramPostByUrl } from "@/lib/actions/instagram-api";
+import { getInstagramPosts, getInstagramPostByUrl, getInstagramStories } from "@/lib/actions/instagram-api";
 import { getPostbackFlows, savePostbackFlows, type PostbackFlow } from "@/lib/actions/postback-flows";
 import { toast } from "sonner";
 import { DMPreview } from "@/components/dm-preview";
@@ -175,7 +175,9 @@ export default function AutomationsPage() {
   // Wizard state
   const [step, setStep] = useState(1);
   const [posts, setPosts] = useState<IGPost[]>([]);
+  const [stories, setStories] = useState<IGPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingStories, setLoadingStories] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [loadingMorePosts, setLoadingMorePosts] = useState(false);
 
@@ -263,6 +265,13 @@ export default function AutomationsPage() {
     setLoadingPosts(false);
   }, []);
 
+  const loadStories = useCallback(async () => {
+    setLoadingStories(true);
+    const { data } = await getInstagramStories();
+    setStories(data);
+    setLoadingStories(false);
+  }, []);
+
   async function loadMorePosts() {
     if (!nextCursor || loadingMorePosts) return;
     setLoadingMorePosts(true);
@@ -320,6 +329,7 @@ export default function AutomationsPage() {
     setStep(1);
     setShowCreate(true);
     loadPosts();
+    loadStories();
   }
 
   function applyPreset(preset: typeof PRESET_TEMPLATES[0]) {
@@ -794,72 +804,150 @@ export default function AutomationsPage() {
                     </p>
                   </div>
 
-                  {/* Scope: All Posts vs Specific Post */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-foreground">
-                      Where should this trigger?
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((f) => ({
-                            ...f,
-                            scope_type: "account",
-                            media_id: "",
-                            post_url: "",
-                          }))
-                        }
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${
-                          formData.scope_type === "account"
-                            ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
-                            : "border-border hover:border-muted-foreground/30"
-                        }`}
-                      >
-                        <Globe
-                          className={`w-5 h-5 mb-2 ${
+                  {/* Scope: All vs Specific — contextual based on trigger type */}
+                  {formData.trigger_type !== "story_reply" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-foreground">
+                        Where should this trigger?
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((f) => ({
+                              ...f,
+                              scope_type: "account",
+                              media_id: "",
+                              post_url: "",
+                            }))
+                          }
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${
                             formData.scope_type === "account"
-                              ? "text-[oklch(0.52_0.19_162)]"
-                              : "text-muted-foreground"
+                              ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                              : "border-border hover:border-muted-foreground/30"
                           }`}
-                        />
-                        <p className="text-sm font-semibold text-foreground">
-                          All Posts
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Trigger on any post or reel
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((f) => ({ ...f, scope_type: "media" }))
-                        }
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${
-                          formData.scope_type === "media"
-                            ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
-                            : "border-border hover:border-muted-foreground/30"
-                        }`}
-                      >
-                        <ImageIcon
-                          className={`w-5 h-5 mb-2 ${
+                        >
+                          <Globe
+                            className={`w-5 h-5 mb-2 ${
+                              formData.scope_type === "account"
+                                ? "text-[oklch(0.52_0.19_162)]"
+                                : "text-muted-foreground"
+                            }`}
+                          />
+                          <p className="text-sm font-semibold text-foreground">
+                            All Posts
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Trigger on any post or reel
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((f) => ({ ...f, scope_type: "media" }))
+                          }
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${
                             formData.scope_type === "media"
-                              ? "text-[oklch(0.52_0.19_162)]"
-                              : "text-muted-foreground"
+                              ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                              : "border-border hover:border-muted-foreground/30"
                           }`}
-                        />
-                        <p className="text-sm font-semibold text-foreground">
-                          Specific Post
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Choose a post from your feed
-                        </p>
-                      </button>
+                        >
+                          <ImageIcon
+                            className={`w-5 h-5 mb-2 ${
+                              formData.scope_type === "media"
+                                ? "text-[oklch(0.52_0.19_162)]"
+                                : "text-muted-foreground"
+                            }`}
+                          />
+                          <p className="text-sm font-semibold text-foreground">
+                            Specific Post
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Choose a post from your feed
+                          </p>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Content Type Filter (for account scope) */}
-                  {formData.scope_type === "account" && (
+                  {/* Story Picker — shown when trigger_type is story_reply */}
+                  {formData.trigger_type === "story_reply" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-foreground">
+                        Active Stories
+                      </label>
+                      {loadingStories ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            Loading your stories...
+                          </span>
+                        </div>
+                      ) : stories.length === 0 ? (
+                        <div className="p-6 text-center rounded-xl border border-dashed border-border">
+                          <Film className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm font-medium text-foreground mb-1">
+                            No active stories
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Stories only appear here while they&apos;re live (24h window).
+                            This automation will still trigger on any future story replies.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-64 overflow-y-auto rounded-xl border border-border p-2 bg-background">
+                          {stories.map((story) => (
+                            <button
+                              type="button"
+                              key={story.id}
+                              onClick={() =>
+                                setFormData((f) => ({
+                                  ...f,
+                                  scope_type: "media",
+                                  media_id: story.id,
+                                  post_url: story.permalink,
+                                }))
+                              }
+                              className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all group ${
+                                formData.media_id === story.id
+                                  ? "border-[oklch(0.52_0.19_162)] ring-2 ring-[oklch(0.52_0.19_162/30%)]"
+                                  : "border-transparent hover:border-muted-foreground/30"
+                              }`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={
+                                  story.media_type === "VIDEO"
+                                    ? story.thumbnail_url
+                                    : story.media_url
+                                }
+                                alt="Story"
+                                className="w-full h-full object-cover"
+                              />
+                              {story.media_type === "VIDEO" && (
+                                <div className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5">
+                                  <Film className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                              {formData.media_id === story.id && (
+                                <div className="absolute inset-0 bg-[oklch(0.52_0.19_162/20%)] flex items-center justify-center">
+                                  <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162)] flex items-center justify-center">
+                                    <Check className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        💡 Selecting a story is optional — leaving none selected means this automation triggers on <strong>all</strong> story replies.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Content Type Filter (for account scope, only for comment triggers) */}
+                  {formData.scope_type === "account" && formData.trigger_type !== "story_reply" && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground">
                         Content Type
@@ -894,7 +982,7 @@ export default function AutomationsPage() {
                   )}
 
                   {/* Post Picker Grid + URL Input */}
-                  {formData.scope_type === "media" && (
+                  {formData.scope_type === "media" && formData.trigger_type !== "story_reply" && (
                     <div className="space-y-3">
                       <label className="text-sm font-medium text-foreground">
                         Select a Post

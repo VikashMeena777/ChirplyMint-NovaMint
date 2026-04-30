@@ -380,6 +380,48 @@ async function findPostByPermalink(
   return null;
 }
 
+/**
+ * Fetch the user's currently active Instagram stories.
+ * Stories are only available while live (24-hour window).
+ *
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
+ */
+export async function fetchInstagramStories(
+  igUserId: string,
+  accessToken: string
+): Promise<{ stories: InstagramPost[] }> {
+  try {
+    const fields =
+      "id,media_type,media_url,thumbnail_url,timestamp,permalink";
+    const url = `${GRAPH_API_BASE}/${igUserId}/stories?fields=${fields}&access_token=${accessToken}`;
+
+    const res = await fetch(url, { method: "GET" });
+    const data = await res.json();
+
+    if (data.error) {
+      console.error("[IG Stories] API Error:", data.error.message);
+      return { stories: [] };
+    }
+
+    const stories = (data.data || []).map(
+      (story: Record<string, string | undefined>) => ({
+        id: story.id || "",
+        caption: "", // Stories don't have captions
+        media_type: story.media_type || "IMAGE",
+        media_url: story.media_url || "",
+        thumbnail_url: story.thumbnail_url || story.media_url || "",
+        permalink: story.permalink || "",
+        timestamp: story.timestamp || "",
+      })
+    );
+
+    return { stories };
+  } catch (error) {
+    console.error("[IG Stories] Fetch error:", error);
+    return { stories: [] };
+  }
+}
+
 export interface TemplateButton {
   type: "web_url" | "postback";
   title: string;
