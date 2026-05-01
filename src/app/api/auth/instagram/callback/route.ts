@@ -203,7 +203,38 @@ export async function GET(request: NextRequest) {
       console.error("[IG OAuth] instagram_accounts save failed:", igAccError);
     }
 
-    // ── Step 6: Log activity (fire-and-forget) ──────────────────────
+    // ── Step 6: Subscribe IG account to webhook events ─────────────
+    // CRITICAL: Without this call, Meta never sends comment/message
+    // webhooks even though the Dashboard is configured. The old
+    // Facebook Login flow auto-subscribed Pages, but the new
+    // Instagram Login flow requires an explicit subscription.
+    try {
+      const subscribeRes = await fetch(
+        `https://graph.instagram.com/v22.0/${igProfessionalId}/subscribed_apps`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            subscribed_fields: ["comments", "messages", "messaging_postbacks"],
+          }),
+        }
+      );
+      const subscribeResult = await subscribeRes.json();
+
+      if (subscribeResult.error) {
+        console.error("[IG OAuth] Webhook subscription failed:", subscribeResult.error);
+      } else {
+        console.log(`[IG OAuth] ✅ Webhook subscription active for @${igUsername}`);
+      }
+    } catch (subErr) {
+      // Non-fatal — don't block the OAuth flow
+      console.error("[IG OAuth] Webhook subscription error:", subErr);
+    }
+
+    // ── Step 7: Log activity (fire-and-forget) ──────────────────────
     void Promise.resolve(
       supabase.from("activity_log").insert({
         user_id: state,
