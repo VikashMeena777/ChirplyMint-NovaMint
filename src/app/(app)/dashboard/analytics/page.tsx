@@ -4,8 +4,6 @@ import {
   TrendingUp,
   BarChart3,
   ArrowUpRight,
-  Bot,
-  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -13,6 +11,7 @@ import {
   getDailyLeadStats,
   getTopAutomations,
 } from "@/lib/actions/analytics";
+import AnalyticsChartsClient from "@/components/dashboard/analytics-charts-client";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -52,9 +51,6 @@ export default async function AnalyticsPage() {
   const dailyDMs = await getDailyDMStats(7);
   const dailyLeads = await getDailyLeadStats(7);
   const topAutomations = await getTopAutomations(5);
-
-  const maxDM = Math.max(...dailyDMs.map((d) => d.count), 1);
-  const maxLead = Math.max(...dailyLeads.map((d) => d.count), 1);
 
   const stats = [
     {
@@ -121,165 +117,14 @@ export default async function AnalyticsPage() {
         ))}
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* DMs Chart */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            DMs Sent (Last 7 Days)
-          </h2>
-          {dmsSent === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <div className="w-12 h-12 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mb-3">
-                <MessageCircle className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
-              </div>
-              <p className="text-sm font-medium text-foreground">No DMs sent yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Start sending DMs to see your trends here.</p>
-            </div>
-          ) : (
-            <div className="relative h-48">
-              {/* Gridlines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="border-t border-border/40 w-full" />
-                ))}
-              </div>
-              <div className="relative flex items-end gap-2 h-full">
-                {dailyDMs.map((day, i) => {
-                  const height = Math.max(6, (day.count / maxDM) * 100);
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
-                      <span className="text-xs font-semibold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                        {day.count}
-                      </span>
-                      <div
-                        className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/60%)] transition-all duration-500 group-hover:from-[oklch(0.55_0.2_162)] group-hover:to-[oklch(0.55_0.2_162/70%)]"
-                        style={{ height: `${height}%` }}
-                      />
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        {day.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Leads Chart */}
-        <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Leads Captured (Last 7 Days)
-          </h2>
-          {leadsCount === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center">
-              <div className="w-12 h-12 rounded-full bg-[oklch(0.65_0.15_250/10%)] flex items-center justify-center mb-3">
-                <Users className="w-5 h-5 text-[oklch(0.65_0.15_250)]" />
-              </div>
-              <p className="text-sm font-medium text-foreground">No leads captured yet</p>
-              <p className="text-xs text-muted-foreground mt-1">They&apos;ll appear once automations run.</p>
-            </div>
-          ) : (
-            <div className="relative h-48">
-              {/* Gridlines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="border-t border-border/40 w-full" />
-                ))}
-              </div>
-              <div className="relative flex items-end gap-2 h-full">
-                {dailyLeads.map((day, i) => {
-                  const height = Math.max(6, (day.count / maxLead) * 100);
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
-                      <span className="text-xs font-semibold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                        {day.count}
-                      </span>
-                      <div
-                        className="w-full rounded-t-lg bg-gradient-to-t from-[oklch(0.65_0.15_250)] to-[oklch(0.65_0.15_250/60%)] transition-all duration-500 group-hover:from-[oklch(0.68_0.16_250)] group-hover:to-[oklch(0.68_0.16_250/70%)]"
-                        style={{ height: `${height}%` }}
-                      />
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        {day.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Top Performing Automations */}
-      <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Top Performing Automations
-        </h2>
-        {topAutomations.length === 0 ? (
-          <div className="py-8 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
-              <Bot className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-foreground">
-              No automations yet
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Create your first automation to see performance data.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {topAutomations.map((auto, i) => {
-              const barWidth =
-                topAutomations[0].dmCount > 0
-                  ? Math.max(5, (auto.dmCount / topAutomations[0].dmCount) * 100)
-                  : 5;
-              return (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="w-7 h-7 rounded-lg bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-[oklch(0.52_0.19_162)]">
-                      {i + 1}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {auto.name}
-                      </p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span
-                          className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            auto.status === "active"
-                              ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {auto.status}
-                        </span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {auto.dmCount} DMs
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-muted/50">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)]"
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <Zap className="w-3 h-3 inline mr-0.5" />
-                      Keyword: &ldquo;{auto.keyword}&rdquo;
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Charts - Client Component with recharts */}
+      <AnalyticsChartsClient
+        dmsSent={dmsSent}
+        leadsCount={leadsCount}
+        dailyDMs={dailyDMs}
+        dailyLeads={dailyLeads}
+        topAutomations={topAutomations}
+      />
     </div>
   );
 }

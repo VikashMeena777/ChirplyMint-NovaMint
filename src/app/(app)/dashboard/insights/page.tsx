@@ -12,12 +12,11 @@ import {
 } from "lucide-react";
 import { getAudienceInsights } from "@/lib/actions/insights";
 import { FadeInSection, AnimatedBar } from "@/components/dashboard/animated-insights";
+import InsightsTrendChart from "@/components/dashboard/insights-trend-chart";
 
 export default async function InsightsPage() {
   const insights = await getAudienceInsights();
   const maxHourCount = Math.max(...insights.peakHours.map((h) => h.count), 1);
-  const maxTrendDM = Math.max(...insights.dailyTrend.map((d) => d.dms), 1);
-  const maxTrendLead = Math.max(...insights.dailyTrend.map((d) => d.leads), 1);
 
   const hourLabels = [
     "12a", "1a", "2a", "3a", "4a", "5a", "6a", "7a", "8a", "9a", "10a", "11a",
@@ -338,38 +337,7 @@ export default async function InsightsPage() {
               </p>
             </div>
           ) : (
-            <div className="relative h-40">
-              {/* Gridlines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="border-t border-border/30 w-full" />
-                ))}
-              </div>
-              <div className="relative flex items-end gap-[2px] h-full">
-                {insights.dailyTrend.map((day, i) => {
-                  const dmH = day.dms > 0 ? Math.max(6, (day.dms / maxTrendDM) * 100) : 2;
-                  const leadH = day.leads > 0 ? Math.max(4, (day.leads / maxTrendLead) * 50) : 0;
-                  return (
-                    <div
-                      key={i}
-                      className="flex-1 flex flex-col items-center gap-0.5 group cursor-default"
-                      title={`${day.date}: ${day.dms} DMs, ${day.leads} leads`}
-                    >
-                      <div
-                        className={`w-full rounded-t bg-gradient-to-t from-[oklch(0.52_0.19_162)] to-[oklch(0.52_0.19_162/50%)] transition-all duration-300 ${day.dms > 0 ? 'group-hover:from-[oklch(0.55_0.2_162)] group-hover:to-[oklch(0.55_0.2_162/60%)]' : 'opacity-20'}`}
-                        style={{ height: `${dmH}%` }}
-                      />
-                      {day.leads > 0 && (
-                        <div
-                          className="w-full rounded-t bg-blue-400/60 transition-all duration-300 group-hover:bg-blue-400/80"
-                          style={{ height: `${leadH}%` }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <InsightsTrendChart data={insights.dailyTrend} />
           )}
 
           {/* Legend */}
@@ -379,7 +347,7 @@ export default async function InsightsPage() {
               <span className="text-xs text-muted-foreground">DMs Sent</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-blue-400/60" />
+              <div className="w-3 h-3 rounded bg-[oklch(0.65_0.15_250)]" />
               <span className="text-xs text-muted-foreground">Leads Captured</span>
             </div>
           </div>
