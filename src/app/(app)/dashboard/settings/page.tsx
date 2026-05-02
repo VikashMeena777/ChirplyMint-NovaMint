@@ -15,11 +15,11 @@ import {
   Unlink,
   AlertTriangle,
   Trash2,
+  Clock,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
-import { getInstagramConnection, disconnectInstagram } from "@/lib/actions/instagram";
 import { toast } from "sonner";
 
 type TabId = "account" | "instagram" | "billing" | "notifications";
@@ -332,20 +332,32 @@ export default function SettingsPage() {
 /* ─── Instagram Connection Sub-component ─── */
 function InstagramConnectionTab() {
   const searchParams = useSearchParams();
-  const [igState, setIgState] = useState<{
-    connected: boolean;
-    username: string;
-    loading: boolean;
-  }>({ connected: false, username: "", loading: true });
-  const [disconnecting, setDisconnecting] = useState(false);
+  const [accounts, setAccounts] = useState<
+    {
+      id: string;
+      ig_user_id: string;
+      ig_username: string;
+      ig_name: string | null;
+      ig_profile_pic: string | null;
+      is_active: boolean;
+      updated_at: string;
+    }[]
+  >([]);
+  const [limit, setLimit] = useState(1);
+  const [canAdd, setCanAdd] = useState(false);
+  const [plan, setPlan] = useState<string>("free");
+  const [loading, setLoading] = useState(true);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const data = await getInstagramConnection();
-    setIgState({
-      connected: data.connected,
-      username: data.username,
-      loading: false,
-    });
+    const { getIGAccounts } = await import("@/lib/actions/ig-accounts");
+    const data = await getIGAccounts();
+    setAccounts(data.accounts);
+    setLimit(data.limit);
+    setCanAdd(data.canAdd);
+    setPlan(data.plan);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -368,26 +380,41 @@ function InstagramConnectionTab() {
         save_failed: "Failed to save connection. Try again.",
         oauth_failed: "OAuth error. Please try again.",
         ig_already_linked: "This Instagram account is already connected to another ChirplyMint account. Disconnect it there first.",
+        ig_account_limit_reached: "You've reached your plan's Instagram account limit. Upgrade to connect more.",
       };
       toast.error(messages[error] || "Connection failed.");
     }
   }, [searchParams, load]);
 
-  const handleDisconnect = async () => {
-    setDisconnecting(true);
-    const result = await disconnectInstagram();
+  const handleDisconnect = async (accountId: string) => {
+    setDisconnectingId(accountId);
+    const { disconnectIGAccount } = await import("@/lib/actions/ig-accounts");
+    const result = await disconnectIGAccount(accountId);
     if (result.success) {
-      toast.success("Instagram disconnected.");
-      setIgState({ connected: false, username: "", loading: false });
+      toast.success("Instagram account disconnected.");
+      load();
     } else {
-      toast.error("Failed to disconnect.");
+      toast.error(result.error || "Failed to disconnect.");
     }
-    setDisconnecting(false);
+    setDisconnectingId(null);
   };
 
-  if (igState.loading) {
+  const handleSetPrimary = async (accountId: string) => {
+    setSettingPrimaryId(accountId);
+    const { setActiveAccount } = await import("@/lib/actions/ig-accounts");
+    const result = await setActiveAccount(accountId);
+    if (result.success) {
+      toast.success("Primary account updated!");
+      load();
+    } else {
+      toast.error(result.error || "Failed to set primary.");
+    }
+    setSettingPrimaryId(null);
+  };
+
+  if (loading) {
     return (
-      <div className="space-y-4 max-w-md animate-pulse">
+      <div className="space-y-4 max-w-lg animate-pulse">
         <div className="rounded-xl border border-border p-6 space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-muted/50" />
@@ -402,60 +429,198 @@ function InstagramConnectionTab() {
     );
   }
 
-  if (igState.connected) {
-    return (
-      <div className="space-y-4 max-w-md">
-        <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-green-800 dark:text-green-300">Connected</p>
-              <p className="text-sm text-green-700 dark:text-green-400">@{igState.username}</p>
-            </div>
-          </div>
-          <p className="text-xs text-green-700 dark:text-green-400 mb-4">
-            Your Instagram Business account is connected or linked. DM automations are active.
-          </p>
-          <button
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 bg-card text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-60"
-          >
-            {disconnecting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Unlink className="w-4 h-4" />
-            )}
-            Disconnect
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const usagePercent = limit > 0 ? Math.round((accounts.length / limit) * 100) : 0;
 
   return (
-    <div className="space-y-4 max-w-md">
-      <div className="rounded-xl border border-dashed border-border p-8 text-center">
-        <div className="w-12 h-12 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-3">
-          <Link2 className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+    <div className="space-y-5 max-w-lg">
+      {/* ── Account Usage Bar ── */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">
+            Connected Accounts
+          </span>
+          <span className="text-xs font-semibold text-muted-foreground">
+            {accounts.length} / {limit}
+          </span>
         </div>
-        <h3 className="text-base font-semibold text-foreground">Connect Instagram</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Link your Instagram Business or Creator account to start automating DMs.
-        </p>
-        <a
-          href="/api/auth/instagram"
-          className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all"
-        >
-          <Link2 className="w-4 h-4" />
-          Connect Account
-        </a>
-        <p className="text-xs text-muted-foreground mt-3">
-          Requires a Facebook Page linked to your Instagram account.
+        <div className="w-full h-2 rounded-full bg-muted/30 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${usagePercent}%`,
+              background:
+                usagePercent >= 100
+                  ? "oklch(0.55 0.22 25)" // red when full
+                  : "linear-gradient(90deg, oklch(0.52 0.19 162), oklch(0.55 0.22 170))",
+            }}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          {plan === "free"
+            ? "Free plan · 1 account"
+            : plan === "pro"
+            ? "Pro plan · up to 3 accounts"
+            : "Business plan · up to 10 accounts"}
         </p>
       </div>
+
+      {/* ── Connected Accounts List ── */}
+      {accounts.length > 0 && (
+        <div className="space-y-3">
+          {accounts.map((acc, index) => {
+            const tokenAgeDays = acc.updated_at
+              ? Math.floor(
+                  (Date.now() - new Date(acc.updated_at).getTime()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : 0;
+            const tokenExpiryWarning = tokenAgeDays >= 50;
+            const daysRemaining = Math.max(0, 60 - tokenAgeDays);
+            const isDisconnecting = disconnectingId === acc.id;
+            const isSettingPrimary = settingPrimaryId === acc.id;
+            const isPrimary = index === 0;
+
+            return (
+              <div
+                key={acc.id}
+                className={`rounded-xl border p-4 ${
+                  isPrimary
+                    ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
+                    : "border-border bg-card"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {acc.ig_profile_pic ? (
+                      <img
+                        src={acc.ig_profile_pic}
+                        alt={acc.ig_username}
+                        className={`w-10 h-10 rounded-full object-cover border ${
+                          isPrimary ? "border-green-200 dark:border-green-700" : "border-border"
+                        }`}
+                      />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isPrimary ? "bg-green-100 dark:bg-green-900/40" : "bg-muted/30"
+                      }`}>
+                        <CheckCircle2 className={`w-5 h-5 ${
+                          isPrimary ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                        }`} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-semibold truncate ${
+                          isPrimary ? "text-green-800 dark:text-green-300" : "text-foreground"
+                        }`}>
+                          @{acc.ig_username}
+                        </p>
+                        {isPrimary && (
+                          <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md bg-green-200 dark:bg-green-800 text-[10px] font-bold text-green-800 dark:text-green-200 uppercase tracking-wider">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      {acc.ig_name && (
+                        <p className={`text-xs truncate ${
+                          isPrimary ? "text-green-700 dark:text-green-400" : "text-muted-foreground"
+                        }`}>
+                          {acc.ig_name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    {!isPrimary && accounts.length > 1 && (
+                      <button
+                        onClick={() => handleSetPrimary(acc.id)}
+                        disabled={isSettingPrimary}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-60"
+                      >
+                        {isSettingPrimary ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        Set Primary
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDisconnect(acc.id)}
+                      disabled={isDisconnecting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-card text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-60"
+                    >
+                      {isDisconnecting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Unlink className="w-3.5 h-3.5" />
+                      )}
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+                {/* Token expiry warning */}
+                {tokenExpiryWarning && (
+                  <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      Token expires in {daysRemaining} day
+                      {daysRemaining !== 1 ? "s" : ""}
+                      {daysRemaining <= 0 &&
+                        " — Reconnect to resume automations"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Connect Another / Connect First ── */}
+      {canAdd ? (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center">
+          <div className="w-10 h-10 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-2.5">
+            <Link2 className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">
+            {accounts.length === 0
+              ? "Connect Instagram"
+              : "Connect Another Account"}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {accounts.length === 0
+              ? "Link your Instagram Business or Creator account to start automating DMs."
+              : "Add another Instagram account to manage from this dashboard."}
+          </p>
+          <a
+            href="/api/auth/instagram"
+            className="mt-3 inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all"
+          >
+            <Link2 className="w-4 h-4" />
+            {accounts.length === 0 ? "Connect Account" : "Add Account"}
+          </a>
+          <p className="text-xs text-muted-foreground mt-2">
+            Requires a Facebook Page linked to your Instagram account.
+          </p>
+        </div>
+      ) : accounts.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            Account limit reached
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+            Upgrade your plan to connect more Instagram accounts.
+          </p>
+          <a
+            href="/dashboard/settings?tab=billing"
+            className="mt-2.5 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-semibold shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Upgrade Plan
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

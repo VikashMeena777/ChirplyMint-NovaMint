@@ -76,7 +76,9 @@ export async function POST(request: Request) {
     const signature = request.headers.get("x-hub-signature-256");
     if (!verifySignature(rawBody, signature)) {
       console.error("[Meta Webhook] Invalid signature — rejecting payload");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      // IMPORTANT: Always return 200 to Meta to prevent retry storms.
+      // Returning 401/403 causes Meta to retry endlessly.
+      return NextResponse.json({ status: "ignored" }, { status: 200 });
     }
 
     const body = JSON.parse(rawBody);

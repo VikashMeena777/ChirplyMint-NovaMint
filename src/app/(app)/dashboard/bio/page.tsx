@@ -15,6 +15,12 @@ import {
   type BioPage,
   type BioLink,
 } from "@/lib/actions/bio";
+import { getProfile } from "@/lib/actions/dashboard";
+import {
+  canCustomizeBioStyle,
+  canHideBranding,
+  type PlanKey,
+} from "@/lib/utils/plan-limits";
 import {
   Link2,
   Plus,
@@ -32,8 +38,31 @@ import {
   Palette,
   ArrowUpDown,
   MousePointerClick,
+  Camera,
+  Loader2,
+  Lock,
+  Type,
 } from "lucide-react";
 import { toast } from "sonner";
+import { resizeImageToBase64 } from "@/lib/utils/image-resize";
+
+// ─── Built-in Font Options ──────────────────────────────
+
+const FONTS = [
+  { id: "system", label: "System Default", family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  { id: "inter", label: "Inter", family: "'Inter', sans-serif" },
+  { id: "poppins", label: "Poppins", family: "'Poppins', sans-serif" },
+  { id: "outfit", label: "Outfit", family: "'Outfit', sans-serif" },
+  { id: "dm-sans", label: "DM Sans", family: "'DM Sans', sans-serif" },
+  { id: "space-grotesk", label: "Space Grotesk", family: "'Space Grotesk', sans-serif" },
+  { id: "plus-jakarta", label: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', sans-serif" },
+] as const;
+
+const BORDER_RADIUS_OPTIONS = [
+  { id: "sharp", label: "Sharp", value: "4px" },
+  { id: "rounded", label: "Rounded", value: "12px" },
+  { id: "pill", label: "Pill", value: "9999px" },
+] as const;
 
 // ─── Theme Presets ───────────────────────────────────────
 
@@ -64,6 +93,15 @@ export default function BioBuilderPage() {
   const [editTheme, setEditTheme] = useState("midnight");
   const [editAccent, setEditAccent] = useState("#8b5cf6");
   const [isPublished, setIsPublished] = useState(false);
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+
+  // Branding state
+  const [editFont, setEditFont] = useState<string | null>(null);
+  const [editHideBranding, setEditHideBranding] = useState(false);
+  const [editCardRadius, setEditCardRadius] = useState("rounded");
+  const [editCardOpacity, setEditCardOpacity] = useState(100);
+  const [userPlan, setUserPlan] = useState<PlanKey>("free");
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Add link form
   const [showAddLink, setShowAddLink] = useState(false);
@@ -80,12 +118,22 @@ export default function BioBuilderPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     const { data } = await getBioPage();
+    // Load user plan
+    const profile = await getProfile();
+    if (profile) setUserPlan((profile.plan || "free") as PlanKey);
+
     if (data) {
       setPage(data);
       setEditBio(data.bio || "");
       setEditTheme(data.theme);
       setEditAccent(data.accent_color || "#8b5cf6");
       setIsPublished(data.is_published);
+      setEditAvatarUrl(data.avatar_url || null);
+      // Load branding
+      setEditFont(data.custom_font || null);
+      setEditHideBranding(data.hide_branding || false);
+      setEditCardRadius(data.card_border_radius || "rounded");
+      setEditCardOpacity(data.card_opacity ?? 100);
       const { data: linkData } = await getBioLinks(data.id);
       setLinks(linkData);
       const analyticsData = await getBioAnalytics();
@@ -109,6 +157,7 @@ export default function BioBuilderPage() {
       setEditBio(data.bio || "");
       setEditTheme(data.theme);
       setEditAccent(data.accent_color || "#8b5cf6");
+      setEditAvatarUrl((data as BioPage).avatar_url || null);
     }
     setSaving(false);
   }
@@ -122,10 +171,36 @@ export default function BioBuilderPage() {
       theme: editTheme,
       accent_color: editAccent,
       is_published: isPublished,
+      avatar_url: editAvatarUrl,
+      show_avatar: !!editAvatarUrl,
+      custom_font: canCustomizeBioStyle(userPlan) ? editFont : undefined,
+      hide_branding: canHideBranding(userPlan) ? editHideBranding : undefined,
+      card_border_radius: canCustomizeBioStyle(userPlan) ? editCardRadius : undefined,
+      card_opacity: canCustomizeBioStyle(userPlan) ? editCardOpacity : undefined,
     });
     if (error) toast.error(error);
     else toast.success("Changes saved!");
     setSaving(false);
+  }
+
+  // ─── Avatar Upload ────────────────────────────────────
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      const dataUrl = await resizeImageToBase64(file, 256);
+      setEditAvatarUrl(dataUrl);
+      toast.success("Avatar updated! Click Save to apply.");
+    } catch {
+      toast.error("Failed to process image");
+    }
+    setAvatarUploading(false);
   }
 
   // ─── Add Link ──────────────────────────────────────────
@@ -310,6 +385,49 @@ export default function BioBuilderPage() {
               {/* Page Settings */}
               <div className="card-elevated rounded-2xl p-5 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground">Page Details</h2>
+
+                {/* Avatar Upload */}
+                <div className="flex items-center gap-4">
+                  <div className="relative group">
+                    <div
+                      className="w-16 h-16 rounded-full border-[3px] flex items-center justify-center text-xl font-bold overflow-hidden"
+                      style={{ borderColor: editAccent, backgroundColor: editAccent + "22" }}
+                    >
+                      {editAvatarUrl ? (
+                        <img src={editAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        (page.display_name || page.slug).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <label className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                      {avatarUploading ? (
+                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-5 h-5 text-white" />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                        disabled={avatarUploading}
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Profile Photo</p>
+                    <p className="text-xs text-muted-foreground">Hover to upload (max 5MB)</p>
+                    {editAvatarUrl && (
+                      <button
+                        onClick={() => { setEditAvatarUrl(null); toast.success("Avatar removed. Click Save to apply."); }}
+                        className="text-xs text-red-400 hover:text-red-600 mt-0.5"
+                      >
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">URL</label>
@@ -446,34 +564,138 @@ export default function BioBuilderPage() {
 
           {/* ─── Theme Tab ─── */}
           {activeTab === "theme" && (
-            <div className="card-elevated rounded-2xl p-5 space-y-5">
-              <h2 className="text-sm font-semibold text-foreground">Choose Theme</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {THEMES.map(theme => (
-                  <button
-                    key={theme.id}
-                    onClick={() => setEditTheme(theme.id)}
-                    className={`p-4 rounded-xl border-2 transition-all text-center ${
-                      editTheme === theme.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
-                    }`}
-                  >
-                    <div className={`w-full h-16 rounded-lg ${theme.bg} mb-2`} />
-                    <span className="text-xs font-medium">{theme.label}</span>
-                  </button>
-                ))}
+            <div className="space-y-5">
+              <div className="card-elevated rounded-2xl p-5 space-y-5">
+                <h2 className="text-sm font-semibold text-foreground">Choose Theme</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {THEMES.map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setEditTheme(theme.id)}
+                      className={`p-4 rounded-xl border-2 transition-all text-center ${
+                        editTheme === theme.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <div className={`w-full h-16 rounded-lg ${theme.bg} mb-2`} />
+                      <span className="text-xs font-medium">{theme.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Accent Color</h3>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={editAccent}
+                      onChange={(e) => setEditAccent(e.target.value)}
+                      className="w-10 h-10 rounded-lg border border-border cursor-pointer"
+                    />
+                    <span className="text-sm text-muted-foreground">{editAccent}</span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">Accent Color</h3>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={editAccent}
-                    onChange={(e) => setEditAccent(e.target.value)}
-                    className="w-10 h-10 rounded-lg border border-border cursor-pointer"
-                  />
-                  <span className="text-sm text-muted-foreground">{editAccent}</span>
+              {/* ─── Branding / Style Presets ─── */}
+              <div className="card-elevated rounded-2xl p-5 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Type className="w-4 h-4 text-primary" />
+                    Custom Branding
+                  </h2>
+                  {!canCustomizeBioStyle(userPlan) && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Pro+
+                    </span>
+                  )}
                 </div>
+
+                {/* Font Selector */}
+                <div className={!canCustomizeBioStyle(userPlan) ? "opacity-50 pointer-events-none" : ""}>
+                  <h3 className="text-xs text-muted-foreground mb-2">Font</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {FONTS.map(font => (
+                      <button
+                        key={font.id}
+                        onClick={() => setEditFont(font.id === "system" ? null : font.id)}
+                        className={`p-2.5 rounded-xl border-2 text-left transition-all ${
+                          (editFont || "system") === font.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30"
+                        }`}
+                      >
+                        <span className="text-sm font-medium" style={{ fontFamily: font.family }}>{font.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Card Border Radius */}
+                <div className={!canCustomizeBioStyle(userPlan) ? "opacity-50 pointer-events-none" : ""}>
+                  <h3 className="text-xs text-muted-foreground mb-2">Card Shape</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BORDER_RADIUS_OPTIONS.map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setEditCardRadius(opt.id)}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          editCardRadius === opt.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30"
+                        }`}
+                      >
+                        <div
+                          className="w-full h-8 bg-muted/60 border border-border mb-1.5"
+                          style={{ borderRadius: opt.value }}
+                        />
+                        <span className="text-xs font-medium">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Card Opacity */}
+                <div className={!canCustomizeBioStyle(userPlan) ? "opacity-50 pointer-events-none" : ""}>
+                  <h3 className="text-xs text-muted-foreground mb-2">Card Opacity — {editCardOpacity}%</h3>
+                  <input
+                    type="range"
+                    min={30}
+                    max={100}
+                    value={editCardOpacity}
+                    onChange={(e) => setEditCardOpacity(Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+
+                {/* Hide Branding Badge */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-medium text-foreground">Hide &quot;Powered by ChirplyMint&quot;</h3>
+                    <p className="text-[10px] text-muted-foreground">Remove the footer badge on your public page</p>
+                  </div>
+                  {canHideBranding(userPlan) ? (
+                    <button
+                      onClick={() => setEditHideBranding(!editHideBranding)}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        editHideBranding ? "bg-primary" : "bg-muted"
+                      }`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        editHideBranding ? "translate-x-5" : "translate-x-0.5"
+                      }`} />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Business
+                    </span>
+                  )}
+                </div>
+
+                {!canCustomizeBioStyle(userPlan) && (
+                  <p className="text-xs text-muted-foreground text-center py-2 border-t border-border">
+                    Upgrade to <strong>Pro</strong> to unlock custom fonts, card styles, and more.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -518,14 +740,24 @@ export default function BioBuilderPage() {
         <div className="lg:col-span-2">
           <div className="sticky top-6">
             <p className="text-xs font-medium text-muted-foreground mb-2 text-center">Live Preview</p>
-            <div className={`rounded-3xl overflow-hidden border border-border shadow-xl ${selectedTheme.bg} ${selectedTheme.text}`} style={{ minHeight: 480 }}>
+            <div
+              className={`rounded-3xl overflow-hidden border border-border shadow-xl ${selectedTheme.bg} ${selectedTheme.text}`}
+              style={{
+                minHeight: 480,
+                fontFamily: FONTS.find(f => f.id === (editFont || "system"))?.family,
+              }}
+            >
               <div className="p-6 flex flex-col items-center text-center space-y-4">
                 {/* Avatar */}
                 <div
-                  className="w-20 h-20 rounded-full border-[3px] flex items-center justify-center text-3xl font-bold"
+                  className="w-20 h-20 rounded-full border-[3px] flex items-center justify-center text-3xl font-bold overflow-hidden"
                   style={{ borderColor: editAccent, backgroundColor: editAccent + "22" }}
                 >
-                  {(page.display_name || page.slug).charAt(0).toUpperCase()}
+                  {editAvatarUrl ? (
+                    <img src={editAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    (page.display_name || page.slug).charAt(0).toUpperCase()
+                  )}
                 </div>
 
                 <div>
@@ -535,25 +767,31 @@ export default function BioBuilderPage() {
 
                 {/* Links preview */}
                 <div className="w-full space-y-2.5 mt-2">
-                  {links.filter(l => l.is_active).map(link => (
-                    <div
-                      key={link.id}
-                      className="w-full py-3 px-4 rounded-xl text-sm font-medium flex items-center gap-2 justify-center transition-transform hover:scale-[1.02]"
-                      style={{
-                        backgroundColor: editAccent + "1a",
-                        border: `1.5px solid ${editAccent}55`,
-                      }}
-                    >
-                      <span>{link.emoji}</span>
-                      <span>{link.title}</span>
-                    </div>
-                  ))}
+                  {links.filter(l => l.is_active).map(link => {
+                    const radiusVal = BORDER_RADIUS_OPTIONS.find(r => r.id === editCardRadius)?.value || "12px";
+                    return (
+                      <div
+                        key={link.id}
+                        className="w-full py-3 px-4 text-sm font-medium flex items-center gap-2 justify-center transition-transform hover:scale-[1.02]"
+                        style={{
+                          backgroundColor: editAccent + Math.round(editCardOpacity * 0.26).toString(16).padStart(2, "0"),
+                          border: `1.5px solid ${editAccent}55`,
+                          borderRadius: radiusVal,
+                        }}
+                      >
+                        <span>{link.emoji}</span>
+                        <span>{link.title}</span>
+                      </div>
+                    );
+                  })}
                   {links.filter(l => l.is_active).length === 0 && (
                     <p className="text-xs opacity-50 py-8">Your links will appear here</p>
                   )}
                 </div>
 
-                <p className="text-[10px] opacity-30 mt-6">Powered by ChirplyMint</p>
+                {!editHideBranding && (
+                  <p className="text-[10px] opacity-30 mt-6">Powered by ChirplyMint</p>
+                )}
               </div>
             </div>
           </div>

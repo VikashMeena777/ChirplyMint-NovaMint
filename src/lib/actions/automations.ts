@@ -56,11 +56,24 @@ export async function createAutomation(formData: FormData) {
     .from("instagram_accounts")
     .select("id")
     .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1);
+    .eq("is_active", true);
 
   if (!igAccounts || igAccounts.length === 0) {
     return { error: "Please connect an Instagram account first in Settings." };
+  }
+
+  // Determine which account to use — explicit selection or fallback to first
+  const selectedAccountId = (formData.get("instagram_account_id") as string) || null;
+  let targetAccountId = (igAccounts[0] as Record<string, string>).id;
+
+  if (selectedAccountId) {
+    // Validate that the selected account belongs to this user
+    const validAccount = igAccounts.find(
+      (a: Record<string, string>) => a.id === selectedAccountId
+    );
+    if (validAccount) {
+      targetAccountId = selectedAccountId;
+    }
   }
 
   // Parse form data
@@ -106,7 +119,7 @@ export async function createAutomation(formData: FormData) {
 
   const { data: inserted, error } = await supabase.from("automations").insert({
     user_id: user.id,
-    instagram_account_id: igAccounts[0].id,
+    instagram_account_id: targetAccountId,
     name: name.trim(),
     keyword: keyword.trim().toLowerCase(),
     dm_template: dmTemplate.trim(),

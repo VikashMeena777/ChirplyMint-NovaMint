@@ -1,0 +1,26 @@
+name: "Cron: IG Token Refresh"
+
+on:
+  schedule:
+    # Daily at 2:00 AM UTC — refreshes tokens approaching 60-day expiry
+    - cron: "0 2 * * *"
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  token-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Instagram Tokens
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/token-refresh")
+          
+          echo "Status: $response"
+          
+          if [ "$response" -ne 200 ]; then
+            echo "❌ Token refresh failed with status $response"
+            exit 1
+          fi
+          
+          echo "✅ Token refresh completed"

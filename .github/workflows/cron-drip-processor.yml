@@ -1,0 +1,26 @@
+name: "Cron: Drip Processor"
+
+on:
+  schedule:
+    # Every 10 minutes — processes due drip sequence steps
+    - cron: "*/10 * * * *"
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  drip-processor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process Drip Sequences
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/drip-processor")
+          
+          echo "Status: $response"
+          
+          if [ "$response" -ne 200 ]; then
+            echo "❌ Drip processor failed with status $response"
+            exit 1
+          fi
+          
+          echo "✅ Drip processor completed"

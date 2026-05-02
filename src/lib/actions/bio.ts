@@ -18,6 +18,10 @@ export interface BioPage {
   avatar_url: string | null;
   is_published: boolean;
   total_views: number;
+  custom_font: string | null;
+  hide_branding: boolean;
+  card_border_radius: string;
+  card_opacity: number;
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +108,10 @@ export async function updateBioPage(updates: {
   show_avatar?: boolean;
   avatar_url?: string | null;
   is_published?: boolean;
+  custom_font?: string | null;
+  hide_branding?: boolean;
+  card_border_radius?: string;
+  card_opacity?: number;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

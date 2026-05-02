@@ -38,6 +38,8 @@ import {
   GitBranch,
   Tag,
   Send,
+  FlaskConical,
+  Workflow,
 } from "lucide-react";
 import {
   getAutomations,
@@ -50,6 +52,8 @@ import { getPostbackFlows, savePostbackFlows, type PostbackFlow } from "@/lib/ac
 import { toast } from "sonner";
 import { DMPreview } from "@/components/dm-preview";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
+import ABTestPanel from "@/components/dashboard/ab-test-panel";
+import PostbackFlowPanel from "@/components/dashboard/postback-flow-panel";
 import { AutomationCardSkeleton } from "@/components/ui/page-skeleton";
 import { getProfile } from "@/lib/actions/dashboard";
 import { canConfigureFollowCheck, type PlanKey } from "@/lib/utils/plan-limits";
@@ -202,6 +206,72 @@ function DripToggle({ automationId, userPlan }: { automationId: string; userPlan
   );
 }
 
+function ABTestToggle({ automationId, userPlan }: { automationId: string; userPlan: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+      >
+        <ChevronRight
+          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+        />
+        <FlaskConical className="w-4 h-4" />
+        A/B Testing
+        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          {open ? "collapse" : "expand"}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "3000px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="pt-3">
+          <ABTestPanel automationId={automationId} userPlan={userPlan} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PostbackFlowToggle({ automationId, userPlan }: { automationId: string; userPlan: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+      >
+        <ChevronRight
+          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+        />
+        <Workflow className="w-4 h-4" />
+        Postback Flows
+        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          {open ? "collapse" : "expand"}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "5000px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="pt-3">
+          <PostbackFlowPanel automationId={automationId} userPlan={userPlan} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +280,11 @@ export default function AutomationsPage() {
   const [search, setSearch] = useState("");
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
   const canToggleFollow = canConfigureFollowCheck(userPlan);
+
+  // Multi-account state
+  const [igAccounts, setIgAccounts] = useState<
+    { id: string; ig_username: string; ig_profile_pic: string | null }[]
+  >([]);
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -245,6 +320,7 @@ export default function AutomationsPage() {
     template_image_url: "",
     template_buttons: [] as TemplateButton[],
     trigger_type: "comment_trigger" as "comment_trigger" | "story_reply" | "both",
+    instagram_account_id: "",
   });
   const [postbackFlows, setPostbackFlows] = useState<PostbackFlowForm[]>([]);
 
@@ -292,6 +368,22 @@ export default function AutomationsPage() {
           setFormData((f) => ({ ...f, require_follow: true }));
         }
       }
+    });
+    // Load connected IG accounts for selector
+    import("@/lib/actions/ig-accounts").then(({ getIGAccounts }) => {
+      getIGAccounts().then((data) => {
+        setIgAccounts(
+          data.accounts.map((a) => ({
+            id: a.id,
+            ig_username: a.ig_username,
+            ig_profile_pic: a.ig_profile_pic,
+          }))
+        );
+        // Default to first account
+        if (data.accounts.length > 0) {
+          setFormData((f) => ({ ...f, instagram_account_id: data.accounts[0].id }));
+        }
+      });
     });
   }, []);
 
@@ -376,6 +468,7 @@ export default function AutomationsPage() {
       template_image_url: "",
       template_buttons: [],
       trigger_type: "comment_trigger",
+      instagram_account_id: igAccounts.length > 0 ? igAccounts[0].id : "",
     });
     setReelUrl("");
     setStep(1);
@@ -475,6 +568,9 @@ export default function AutomationsPage() {
     fd.set("template_image_url", formData.template_image_url);
     fd.set("template_buttons", JSON.stringify(formData.template_buttons));
     fd.set("trigger_type", formData.trigger_type);
+    if (formData.instagram_account_id) {
+      fd.set("instagram_account_id", formData.instagram_account_id);
+    }
 
     const result = await createAutomation(fd);
     if (result.error) {
@@ -711,6 +807,16 @@ export default function AutomationsPage() {
 
               {/* Drip Sequence Builder (collapsible) */}
               <DripToggle automationId={a.id} userPlan={userPlan} />
+
+              {/* A/B Testing (collapsible) */}
+              <div className="mt-4 pt-4 border-t border-border">
+                <ABTestToggle automationId={a.id} userPlan={userPlan} />
+              </div>
+
+              {/* Postback Flow Builder (collapsible) */}
+              <div className="mt-4 pt-4 border-t border-border">
+                <PostbackFlowToggle automationId={a.id} userPlan={userPlan} />
+              </div>
             </div>
           ))}
         </div>
@@ -800,6 +906,51 @@ export default function AutomationsPage() {
                       className="w-full h-11 px-4 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                     />
                   </div>
+
+                  {/* Account Selector (multi-account) */}
+                  {igAccounts.length > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        Instagram Account
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {igAccounts.map((acc) => (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            onClick={() =>
+                              setFormData((f) => ({ ...f, instagram_account_id: acc.id }))
+                            }
+                            className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                              formData.instagram_account_id === acc.id
+                                ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                                : "border-border hover:border-muted-foreground/30"
+                            }`}
+                          >
+                            {acc.ig_profile_pic ? (
+                              <img
+                                src={acc.ig_profile_pic}
+                                alt={acc.ig_username}
+                                className="w-7 h-7 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-muted/50 flex items-center justify-center">
+                                <span className="text-xs font-bold text-muted-foreground">
+                                  {acc.ig_username[0]?.toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <span className="text-sm font-medium text-foreground truncate">
+                              @{acc.ig_username}
+                            </span>
+                            {formData.instagram_account_id === acc.id && (
+                              <Check className="w-4 h-4 text-[oklch(0.52_0.19_162)] ml-auto shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Trigger Type Selector */}
                   <div className="space-y-2">

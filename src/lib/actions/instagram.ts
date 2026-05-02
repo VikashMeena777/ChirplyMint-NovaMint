@@ -1,67 +1,62 @@
 "use server";
 
+/**
+ * Legacy Instagram actions — delegates to ig-accounts.ts for multi-account support.
+ * Kept for backward compatibility if any external callers remain.
+ */
+
 import { createClient } from "@/lib/supabase/server";
+import { getIGAccounts, disconnectIGAccount, type IGAccount } from "./ig-accounts";
+
+// ─── Get Instagram connection (multi-account aware) ──────
 
 export async function getInstagramConnection(): Promise<{
   connected: boolean;
   username: string;
+  tokenUpdatedAt: string | null;
+  accounts: IGAccount[];
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { connected: false, username: "" };
+  const { accounts } = await getIGAccounts();
 
-  const { data } = await supabase
-    .from("user_settings")
-    .select("instagram_connected, instagram_username")
-    .eq("user_id", user.id)
-    .single();
+  if (accounts.length === 0) {
+    return { connected: false, username: "", tokenUpdatedAt: null, accounts: [] };
+  }
 
+  // Return primary (first) account info for backward compat
+  const primary = accounts[0];
   return {
-    connected: (data as Record<string, unknown>)?.instagram_connected === true,
-    username: ((data as Record<string, unknown>)?.instagram_username as string) || "",
+    connected: true,
+    username: primary.ig_username,
+    tokenUpdatedAt: primary.updated_at,
+    accounts,
   };
 }
 
-export async function disconnectInstagram(): Promise<{ success: boolean }> {
+// ─── Disconnect Instagram (selective or all) ─────────────
+
+export async function disconnectInstagram(
+  accountId?: string
+): Promise<{ success: boolean }> {
+  // If specific account requested, disconnect just that one
+  if (accountId) {
+    const result = await disconnectIGAccount(accountId);
+    return { success: result.success };
+  }
+
+  // Fallback: disconnect ALL accounts (legacy behavior)
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false };
 
-  const { error } = await supabase
-    .from("user_settings")
-    .update({
-      instagram_connected: false,
-      instagram_user_id: null,
-      instagram_username: null,
-      instagram_access_token: null,
-      instagram_page_id: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id);
+  // Get all active accounts
+  const { accounts } = await getIGAccounts();
 
-  if (error) {
-    console.error("Failed to disconnect Instagram:", error);
-    return { success: false };
+  // Disconnect each one (this also pauses automations per-account)
+  for (const account of accounts) {
+    await disconnectIGAccount(account.id);
   }
-
-  // Also deactivate instagram_accounts (used by automations FK)
-  await supabase
-    .from("instagram_accounts")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
-
-  // Log activity (fire and forget)
-  void Promise.resolve(
-    supabase.from("activity_log").insert({
-      user_id: user.id,
-      action: "instagram.disconnected",
-      metadata: {},
-    })
-  ).catch(() => {});
 
   return { success: true };
 }

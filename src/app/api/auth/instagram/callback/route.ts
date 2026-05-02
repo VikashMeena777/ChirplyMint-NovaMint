@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -155,6 +156,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         `${APP_URL}/dashboard/settings?error=ig_already_linked&detail=${encodeURIComponent(
           `@${igUsername} is already connected to another ChirplyMint account. Disconnect it there first.`
+        )}`
+      );
+    }
+
+    // ── Step 4b: Check plan-based IG account limit ───────────────────
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", state)
+      .single();
+    const userPlan = ((userProfile as Record<string, string> | null)?.plan || "free") as PlanKey;
+    const planConfig = PLANS[userPlan] || PLANS.free;
+
+    const { count: activeAccountCount } = await supabase
+      .from("instagram_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state)
+      .eq("is_active", true);
+
+    // If re-connecting an existing account (same ig_user_id), don't count it
+    const { data: existingSelfAccount } = await supabase
+      .from("instagram_accounts")
+      .select("id")
+      .eq("user_id", state)
+      .eq("ig_user_id", igProfessionalId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const isReconnect = !!existingSelfAccount;
+    const effectiveCount = isReconnect ? (activeAccountCount ?? 0) : (activeAccountCount ?? 0);
+
+    if (!isReconnect && (activeAccountCount ?? 0) >= planConfig.igAccountLimit) {
+      console.error(
+        `[IG OAuth] ❌ User ${state} has reached IG account limit (${activeAccountCount}/${planConfig.igAccountLimit}) on ${userPlan} plan`
+      );
+      return NextResponse.redirect(
+        `${APP_URL}/dashboard/settings?error=ig_account_limit_reached&detail=${encodeURIComponent(
+          `You've reached your ${planConfig.name} plan limit of ${planConfig.igAccountLimit} Instagram account(s). Upgrade to connect more.`
         )}`
       );
     }

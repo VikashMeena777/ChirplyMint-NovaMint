@@ -39,11 +39,31 @@ const THEME_STYLES: Record<string, { bg: string; textClass: string; cardBg: stri
   },
 };
 
+// ─── Built-in Font Map ───────────────────────────────────
+
+const FONT_MAP: Record<string, string> = {
+  inter: "'Inter', sans-serif",
+  poppins: "'Poppins', sans-serif",
+  outfit: "'Outfit', sans-serif",
+  "dm-sans": "'DM Sans', sans-serif",
+  "space-grotesk": "'Space Grotesk', sans-serif",
+  "plus-jakarta": "'Plus Jakarta Sans', sans-serif",
+};
+
+const RADIUS_MAP: Record<string, string> = {
+  sharp: "4px",
+  rounded: "12px",
+  pill: "9999px",
+};
+
 export default function BioPageClient({ page, links }: { page: BioPage; links: BioLink[] }) {
   const [clickedLinks, setClickedLinks] = useState<Set<string>>(new Set());
 
   const theme = THEME_STYLES[page.theme] || THEME_STYLES.midnight;
   const accent = page.accent_color || "#8b5cf6";
+  const fontFamily = page.custom_font ? FONT_MAP[page.custom_font] : undefined;
+  const cardRadius = RADIUS_MAP[page.card_border_radius] || "12px";
+  const cardOpacity = page.card_opacity ?? 100;
 
   async function handleLinkClick(link: BioLink) {
     if (!clickedLinks.has(link.id)) {
@@ -56,7 +76,7 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
   return (
     <div
       className={`min-h-screen flex flex-col items-center ${theme.textClass}`}
-      style={{ background: theme.bg }}
+      style={{ background: theme.bg, fontFamily }}
     >
       {/* Decorative glow */}
       <div
@@ -67,14 +87,18 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
       <div className="relative z-10 w-full max-w-md mx-auto px-4 py-12 flex flex-col items-center">
         {/* Avatar */}
         <div
-          className="w-24 h-24 rounded-full border-[3px] flex items-center justify-center text-4xl font-bold mb-4 shadow-lg"
+          className="w-24 h-24 rounded-full border-[3px] flex items-center justify-center text-4xl font-bold mb-4 shadow-lg overflow-hidden"
           style={{
             borderColor: accent,
             backgroundColor: accent + "22",
             boxShadow: `0 0 40px ${accent}30`,
           }}
         >
-          {(page.display_name || page.slug).charAt(0).toUpperCase()}
+          {page.show_avatar && page.avatar_url ? (
+            <img src={page.avatar_url} alt={page.display_name || page.slug} className="w-full h-full object-cover" />
+          ) : (
+            (page.display_name || page.slug).charAt(0).toUpperCase()
+          )}
         </div>
 
         {/* Name & Bio */}
@@ -91,11 +115,16 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
             <button
               key={link.id}
               onClick={() => handleLinkClick(link)}
-              className="group w-full py-3.5 px-5 rounded-xl text-sm font-medium flex items-center gap-3 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+              className="group w-full py-3.5 px-5 text-sm font-medium flex items-center gap-3 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
               style={{
-                backgroundColor: theme.cardBg,
+                backgroundColor: theme.cardBg.replace(
+                  /[\d.]+\)$/,
+                  `${(cardOpacity / 100) * 0.08})` 
+                ),
                 border: `1.5px solid ${accent}44`,
                 boxShadow: `0 2px 12px ${accent}10`,
+                borderRadius: cardRadius,
+                opacity: cardOpacity / 100,
               }}
             >
               <span className="text-lg">{link.emoji}</span>
@@ -112,14 +141,16 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
         )}
 
         {/* Footer */}
-        <div className="mt-12 opacity-30 text-center">
-          <a
-            href="/"
-            className="text-[11px] hover:opacity-70 transition-opacity"
-          >
-            Powered by ChirplyMint ✨
-          </a>
-        </div>
+        {!page.hide_branding && (
+          <div className="mt-12 opacity-30 text-center">
+            <a
+              href="/"
+              className="text-[11px] hover:opacity-70 transition-opacity"
+            >
+              Powered by ChirplyMint ✨
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

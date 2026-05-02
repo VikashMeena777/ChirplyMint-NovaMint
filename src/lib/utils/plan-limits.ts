@@ -191,6 +191,22 @@ export function canConfigureFollowCheck(plan: PlanKey): boolean {
 }
 
 /**
+ * Check if the user can customize bio page styling (font, card radius, opacity).
+ * Pro+ can customize.
+ */
+export function canCustomizeBioStyle(plan: PlanKey): boolean {
+  return plan === "pro" || plan === "business";
+}
+
+/**
+ * Check if the user can hide the "Powered by ChirplyMint" badge.
+ * Business-only.
+ */
+export function canHideBranding(plan: PlanKey): boolean {
+  return plan === "business";
+}
+
+/**
  * Format limit for display — converts -1 to "∞"
  */
 export function formatLimit(limit: number): string {

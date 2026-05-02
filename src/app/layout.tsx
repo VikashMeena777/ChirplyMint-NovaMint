@@ -37,12 +37,21 @@ export const metadata: Metadata = {
       "Turn every Instagram comment into a customer. AI-powered DM automation for creators and businesses.",
     type: "website",
     siteName: "ChirplyMint",
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "ChirplyMint — Automate Instagram DMs & Comments",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "ChirplyMint — Automate Instagram DMs & Comments",
     description:
       "Turn every Instagram comment into a customer. AI-powered DM automation for creators and businesses.",
+    images: ["/api/og"],
   },
 };
 
