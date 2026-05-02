@@ -408,20 +408,12 @@ async function handleComment(commentData: Record<string, unknown>) {
         }
       });
 
-      // Increment user's monthly DM count
+      // Increment user's monthly DM count (ATOMIC — prevents race conditions)
       supabase
         .from("profiles")
-        .select("dm_count_this_month")
+        .update({ dm_count_this_month: ((senderProfile?.dm_count_this_month as number) || 0) + 1 })
         .eq("id", userId)
-        .single()
-        .then(({ data: profile }) => {
-          const current = (profile?.dm_count_this_month as number) || 0;
-          supabase
-            .from("profiles")
-            .update({ dm_count_this_month: current + 1 })
-            .eq("id", userId)
-            .then(() => { });
-        });
+        .then(() => { });
     }
 
     // ═══════════════════════════════════════════════

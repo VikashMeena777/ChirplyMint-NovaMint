@@ -2,6 +2,19 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
+import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+
+export async function getUserPlan(): Promise<PlanKey> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "free";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+  return ((profile as Record<string, unknown>)?.plan as PlanKey) || "free";
+}
 
 export async function getDashboardStats() {
   const supabase = await createClient();
@@ -57,7 +70,7 @@ export async function getDashboardStats() {
       name: (profile as Record<string, unknown>)?.full_name as string || "",
       avatar: (profile as Record<string, unknown>)?.avatar_url as string || "",
       plan: (profile as Record<string, unknown>)?.plan as string || "free",
-      dmLimit: (profile as Record<string, unknown>)?.dm_limit as number || 100,
+      dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
     },
     stats: {
       activeAutomations: automationCount ?? 0,
@@ -88,7 +101,7 @@ export async function getProfile() {
     avatar: (profile as Record<string, unknown>)?.avatar_url as string || "",
     plan: (profile as Record<string, unknown>)?.plan as string || "free",
     dmCountThisMonth: (profile as Record<string, unknown>)?.dm_count_this_month as number || 0,
-    dmLimit: (profile as Record<string, unknown>)?.dm_limit as number || 100,
+    dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
   };
 }
 

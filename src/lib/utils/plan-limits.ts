@@ -89,14 +89,14 @@ export const PLANS = {
       "Everything in Pro",
       "Advanced AI (longer context)",
       "Multi-Step DM Funnels",
+      "Multi IG Account Connect",
+      "Custom Branding / White-Label",
       "Full Analytics & Export",
       "Dedicated Support (WhatsApp)",
     ],
     comingSoon: [
-      "Multi IG Account Connect",
       "Team Members",
       "API Access",
-      "Custom Branding / White-Label",
       "Webhook Lead Export",
     ],
     excluded: [],
@@ -171,13 +171,27 @@ export function canAddDripStep(
 }
 
 /**
- * Check if a feature is available for the user's plan.
+ * Check if the user can access the AI Agent feature.
+ * Pro+ only.
  */
-export function hasFeature(plan: PlanKey, feature: string): boolean {
-  const planConfig = PLANS[plan] || PLANS.free;
-  return planConfig.features.some((f) =>
-    f.toLowerCase().includes(feature.toLowerCase())
-  );
+export function canAccessAIAgent(plan: PlanKey): boolean {
+  return plan === "pro" || plan === "business";
+}
+
+/**
+ * Check if the user can access Lead Capture & Export.
+ * Pro+ only.
+ */
+export function canAccessLeads(plan: PlanKey): boolean {
+  return plan === "pro" || plan === "business";
+}
+
+/**
+ * Check if the user can access A/B Testing.
+ * Pro+ only.
+ */
+export function canAccessABTesting(plan: PlanKey): boolean {
+  return plan === "pro" || plan === "business";
 }
 
 /**
@@ -211,4 +225,49 @@ export function canHideBranding(plan: PlanKey): boolean {
  */
 export function formatLimit(limit: number): string {
   return limit === -1 ? "∞" : String(limit);
+}
+
+/**
+ * Centralized pricing card data — the SINGLE SOURCE OF TRUTH for all pricing surfaces.
+ * Homepage, /pricing page, and Settings billing tab all import this.
+ */
+export function getPlanDisplayData() {
+  return [
+    {
+      key: "free" as PlanKey,
+      name: "Starter",
+      price: "Free",
+      period: "",
+      description: "Perfect for testing the waters",
+      features: PLANS.free.features,
+      comingSoon: [] as readonly string[],
+      excluded: PLANS.free.excluded ?? [],
+      cta: "Start Free",
+      highlight: false,
+    },
+    {
+      key: "pro" as PlanKey,
+      name: "Pro",
+      price: `₹${PLANS.pro.price}`,
+      period: "/month",
+      description: "For creators who mean business",
+      features: PLANS.pro.features,
+      comingSoon: [] as readonly string[],
+      excluded: PLANS.pro.excluded ?? [],
+      cta: "Upgrade to Pro",
+      highlight: true,
+    },
+    {
+      key: "business" as PlanKey,
+      name: "Business",
+      price: `₹${PLANS.business.price}`,
+      period: "/month",
+      description: "For teams and agencies",
+      features: PLANS.business.features,
+      comingSoon: PLANS.business.comingSoon ?? [],
+      excluded: PLANS.business.excluded ?? [],
+      cta: "Upgrade to Business",
+      highlight: false,
+    },
+  ];
 }

@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
   Loader2, Webhook, ExternalLink, MessageCircle, Tag, StickyNote,
-  Check, X, Filter, CheckSquare, Square,
+  Check, X, Filter, CheckSquare, Square, Lock, ArrowUpRight,
 } from "lucide-react";
 import {
   getLeads, exportLeadsCSV, deleteLead, updateLeadTags,
   updateLeadNotes, bulkTagLeads, bulkDeleteLeads, getLeadTags,
 } from "@/lib/actions/leads";
+import { getUserPlan } from "@/lib/actions/dashboard";
+import { canAccessLeads, type PlanKey } from "@/lib/utils/plan-limits";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -139,6 +141,7 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<string[]>([]);
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
+  const [userPlan, setUserPlan] = useState<PlanKey>("free");
   const limit = 10;
 
   const loadLeads = useCallback(async () => {
@@ -154,9 +157,34 @@ export default function LeadsPage() {
     setAllTags(result.tags);
   }, []);
 
-  useEffect(() => { loadLeads(); }, [loadLeads]);
+  useEffect(() => { getUserPlan().then(setUserPlan); loadLeads(); }, [loadLeads]);
   useEffect(() => { loadTags(); }, [loadTags]);
   useEffect(() => { setPage(1); }, [search, tagFilter]);
+
+  // ── Plan Gate: Pro+ only ──
+  if (!canAccessLeads(userPlan) && !loading) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-600/20 flex items-center justify-center mb-6 border border-emerald-500/30">
+          <Lock className="w-10 h-10 text-emerald-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-3">
+          Lead Capture — Pro Feature
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-md mb-8">
+          Upgrade to Pro or Business to unlock lead capture, tagging, notes,
+          CSV export, and webhook integrations.
+        </p>
+        <Link
+          href="/pricing"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+        >
+          Upgrade Now
+          <ArrowUpRight className="w-5 h-5" />
+        </Link>
+      </div>
+    );
+  }
 
   async function handleExport() {
     setExporting(true);

@@ -18,7 +18,7 @@ import {
   Clock,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
-import { isUnlimitedDM } from "@/lib/utils/plan-limits";
+import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
 
@@ -629,41 +629,9 @@ function InstagramConnectionTab() {
 function BillingTab({ profile }: { profile: UserProfile | null }) {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
 
-  const tiers = [
-    {
-      key: "pro",
-      plan: "Pro",
-      price: "₹499/mo",
-      features: [
-        "2,000 DMs/month",
-        "10 Automations",
-        "5 Drip Steps",
-        "AI Smart Replies",
-        "A/B Testing",
-        "Lead Export (CSV)",
-        "Priority Email Support",
-      ],
-    },
-    {
-      key: "business",
-      plan: "Business",
-      price: "₹1,499/mo",
-      features: [
-        "Unlimited DMs",
-        "Unlimited Automations",
-        "10 Drip Steps",
-        "Advanced AI",
-        "Full Analytics & Export",
-        "Dedicated Support (WhatsApp)",
-      ],
-      comingSoon: [
-        "Multi IG Account Connect",
-        "Team Members",
-        "API Access",
-        "White-Label",
-      ],
-    },
-  ];
+  const allPlans = getPlanDisplayData();
+  // Only show Pro and Business as upgrade options
+  const tiers = allPlans.filter((p) => p.key !== "free");
 
   const currentPlan = profile?.plan ?? "free";
 
@@ -722,7 +690,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
         </div>
         <p className="text-sm text-foreground">
           <strong>
-            {profile?.dmCountThisMonth ?? 0} / {isUnlimitedDM(profile?.dmLimit) ? "∞" : (profile?.dmLimit ?? 100)}
+            {profile?.dmCountThisMonth ?? 0} / {isUnlimitedDM(profile?.dmLimit) ? "∞" : (profile?.dmLimit ?? 50)}
           </strong>{" "}
           DMs used this month
         </p>
@@ -739,8 +707,8 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
               key={tier.key}
               className="rounded-xl border border-border p-5 space-y-3"
             >
-              <h4 className="font-semibold text-foreground">{tier.plan}</h4>
-              <p className="text-2xl font-bold text-foreground">{tier.price}</p>
+              <h4 className="font-semibold text-foreground">{tier.name}</h4>
+              <p className="text-2xl font-bold text-foreground">{tier.price}{tier.period}</p>
               <ul className="space-y-1.5">
                 {tier.features.map((f) => (
                   <li
@@ -751,7 +719,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
                     {f}
                   </li>
                 ))}
-                {(tier as { comingSoon?: string[] }).comingSoon?.map((f) => (
+                {tier.comingSoon.map((f: string) => (
                   <li
                     key={f}
                     className="flex items-center gap-2 text-sm text-muted-foreground/60"

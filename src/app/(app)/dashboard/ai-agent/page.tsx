@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Sparkles,
   Clock,
+  Lock,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -34,6 +36,9 @@ import {
   type AIAgentFAQ,
   type AIConversation,
 } from "@/lib/actions/ai-agent";
+import { getUserPlan } from "@/lib/actions/dashboard";
+import { canAccessAIAgent, type PlanKey } from "@/lib/utils/plan-limits";
+import Link from "next/link";
 
 const TONE_OPTIONS = [
   { value: "friendly", label: "Friendly", emoji: "😊" },
@@ -68,6 +73,7 @@ export default function AIAgentPage() {
   const [tab, setTab] = useState<"persona" | "faqs" | "conversations">(
     "persona"
   );
+  const [userPlan, setUserPlan] = useState<PlanKey>("free");
 
   // Agent form state
   const [agentName, setAgentName] = useState("");
@@ -105,6 +111,7 @@ export default function AIAgentPage() {
   }, []);
 
   useEffect(() => {
+    getUserPlan().then(setUserPlan);
     loadAgent();
   }, [loadAgent]);
 
@@ -209,6 +216,31 @@ export default function AIAgentPage() {
           ))}
         </div>
         <div className="h-96 bg-card border border-border rounded-2xl animate-pulse" />
+      </div>
+    );
+  }
+
+  // ── Plan Gate: Pro+ only ──
+  if (!canAccessAIAgent(userPlan)) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center mb-6 border border-violet-500/30">
+          <Lock className="w-10 h-10 text-violet-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-3">
+          AI Agent — Pro Feature
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-md mb-8">
+          Upgrade to Pro or Business to unlock your AI-powered DM assistant
+          that auto-replies with your custom persona, tone, and FAQ knowledge.
+        </p>
+        <Link
+          href="/pricing"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-violet-500/25 transition-all"
+        >
+          Upgrade Now
+          <ArrowUpRight className="w-5 h-5" />
+        </Link>
       </div>
     );
   }

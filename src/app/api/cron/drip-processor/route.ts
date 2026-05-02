@@ -227,20 +227,16 @@ export async function GET(request: Request) {
           });
 
         // Increment user's monthly DM count
-        supabase
+        const { data: dmProfile } = await supabase
           .from("profiles")
           .select("dm_count_this_month")
           .eq("id", e.user_id as string)
-          .single()
-          .then(({ data: profile }) => {
-            const current =
-              ((profile as Record<string, number> | null)?.dm_count_this_month as number) || 0;
-            supabase
-              .from("profiles")
-              .update({ dm_count_this_month: current + 1 })
-              .eq("id", e.user_id as string)
-              .then(() => {});
-          });
+          .single();
+        const dmCurrent = ((dmProfile as Record<string, number> | null)?.dm_count_this_month as number) || 0;
+        await supabase
+          .from("profiles")
+          .update({ dm_count_this_month: dmCurrent + 1 })
+          .eq("id", e.user_id as string);
 
         // Log activity
         supabase

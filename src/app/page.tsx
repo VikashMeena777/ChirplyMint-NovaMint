@@ -25,6 +25,7 @@ import { Navbar } from "@/components/marketing/navbar";
 import { Footer } from "@/components/marketing/footer";
 import { LiveActivityFeed } from "@/components/marketing/live-activity-feed";
 import { getLiveFeedItems } from "@/lib/actions/live-feed";
+import { getPlanDisplayData } from "@/lib/utils/plan-limits";
 
 
 /* ─── Animation Variants ─── */
@@ -351,71 +352,7 @@ function Features() {
 
 /* ─── PRICING ─── */
 function Pricing() {
-  const plans = [
-    {
-      name: "Starter",
-      price: "Free",
-      period: "",
-      description: "Perfect for testing the waters",
-      features: [
-        "1 Instagram Account",
-        "50 DMs / month",
-        "1 Automation",
-        "Comment Auto-Reply",
-        "Story Reply Triggers",
-        "Text & Button DM Templates",
-        "Follow-Check (Followers Only)",
-        "Basic Analytics",
-      ],
-      comingSoon: [] as string[],
-      cta: "Start Free",
-      highlight: false,
-    },
-    {
-      name: "Pro",
-      price: "₹499",
-      period: "/month",
-      description: "For creators who mean business",
-      features: [
-        "3 Instagram Accounts",
-        "2,000 DMs / month",
-        "10 Automations",
-        "Everything in Starter",
-        "AI Smart Replies",
-        "Postback Flow Builder",
-        "A/B Testing",
-        "Lead Capture & Export",
-        "Advanced Analytics",
-        "Priority Email Support",
-      ],
-      comingSoon: [] as string[],
-      cta: "Upgrade to Pro",
-      highlight: true,
-    },
-    {
-      name: "Business",
-      price: "₹1,499",
-      period: "/month",
-      description: "For teams and agencies",
-      features: [
-        "10 Instagram Accounts",
-        "Unlimited DMs",
-        "Unlimited Automations",
-        "Everything in Pro",
-        "Advanced AI",
-        "Multi-Step DM Funnels",
-        "Dedicated WhatsApp Support",
-      ],
-      comingSoon: [
-        "Multi IG Account Connect",
-        "Team Members",
-        "API Access",
-        "White-Label",
-      ],
-      cta: "Upgrade to Business",
-      highlight: false,
-    },
-  ];
+  const plans = getPlanDisplayData();
 
   return (
     <section className="relative py-24 md:py-32" id="pricing">
@@ -503,7 +440,7 @@ function Pricing() {
                     <span className="text-muted-foreground">{feature}</span>
                   </li>
                 ))}
-                {plan.comingSoon.map((feature) => (
+                {plan.comingSoon.map((feature: string) => (
                   <li key={feature} className="flex items-center gap-3 text-sm">
                     <div className="w-5 h-5 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0">
                       <Clock className="w-3 h-3 text-amber-500/60" />
