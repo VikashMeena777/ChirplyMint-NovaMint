@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         if (entry.changes) {
           for (const change of entry.changes) {
             if (change.field === "comments") {
-              await handleComment(change.value);
+              await handleComment(change.value, entry.id as string);
             }
             // Handle story mentions/replies
             if (change.field === "story_insights" || change.field === "mentions") {
@@ -145,7 +145,7 @@ function isCommentAlreadyProcessed(commentId: string): boolean {
 /**
  * Handle a comment on a post — match keywords → send DM + optional comment reply
  */
-async function handleComment(commentData: Record<string, unknown>) {
+async function handleComment(commentData: Record<string, unknown>, receivingIgId?: string) {
   const supabase = getSupabase();
 
   const commentText = (commentData.text as string) || "";
@@ -165,12 +165,23 @@ async function handleComment(commentData: Record<string, unknown>) {
     return;
   }
 
-  // Find active automations that match
-  const { data: automations } = await supabase
+  // ═══════════════════════════════════════════════
+  // CRITICAL: Scope automations to the receiving IG account.
+  // entry.id from Meta webhook = the IG Business Account ID that received the comment.
+  // Without this filter, automations from ALL users would fire on every comment,
+  // causing cross-account data leakage (DM logs showing in wrong accounts).
+  // ═══════════════════════════════════════════════
+  let query = supabase
     .from("automations")
     .select("*, instagram_accounts!inner(user_id, ig_user_id, access_token, page_access_token)")
     .eq("status", "active")
     .not("keyword", "is", null);
+
+  if (receivingIgId) {
+    query = query.eq("instagram_accounts.ig_user_id", receivingIgId);
+  }
+
+  const { data: automations } = await query;
 
   if (!automations || automations.length === 0) return;
 
