@@ -136,6 +136,12 @@ export async function GET(request: Request) {
 
       const templateType = (stepData.template_type as string) || "text";
 
+      // Only use HUMAN_AGENT tag if approved by Meta AND message is outside 24hr window
+      const enrolledAt = new Date(e.enrolled_at as string).getTime();
+      const hoursSinceEnrollment = (Date.now() - enrolledAt) / (1000 * 60 * 60);
+      const useHumanAgent =
+        process.env.HUMAN_AGENT_APPROVED === "true" && hoursSinceEnrollment > 24;
+
       if (templateType === "button" && stepData.template_title) {
         const title = ((stepData.template_title as string) || "")
           .replace(/\{name\}/gi, `@${recipientUsername}`)
@@ -153,16 +159,15 @@ export async function GET(request: Request) {
             image_url: undefined,
             buttons,
           },
-          { humanAgent: true }
+          { humanAgent: useHumanAgent }
         );
       } else {
-        // Drip follow-up DMs use HUMAN_AGENT tag (sent outside 24-hour window)
         sendResult = await sendInstagramDM(
           igUserId,
           accessToken,
           recipientIgId,
           messageText,
-          { humanAgent: true }
+          { humanAgent: useHumanAgent }
         );
       }
 
