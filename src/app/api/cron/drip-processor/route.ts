@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   sendInstagramDM,
-  sendGenericTemplate,
+  sendGenericTemplateDM,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
 
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
         const buttons =
           (stepData.template_buttons as TemplateButton[]) || [];
 
-        sendResult = await sendGenericTemplate(
+        sendResult = await sendGenericTemplateDM(
           igUserId,
           accessToken,
           recipientIgId,
@@ -152,14 +152,17 @@ export async function GET(request: Request) {
             subtitle: undefined,
             image_url: undefined,
             buttons,
-          }
+          },
+          { humanAgent: true }
         );
       } else {
+        // Drip follow-up DMs use HUMAN_AGENT tag (sent outside 24-hour window)
         sendResult = await sendInstagramDM(
           igUserId,
           accessToken,
           recipientIgId,
-          messageText
+          messageText,
+          { humanAgent: true }
         );
       }
 
@@ -211,32 +214,49 @@ export async function GET(request: Request) {
         }
 
         // Increment DM count on the automation
-        supabase
-          .from("automations")
-          .select("dms_sent")
-          .eq("id", automation.id as string)
-          .single()
-          .then(({ data: autoData }) => {
-            const current =
-              ((autoData as Record<string, number> | null)?.dms_sent as number) || 0;
-            supabase
-              .from("automations")
-              .update({ dms_sent: current + 1 })
-              .eq("id", automation.id as string)
-              .then(() => {});
+        try {
+          const { error: rpcErr } = await supabase.rpc("increment_field", {
+            table_name: "automations",
+            field_name: "dms_sent",
+            row_id: automation.id as string,
           });
+          if (rpcErr) throw rpcErr;
+        } catch {
+          // Fallback: direct update if RPC doesn't exist
+          const { data: autoData } = await supabase
+            .from("automations")
+            .select("dms_sent")
+            .eq("id", automation.id as string)
+            .single();
+          const current =
+            ((autoData as Record<string, number> | null)?.dms_sent as number) || 0;
+          await supabase
+            .from("automations")
+            .update({ dms_sent: current + 1 })
+            .eq("id", automation.id as string);
+        }
 
         // Increment user's monthly DM count
-        const { data: dmProfile } = await supabase
-          .from("profiles")
-          .select("dm_count_this_month")
-          .eq("id", e.user_id as string)
-          .single();
-        const dmCurrent = ((dmProfile as Record<string, number> | null)?.dm_count_this_month as number) || 0;
-        await supabase
-          .from("profiles")
-          .update({ dm_count_this_month: dmCurrent + 1 })
-          .eq("id", e.user_id as string);
+        try {
+          const { error: rpcErr2 } = await supabase.rpc("increment_field", {
+            table_name: "profiles",
+            field_name: "dm_count_this_month",
+            row_id: e.user_id as string,
+          });
+          if (rpcErr2) throw rpcErr2;
+        } catch {
+          // Fallback: direct update if RPC doesn't exist
+          const { data: dmProfile } = await supabase
+            .from("profiles")
+            .select("dm_count_this_month")
+            .eq("id", e.user_id as string)
+            .single();
+          const dmCurrent = ((dmProfile as Record<string, number> | null)?.dm_count_this_month as number) || 0;
+          await supabase
+            .from("profiles")
+            .update({ dm_count_this_month: dmCurrent + 1 })
+            .eq("id", e.user_id as string);
+        }
 
         // Log activity
         supabase

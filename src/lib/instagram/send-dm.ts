@@ -25,19 +25,30 @@ export async function sendInstagramDM(
   igUserId: string,
   accessToken: string,
   recipientIgScopedId: string,
-  messageText: string
+  messageText: string,
+  options?: { humanAgent?: boolean }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
+    // Build request body
+    const body: Record<string, unknown> = {
+      recipient: { id: recipientIgScopedId },
+      message: { text: messageText },
+    };
+
+    // Add HUMAN_AGENT tag for messages sent outside the 24-hour window
+    // (e.g., drip sequence follow-ups sent days after initial interaction)
+    if (options?.humanAgent) {
+      body.messaging_type = "MESSAGE_TAG";
+      body.tag = "HUMAN_AGENT";
+    }
+
     const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        recipient: { id: recipientIgScopedId },
-        message: { text: messageText },
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await res.json();
@@ -180,6 +191,88 @@ export async function sendGenericTemplate(
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("[IG Generic Template] Network error:", msg);
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Send a Generic Template (rich card with buttons) as a Direct Message.
+ * Unlike sendGenericTemplate (which uses comment_id for Private Replies),
+ * this function sends directly to a user's IG-scoped ID — used for drip follow-ups.
+ *
+ * Supports HUMAN_AGENT tag for messages sent outside the 24-hour window.
+ */
+export async function sendGenericTemplateDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgId: string,
+  template: {
+    title: string;
+    subtitle?: string;
+    image_url?: string;
+    buttons: TemplateButton[];
+  },
+  options?: { humanAgent?: boolean }
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    console.log(`[IG Template DM] Sending template "${template.title}" to user=${recipientIgId}`);
+
+    const element: Record<string, unknown> = {
+      title: template.title.slice(0, 80),
+    };
+    if (template.subtitle) element.subtitle = template.subtitle.slice(0, 80);
+    if (template.image_url) element.image_url = template.image_url;
+
+    // Build buttons array (max 3)
+    if (template.buttons && template.buttons.length > 0) {
+      element.buttons = template.buttons.slice(0, 3).map((btn) => {
+        if (btn.type === "web_url") {
+          return { type: "web_url", url: btn.url, title: btn.title.slice(0, 20) };
+        }
+        return { type: "postback", title: btn.title.slice(0, 20), payload: btn.payload || btn.title };
+      });
+    }
+
+    const body: Record<string, unknown> = {
+      recipient: { id: recipientIgId },
+      message: {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "generic",
+            elements: [element],
+          },
+        },
+      },
+    };
+
+    // Add HUMAN_AGENT tag for drip follow-ups outside 24-hour window
+    if (options?.humanAgent) {
+      body.messaging_type = "MESSAGE_TAG";
+      body.tag = "HUMAN_AGENT";
+    }
+
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      console.error("[IG Template DM] API Error:", JSON.stringify(data.error));
+      return { success: false, error: data.error.message };
+    }
+
+    console.log(`[IG Template DM] Success! message_id=${data.message_id}`);
+    return { success: true, messageId: data.message_id };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[IG Template DM] Network error:", msg);
     return { success: false, error: msg };
   }
 }

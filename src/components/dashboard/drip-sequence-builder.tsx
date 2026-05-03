@@ -80,7 +80,11 @@ export default function DripSequenceBuilder({
     const result = await getDripSequence(automationId);
     if (result.data) {
       setSequence(result.data);
-      setSteps((result.data.steps as DripStep[]) || []);
+      // Backend returns steps under "drip_steps" key (Supabase join alias)
+      // but the DripSequence interface defines it as "steps"
+      const raw = result.data as unknown as Record<string, unknown>;
+      const rawSteps = raw.drip_steps ?? raw.steps ?? [];
+      setSteps(rawSteps as DripStep[]);
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
