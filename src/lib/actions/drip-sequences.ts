@@ -25,6 +25,7 @@ export interface DripSequence {
   automation_id: string;
   user_id: string;
   is_active: boolean;
+  window_opener_text: string;
   created_at: string;
   updated_at: string;
   steps?: DripStep[];
@@ -38,7 +39,7 @@ export interface DripEnrollment {
   recipient_ig_id: string;
   recipient_username: string | null;
   current_step: number;
-  status: "active" | "completed" | "cancelled" | "failed";
+  status: "waiting_reply" | "active" | "completed" | "cancelled" | "failed";
   next_send_at: string | null;
   enrolled_at: string;
   completed_at: string | null;
@@ -155,6 +156,38 @@ export async function toggleDripSequence(
   logActivity(user.id, `drip.sequence_${isActive ? "enabled" : "disabled"}`, {
     sequence_id: sequenceId,
   }).catch(() => {});
+
+  revalidatePath("/dashboard/automations");
+  return { success: true };
+}
+
+/**
+ * Update the window opener text for a drip sequence.
+ */
+export async function updateWindowOpener(
+  sequenceId: string,
+  windowOpenerText: string
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const trimmed = windowOpenerText.trim();
+  if (!trimmed) return { error: "Window opener text is required" };
+  if (trimmed.length > 500) return { error: "Window opener text is too long (max 500 chars)" };
+
+  const { error } = await supabase
+    .from("drip_sequences")
+    .update({
+      window_opener_text: trimmed,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sequenceId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
 
   revalidatePath("/dashboard/automations");
   return { success: true };

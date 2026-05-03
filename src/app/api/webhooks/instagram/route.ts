@@ -6,6 +6,7 @@ import {
   sendInstagramDM,
   sendPrivateReply,
   sendGenericTemplate,
+  sendGenericTemplateDM,
   replyToComment,
   checkIfFollower,
   type TemplateButton,
@@ -341,15 +342,36 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     }
 
     // ═══════════════════════════════════════════════
-    // SEND DM: Text or Generic Template based on template_type
+    // CHECK: Does this automation have an active drip sequence?
+    // If YES → send "window opener" as the initial Private Reply
+    //          (prompts user to reply, opening the messaging window)
+    // If NO  → send normal automation template/text as Private Reply
     // ═══════════════════════════════════════════════
+    const { data: activeDripSeq } = await supabase
+      .from("drip_sequences")
+      .select("id, window_opener_text")
+      .eq("automation_id", automation.id)
+      .eq("is_active", true)
+      .single();
+
+    const hasDrip = !!activeDripSeq;
     const templateType = (automation.template_type as string) || "text";
     let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
 
-    if (templateType === "button" && automation.template_title) {
-      // ── BUTTON TEMPLATE DM ──
+    if (hasDrip) {
+      // ── DRIP ACTIVE: Send window opener as Private Reply ──
+      const openerText = ((activeDripSeq as Record<string, string>).window_opener_text || "Hey {name}! 👋 Reply 'YES' to this message and I'll send you everything!")
+        .replace(/\{name\}/gi, `@${commenterUsername}`)
+        .replace(/\{keyword\}/gi, commentText);
+
+      sendResult = await sendPrivateReply(igUserId, accessToken, commentId, openerText);
+
+      console.log(
+        `[Meta Webhook] Drip active → sent window opener to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
+      );
+    } else if (templateType === "button" && automation.template_title) {
+      // ── NO DRIP: BUTTON TEMPLATE DM ──
       const buttons = (automation.template_buttons as TemplateButton[]) || [];
-      // Replace variables in title/subtitle
       const title = ((automation.template_title as string) || "")
         .replace(/\{name\}/gi, `@${commenterUsername}`)
         .replace(/\{keyword\}/gi, commentText);
@@ -364,7 +386,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
         buttons,
       });
     } else {
-      // ── PLAIN TEXT DM ──
+      // ── NO DRIP: PLAIN TEXT DM ──
       const dmText = await generateDMReply({
         automationName: automation.name as string,
         keyword: isCatchAll ? commentText : (automation.keyword as string),
@@ -378,7 +400,9 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     }
 
     // Build display text for logging
-    const logMessageText = templateType === "button"
+    const logMessageText = hasDrip
+      ? `[WINDOW OPENER] ${((activeDripSeq as Record<string, string>).window_opener_text || "").slice(0, 100)}`
+      : templateType === "button"
       ? `[TEMPLATE] ${automation.template_title}`
       : await generateDMReply({
           automationName: automation.name as string,
@@ -469,56 +493,31 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
     // ═══════════════════════════════════════════════
     // DRIP SEQUENCE ENROLLMENT (fire-and-forget)
-    // If this automation has an active drip sequence, enroll the commenter.
-    // The cron job (/api/cron/drip-processor) will send follow-up DMs.
+    // Enroll with 'waiting_reply' — user must reply to open messaging window
     // ═══════════════════════════════════════════════
-    if (sendResult.success) {
+    if (sendResult.success && hasDrip) {
       void (async () => {
         try {
-          const { data: dripSeq } = await supabase
-            .from("drip_sequences")
-            .select("id")
-            .eq("automation_id", automation.id)
-            .eq("is_active", true)
-            .single();
+          const seqId = (activeDripSeq as Record<string, string>).id;
 
-          if (dripSeq) {
-            const seqId = (dripSeq as Record<string, string>).id;
+          await supabase.from("drip_enrollments").upsert(
+            {
+              sequence_id: seqId,
+              user_id: userId,
+              automation_id: automation.id as string,
+              recipient_ig_id: commenterId,
+              recipient_username: commenterUsername,
+              current_step: 0,
+              status: "waiting_reply",
+              next_send_at: null,
+              enrolled_at: new Date().toISOString(),
+            },
+            { onConflict: "sequence_id,recipient_ig_id" }
+          );
 
-            // Get the first step to calculate next_send_at
-            const { data: firstStep } = await supabase
-              .from("drip_steps")
-              .select("delay_hours")
-              .eq("sequence_id", seqId)
-              .eq("step_number", 1)
-              .single();
-
-            if (firstStep) {
-              const delayHours = (firstStep as Record<string, number>).delay_hours;
-              const nextSendAt = new Date(
-                Date.now() + delayHours * 60 * 60 * 1000
-              ).toISOString();
-
-              await supabase.from("drip_enrollments").upsert(
-                {
-                  sequence_id: seqId,
-                  user_id: userId,
-                  automation_id: automation.id as string,
-                  recipient_ig_id: commenterId,
-                  recipient_username: commenterUsername,
-                  current_step: 0,
-                  status: "active",
-                  next_send_at: nextSendAt,
-                  enrolled_at: new Date().toISOString(),
-                },
-                { onConflict: "sequence_id,recipient_ig_id" }
-              );
-
-              console.log(
-                `[Meta Webhook] @${commenterUsername} enrolled in drip sequence (next step in ${delayHours}h)`
-              );
-            }
-          }
+          console.log(
+            `[Meta Webhook] @${commenterUsername} enrolled in drip (waiting_reply)`
+          );
         } catch (err) {
           console.error("[Meta Webhook] Drip enrollment error:", err);
         }
@@ -595,6 +594,105 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   const accessToken =
     (igAccount.page_access_token as string) ||
     (igAccount.access_token as string);
+
+  // ═══════════════════════════════════════════════
+  // DRIP WINDOW OPENER: Check if this user has a 'waiting_reply' enrollment
+  // If so, they just replied to the window opener → send the actual template
+  // and activate the drip sequence
+  // ═══════════════════════════════════════════════
+  const { data: pendingEnrollment } = await supabase
+    .from("drip_enrollments")
+    .select(`
+      id, sequence_id, automation_id,
+      drip_sequences!inner(automation_id)
+    `)
+    .eq("recipient_ig_id", senderId)
+    .eq("user_id", userId)
+    .eq("status", "waiting_reply")
+    .limit(1)
+    .single();
+
+  if (pendingEnrollment) {
+    const enrollment = pendingEnrollment as Record<string, unknown>;
+    const automationId = enrollment.automation_id as string;
+
+    // Fetch the automation to get the template
+    const { data: automation } = await supabase
+      .from("automations")
+      .select("*")
+      .eq("id", automationId)
+      .eq("status", "active")
+      .single();
+
+    if (automation) {
+      // Send the ACTUAL automation template as a regular DM (window is now open!)
+      const autoTemplateType = (automation.template_type as string) || "text";
+      let templateSendResult: { success: boolean; messageId?: string; error?: string };
+
+      if (autoTemplateType === "button" && automation.template_title) {
+        const buttons = (automation.template_buttons as TemplateButton[]) || [];
+        const title = ((automation.template_title as string) || "")
+          .replace(/\{name\}/gi, `@${(enrollment.recipient_username as string) || "friend"}`);
+
+        templateSendResult = await sendGenericTemplateDM(
+          recipientId, accessToken, senderId,
+          { title, subtitle: undefined, image_url: (automation.template_image_url as string) || undefined, buttons }
+        );
+      } else {
+        const dmText = await generateDMReply({
+          automationName: automation.name as string,
+          keyword: automation.keyword as string,
+          dmTemplate: automation.dm_template as string,
+          commenterUsername: (enrollment.recipient_username as string) || "friend",
+          commentText: messageText,
+          aiEnabled: (automation.ai_enabled as boolean) ?? false,
+        });
+
+        templateSendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
+      }
+
+      // Log the template DM
+      await supabase.from("dm_logs").insert({
+        user_id: userId,
+        automation_id: automationId,
+        instagram_account_id: igAccount.id,
+        recipient_ig_id: senderId,
+        recipient_username: (enrollment.recipient_username as string) || senderId,
+        message_text: `[DRIP ACTIVATED] ${autoTemplateType === "button" ? `Template: ${automation.template_title}` : "Automation template sent"}`,
+        comment_text: messageText,
+        status: templateSendResult.success ? "sent" : "failed",
+      });
+
+      if (templateSendResult.success) {
+        // Get the first drip step to calculate next_send_at
+        const { data: firstStep } = await supabase
+          .from("drip_steps")
+          .select("delay_hours")
+          .eq("sequence_id", enrollment.sequence_id as string)
+          .eq("step_number", 1)
+          .single();
+
+        const nextSendAt = firstStep
+          ? new Date(Date.now() + (firstStep as Record<string, number>).delay_hours * 60 * 60 * 1000).toISOString()
+          : null;
+
+        // Activate the enrollment — drip steps will now flow via cron
+        await supabase
+          .from("drip_enrollments")
+          .update({
+            status: "active",
+            next_send_at: nextSendAt,
+          })
+          .eq("id", enrollment.id as string);
+
+        console.log(
+          `[Meta Webhook] Drip activated for ${senderId} → template sent, next step in ${firstStep ? (firstStep as Record<string, number>).delay_hours + "h" : "N/A"}`
+        );
+      }
+    }
+
+    return; // Handled — skip AI agent
+  }
 
   // ── Strategy 1: AI Agent (persona + FAQs + conversation memory) ──
   try {

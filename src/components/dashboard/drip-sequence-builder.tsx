@@ -10,6 +10,7 @@ import {
   updateDripStep,
   deleteDripStep,
   getDripStats,
+  updateWindowOpener,
   type DripStep,
   type DripSequence,
 } from "@/lib/actions/drip-sequences";
@@ -74,6 +75,8 @@ export default function DripSequenceBuilder({
     delay_hours: 24,
     message_text: "",
   });
+  const [windowOpener, setWindowOpener] = useState("");
+  const [savingOpener, setSavingOpener] = useState(false);
 
   const loadSequence = useCallback(async () => {
     setLoading(true);
@@ -85,6 +88,7 @@ export default function DripSequenceBuilder({
       const raw = result.data as unknown as Record<string, unknown>;
       const rawSteps = raw.drip_steps ?? raw.steps ?? [];
       setSteps(rawSteps as DripStep[]);
+      setWindowOpener(result.data.window_opener_text || "Hey {name}! \uD83D\uDC4B Reply 'YES' to this message and I'll send you everything!");
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
@@ -339,6 +343,38 @@ export default function DripSequenceBuilder({
         </div>
       )}
 
+      {/* Window Opener Message */}
+      <div className="drip-window-opener">
+        <div className="opener-header">
+          <MessageSquare size={14} />
+          <span className="opener-title">Window Opener Message</span>
+          <span className="opener-hint">Sent first to prompt a reply</span>
+        </div>
+        <textarea
+          className="opener-textarea"
+          value={windowOpener}
+          onChange={(e) => setWindowOpener(e.target.value)}
+          onBlur={async () => {
+            if (!sequence) return;
+            setSavingOpener(true);
+            const result = await updateWindowOpener(sequence.id, windowOpener);
+            if (result.error) {
+              toast.error(result.error);
+            } else {
+              toast.success("Window opener saved!");
+            }
+            setSavingOpener(false);
+          }}
+          placeholder="Hey {name}! \uD83D\uDC4B Reply 'YES' to this message..."
+          rows={2}
+          maxLength={500}
+        />
+        <div className="opener-footer">
+          <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
+          <span className="opener-count">{windowOpener.length}/500 {savingOpener ? '• Saving...' : ''}</span>
+        </div>
+      </div>
+
       {/* Timeline of steps */}
       <div className="drip-timeline">
         {/* Initial DM indicator */}
@@ -347,8 +383,8 @@ export default function DripSequenceBuilder({
             <MessageSquare size={12} />
           </div>
           <div className="node-content">
-            <span className="node-label">Initial DM</span>
-            <span className="node-desc">Sent immediately on trigger</span>
+            <span className="node-label">Window Opener</span>
+            <span className="node-desc">Prompts user to reply, opening DM window</span>
           </div>
         </div>
 
@@ -806,6 +842,60 @@ export default function DripSequenceBuilder({
         .add-step-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        /* ── Window Opener ── */
+        .drip-window-opener {
+          padding: 1rem 1.25rem;
+          border: 1px solid rgba(139, 92, 246, 0.15);
+          border-radius: 0.75rem;
+          background: rgba(139, 92, 246, 0.04);
+          margin-bottom: 0.5rem;
+        }
+        .opener-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.6rem;
+          color: #a78bfa;
+        }
+        .opener-title {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #e2e8f0;
+        }
+        .opener-hint {
+          font-size: 0.72rem;
+          color: #64748b;
+          margin-left: auto;
+        }
+        .opener-textarea {
+          width: 100%;
+          padding: 0.65rem 0.85rem;
+          background: rgba(15, 23, 42, 0.5);
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          border-radius: 0.5rem;
+          color: #e2e8f0;
+          font-size: 0.82rem;
+          line-height: 1.5;
+          resize: vertical;
+          min-height: 50px;
+          font-family: inherit;
+          transition: border-color 0.2s;
+        }
+        .opener-textarea:focus {
+          outline: none;
+          border-color: #8b5cf6;
+          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+        }
+        .opener-footer {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 0.4rem;
+        }
+        .opener-vars, .opener-count {
+          font-size: 0.7rem;
+          color: #64748b;
         }
 
         :global(.spin) {
