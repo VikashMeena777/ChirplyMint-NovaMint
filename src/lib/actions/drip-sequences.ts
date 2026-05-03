@@ -20,12 +20,18 @@ export interface DripStep {
   created_at: string;
 }
 
+export interface QuickReplyBtn {
+  title: string;
+  payload: string;
+}
+
 export interface DripSequence {
   id: string;
   automation_id: string;
   user_id: string;
   is_active: boolean;
   window_opener_text: string;
+  window_opener_buttons: QuickReplyBtn[];
   created_at: string;
   updated_at: string;
   steps?: DripStep[];
@@ -162,11 +168,12 @@ export async function toggleDripSequence(
 }
 
 /**
- * Update the window opener text for a drip sequence.
+ * Update the window opener text and quick reply buttons for a drip sequence.
  */
 export async function updateWindowOpener(
   sequenceId: string,
-  windowOpenerText: string
+  windowOpenerText: string,
+  windowOpenerButtons?: QuickReplyBtn[]
 ) {
   const supabase = await createClient();
   const {
@@ -178,10 +185,21 @@ export async function updateWindowOpener(
   if (!trimmed) return { error: "Window opener text is required" };
   if (trimmed.length > 500) return { error: "Window opener text is too long (max 500 chars)" };
 
+  // Validate buttons (max 13 per IG API, each title max 20 chars)
+  const buttons = windowOpenerButtons || [
+    { title: "Yes ✅", payload: "DRIP_YES" },
+    { title: "No ❌", payload: "DRIP_NO" },
+  ];
+  const validButtons = buttons
+    .filter(b => b.title.trim())
+    .slice(0, 13)
+    .map(b => ({ title: b.title.slice(0, 20), payload: b.payload || b.title.toUpperCase().replace(/\s+/g, "_") }));
+
   const { error } = await supabase
     .from("drip_sequences")
     .update({
       window_opener_text: trimmed,
+      window_opener_buttons: validButtons,
       updated_at: new Date().toISOString(),
     })
     .eq("id", sequenceId)

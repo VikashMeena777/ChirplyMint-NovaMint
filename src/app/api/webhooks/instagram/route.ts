@@ -5,6 +5,7 @@ import { generateAgentReply } from "@/lib/ai/agent-reply";
 import {
   sendInstagramDM,
   sendPrivateReply,
+  sendPrivateReplyWithQuickReplies,
   sendGenericTemplate,
   sendGenericTemplateDM,
   replyToComment,
@@ -349,7 +350,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     // ═══════════════════════════════════════════════
     const { data: activeDripSeq } = await supabase
       .from("drip_sequences")
-      .select("id, window_opener_text")
+      .select("id, window_opener_text, window_opener_buttons")
       .eq("automation_id", automation.id)
       .eq("is_active", true)
       .single();
@@ -359,15 +360,24 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
 
     if (hasDrip) {
-      // ── DRIP ACTIVE: Send window opener as Private Reply ──
-      const openerText = ((activeDripSeq as Record<string, string>).window_opener_text || "Hey {name}! 👋 Reply 'YES' to this message and I'll send you everything!")
+      // ── DRIP ACTIVE: Send window opener with Quick Reply buttons ──
+      const dripData = activeDripSeq as Record<string, unknown>;
+      const openerText = ((dripData.window_opener_text as string) || "Hey {name}! 👋 Reply 'YES' to this message and I'll send you everything!")
         .replace(/\{name\}/gi, `@${commenterUsername}`)
         .replace(/\{keyword\}/gi, commentText);
 
-      sendResult = await sendPrivateReply(igUserId, accessToken, commentId, openerText);
+      // Quick Reply buttons — user taps to open messaging window
+      const quickButtons = (dripData.window_opener_buttons as Array<{ title: string; payload: string }>) || [
+        { title: "Yes ✅", payload: "DRIP_YES" },
+        { title: "No ❌", payload: "DRIP_NO" },
+      ];
+
+      sendResult = await sendPrivateReplyWithQuickReplies(
+        igUserId, accessToken, commentId, openerText, quickButtons
+      );
 
       console.log(
-        `[Meta Webhook] Drip active → sent window opener to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
+        `[Meta Webhook] Drip active → sent window opener with ${quickButtons.length} buttons to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
       );
     } else if (templateType === "button" && automation.template_title) {
       // ── NO DRIP: BUTTON TEMPLATE DM ──

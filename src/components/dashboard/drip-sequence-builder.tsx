@@ -13,6 +13,7 @@ import {
   updateWindowOpener,
   type DripStep,
   type DripSequence,
+  type QuickReplyBtn,
 } from "@/lib/actions/drip-sequences";
 import {
   Clock,
@@ -76,6 +77,10 @@ export default function DripSequenceBuilder({
     message_text: "",
   });
   const [windowOpener, setWindowOpener] = useState("");
+  const [openerButtons, setOpenerButtons] = useState<QuickReplyBtn[]>([
+    { title: "Yes \u2705", payload: "DRIP_YES" },
+    { title: "No \u274c", payload: "DRIP_NO" },
+  ]);
   const [savingOpener, setSavingOpener] = useState(false);
 
   const loadSequence = useCallback(async () => {
@@ -89,6 +94,10 @@ export default function DripSequenceBuilder({
       const rawSteps = raw.drip_steps ?? raw.steps ?? [];
       setSteps(rawSteps as DripStep[]);
       setWindowOpener(result.data.window_opener_text || "Hey {name}! \uD83D\uDC4B Reply 'YES' to this message and I'll send you everything!");
+      setOpenerButtons(result.data.window_opener_buttons || [
+        { title: "Yes \u2705", payload: "DRIP_YES" },
+        { title: "No \u274c", payload: "DRIP_NO" },
+      ]);
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
@@ -354,10 +363,60 @@ export default function DripSequenceBuilder({
           className="opener-textarea"
           value={windowOpener}
           onChange={(e) => setWindowOpener(e.target.value)}
-          onBlur={async () => {
+          placeholder={"Hey {name}! \uD83D\uDC4B Reply 'YES' to this message..."}
+          rows={2}
+          maxLength={500}
+        />
+        <div className="opener-footer">
+          <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
+          <span className="opener-count">{windowOpener.length}/500</span>
+        </div>
+
+        {/* Quick Reply Buttons Editor */}
+        <div className="opener-buttons-section">
+          <span className="opener-buttons-label">Quick Reply Buttons (user taps to reply)</span>
+          <div className="opener-buttons-list">
+            {openerButtons.map((btn, i) => (
+              <div key={i} className="opener-btn-row">
+                <input
+                  className="opener-btn-input"
+                  value={btn.title}
+                  onChange={(e) => {
+                    const updated = [...openerButtons];
+                    updated[i] = { ...updated[i], title: e.target.value };
+                    setOpenerButtons(updated);
+                  }}
+                  placeholder="Button label..."
+                  maxLength={20}
+                />
+                <button
+                  className="opener-btn-remove"
+                  onClick={() => setOpenerButtons(openerButtons.filter((_, j) => j !== i))}
+                  title="Remove button"
+                >
+                  <XCircle size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {openerButtons.length < 13 && (
+            <button
+              className="opener-add-btn"
+              onClick={() => setOpenerButtons([...openerButtons, { title: "", payload: "" }])}
+            >
+              + Add Button
+            </button>
+          )}
+        </div>
+
+        {/* Save button */}
+        <button
+          className="opener-save-btn"
+          disabled={savingOpener}
+          onClick={async () => {
             if (!sequence) return;
             setSavingOpener(true);
-            const result = await updateWindowOpener(sequence.id, windowOpener);
+            const result = await updateWindowOpener(sequence.id, windowOpener, openerButtons);
             if (result.error) {
               toast.error(result.error);
             } else {
@@ -365,14 +424,9 @@ export default function DripSequenceBuilder({
             }
             setSavingOpener(false);
           }}
-          placeholder="Hey {name}! \uD83D\uDC4B Reply 'YES' to this message..."
-          rows={2}
-          maxLength={500}
-        />
-        <div className="opener-footer">
-          <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
-          <span className="opener-count">{windowOpener.length}/500 {savingOpener ? '• Saving...' : ''}</span>
-        </div>
+        >
+          {savingOpener ? "Saving..." : "Save Window Opener"}
+        </button>
       </div>
 
       {/* Timeline of steps */}
@@ -896,6 +950,97 @@ export default function DripSequenceBuilder({
         .opener-vars, .opener-count {
           font-size: 0.7rem;
           color: #64748b;
+        }
+
+        /* ── Quick Reply Buttons Editor ── */
+        .opener-buttons-section {
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid rgba(139, 92, 246, 0.1);
+        }
+        .opener-buttons-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #94a3b8;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+        .opener-buttons-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+        .opener-btn-row {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+        .opener-btn-input {
+          flex: 1;
+          padding: 0.45rem 0.7rem;
+          background: rgba(15, 23, 42, 0.5);
+          border: 1px solid rgba(139, 92, 246, 0.2);
+          border-radius: 0.4rem;
+          color: #e2e8f0;
+          font-size: 0.78rem;
+          font-family: inherit;
+          transition: border-color 0.2s;
+        }
+        .opener-btn-input:focus {
+          outline: none;
+          border-color: #8b5cf6;
+        }
+        .opener-btn-input::placeholder {
+          color: #475569;
+        }
+        .opener-btn-remove {
+          padding: 0.3rem;
+          background: none;
+          border: none;
+          color: #64748b;
+          cursor: pointer;
+          border-radius: 0.3rem;
+          transition: all 0.2s;
+        }
+        .opener-btn-remove:hover {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.1);
+        }
+        .opener-add-btn {
+          margin-top: 0.4rem;
+          padding: 0.35rem 0.75rem;
+          background: none;
+          border: 1px dashed rgba(139, 92, 246, 0.3);
+          border-radius: 0.4rem;
+          color: #8b5cf6;
+          font-size: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .opener-add-btn:hover {
+          background: rgba(139, 92, 246, 0.08);
+          border-color: rgba(139, 92, 246, 0.5);
+        }
+        .opener-save-btn {
+          margin-top: 0.75rem;
+          width: 100%;
+          padding: 0.55rem;
+          background: linear-gradient(135deg, #8b5cf6, #a855f7);
+          color: white;
+          border: none;
+          border-radius: 0.5rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .opener-save-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+        .opener-save-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         :global(.spin) {

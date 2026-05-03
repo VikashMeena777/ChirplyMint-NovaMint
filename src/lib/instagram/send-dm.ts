@@ -120,6 +120,75 @@ export async function sendPrivateReply(
 }
 
 /**
+ * Quick Reply button type for Instagram messaging.
+ * When tapped, it sends a text message FROM the user (opening the DM window).
+ */
+export interface QuickReplyButton {
+  title: string;
+  payload: string;
+}
+
+/**
+ * Send a Private Reply with Quick Reply buttons.
+ * Quick Replies appear as tappable chips below the message.
+ * When the user taps one, Instagram sends a text message on behalf of the user,
+ * which opens the messaging window for follow-up DMs (drip sequences).
+ *
+ * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api
+ */
+export async function sendPrivateReplyWithQuickReplies(
+  igUserId: string,
+  accessToken: string,
+  commentId: string,
+  messageText: string,
+  quickReplies: QuickReplyButton[]
+): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
+  try {
+    console.log(`[IG Private Reply+QR] Sending via /${igUserId}/messages with comment_id=${commentId}, ${quickReplies.length} quick replies`);
+
+    const qr = quickReplies.map((btn) => ({
+      content_type: "text",
+      title: btn.title.slice(0, 20), // Instagram limits to 20 chars
+      payload: btn.payload.slice(0, 1000),
+    }));
+
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: {
+          text: messageText,
+          quick_replies: qr,
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      // If quick replies aren't supported for private replies, fall back to plain text
+      console.warn("[IG Private Reply+QR] Quick replies failed, falling back to plain text:", data.error.message);
+      return sendPrivateReply(igUserId, accessToken, commentId, messageText);
+    }
+
+    console.log(`[IG Private Reply+QR] Success! recipient_id=${data.recipient_id}`);
+    return {
+      success: true,
+      messageId: data.message_id,
+      recipientId: data.recipient_id,
+    };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[IG Private Reply+QR] Network error:", msg);
+    return { success: false, error: msg };
+  }
+}
+
+/**
  * Send a Generic Template (rich card with buttons) as a Private Reply.
  * Uses the Instagram Generic Template format for interactive DMs.
  *
