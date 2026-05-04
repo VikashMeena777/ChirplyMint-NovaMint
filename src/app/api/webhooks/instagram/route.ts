@@ -175,7 +175,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
   // ═══════════════════════════════════════════════
   let query = supabase
     .from("automations")
-    .select("*, instagram_accounts!inner(user_id, ig_user_id, access_token, page_access_token)")
+    .select("*, instagram_accounts!inner(user_id, ig_user_id, ig_username, access_token, page_access_token)")
     .eq("status", "active")
     .not("keyword", "is", null);
 
@@ -360,24 +360,28 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
 
     if (hasDrip) {
-      // ── DRIP ACTIVE: Send window opener with Quick Reply buttons ──
+      // ── DRIP ACTIVE: Send window opener as Generic Template with postback buttons ──
       const dripData = activeDripSeq as Record<string, unknown>;
-      const openerText = ((dripData.window_opener_text as string) || "Hey {name}! 👋 Reply 'YES' to this message and I'll send you everything!")
+      const openerText = ((dripData.window_opener_text as string) || "Hey {name}! 👋 Do you follow me?")
         .replace(/\{name\}/gi, `@${commenterUsername}`)
         .replace(/\{keyword\}/gi, commentText);
 
-      // Quick Reply buttons — user taps to open messaging window
-      const quickButtons = (dripData.window_opener_buttons as Array<{ title: string; payload: string }>) || [
-        { title: "Yes ✅", payload: "DRIP_YES" },
-        { title: "No ❌", payload: "DRIP_NO" },
+      // Build buttons: "Yes" = postback (triggers drip), "No" = URL to profile
+      const igUsername = (igAccount as Record<string, string>).ig_username || "";
+      const openerButtons: TemplateButton[] = [
+        { type: "postback", title: "Yes ✅", payload: "DRIP_WINDOW_YES" },
+        { type: "web_url", title: "No, let me follow", url: `https://instagram.com/${igUsername}` },
       ];
 
-      sendResult = await sendPrivateReplyWithQuickReplies(
-        igUserId, accessToken, commentId, openerText, quickButtons
-      );
+      sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
+        title: openerText.slice(0, 80),
+        subtitle: undefined,
+        image_url: undefined,
+        buttons: openerButtons,
+      });
 
       console.log(
-        `[Meta Webhook] Drip active → sent window opener with ${quickButtons.length} buttons to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
+        `[Meta Webhook] Drip active → sent window opener template to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
       );
     } else if (templateType === "button" && automation.template_title) {
       // ── NO DRIP: BUTTON TEMPLATE DM ──
@@ -828,6 +832,110 @@ async function handlePostback(event: Record<string, unknown>) {
 
   const userId = igAccount.user_id as string;
   const accessToken = (igAccount.page_access_token as string) || (igAccount.access_token as string);
+
+  // ═══════════════════════════════════════════════
+  // DRIP WINDOW OPENER: Handle "Yes" postback
+  // When user taps "Yes ✅" on the window opener template,
+  // send the actual automation template and activate drip
+  // ═══════════════════════════════════════════════
+  if (payload === "drip_window_yes") {
+    const { data: pendingEnrollment } = await supabase
+      .from("drip_enrollments")
+      .select(`id, sequence_id, automation_id, recipient_username`)
+      .eq("recipient_ig_id", senderId)
+      .eq("user_id", userId)
+      .eq("status", "waiting_reply")
+      .limit(1)
+      .single();
+
+    if (!pendingEnrollment) {
+      console.log(`[Meta Webhook] No waiting_reply enrollment for ${senderId} — ignoring DRIP_WINDOW_YES`);
+      return;
+    }
+
+    const enrollment = pendingEnrollment as Record<string, unknown>;
+    const automationId = enrollment.automation_id as string;
+
+    // Fetch the automation to get the template
+    const { data: automation } = await supabase
+      .from("automations")
+      .select("*")
+      .eq("id", automationId)
+      .eq("status", "active")
+      .single();
+
+    if (!automation) {
+      console.warn(`[Meta Webhook] Automation ${automationId} not found for drip activation`);
+      return;
+    }
+
+    // Send the ACTUAL automation template as a regular DM (postback opened the window!)
+    const autoTemplateType = (automation.template_type as string) || "text";
+    let templateSendResult: { success: boolean; messageId?: string; error?: string };
+
+    if (autoTemplateType === "button" && automation.template_title) {
+      const buttons = (automation.template_buttons as TemplateButton[]) || [];
+      const title = ((automation.template_title as string) || "")
+        .replace(/\{name\}/gi, `@${(enrollment.recipient_username as string) || "friend"}`);
+
+      templateSendResult = await sendGenericTemplateDM(
+        recipientId, accessToken, senderId,
+        { title, subtitle: undefined, image_url: (automation.template_image_url as string) || undefined, buttons }
+      );
+    } else {
+      const dmText = await generateDMReply({
+        automationName: automation.name as string,
+        keyword: automation.keyword as string,
+        dmTemplate: automation.dm_template as string,
+        commenterUsername: (enrollment.recipient_username as string) || "friend",
+        commentText: "",
+        aiEnabled: (automation.ai_enabled as boolean) ?? false,
+      });
+
+      templateSendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
+    }
+
+    // Log the template DM
+    await supabase.from("dm_logs").insert({
+      user_id: userId,
+      automation_id: automationId,
+      instagram_account_id: igAccount.id,
+      recipient_ig_id: senderId,
+      recipient_username: (enrollment.recipient_username as string) || senderId,
+      message_text: `[DRIP ACTIVATED via postback] ${autoTemplateType === "button" ? `Template: ${automation.template_title}` : "Automation template sent"}`,
+      comment_text: `[POSTBACK] DRIP_WINDOW_YES`,
+      status: templateSendResult.success ? "sent" : "failed",
+    });
+
+    if (templateSendResult.success) {
+      // Get the first drip step to calculate next_send_at
+      const { data: firstStep } = await supabase
+        .from("drip_steps")
+        .select("delay_hours")
+        .eq("sequence_id", enrollment.sequence_id as string)
+        .eq("step_number", 1)
+        .single();
+
+      const nextSendAt = firstStep
+        ? new Date(Date.now() + (firstStep as Record<string, number>).delay_hours * 60 * 60 * 1000).toISOString()
+        : null;
+
+      // Activate the enrollment — drip steps will now flow via cron
+      await supabase
+        .from("drip_enrollments")
+        .update({
+          status: "active",
+          next_send_at: nextSendAt,
+        })
+        .eq("id", enrollment.id as string);
+
+      console.log(
+        `[Meta Webhook] Drip activated via postback for ${senderId} → template sent, next step in ${firstStep ? (firstStep as Record<string, number>).delay_hours + "h" : "N/A"}`
+      );
+    }
+
+    return; // Handled — skip normal postback flow
+  }
 
   // Find matching postback flow across all active automations for this user
   const { data: flows } = await supabase
