@@ -160,6 +160,14 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
   if (!commentText || !commenterId) return;
 
+  // Skip replies to comments — only process top-level comments
+  // Instagram replies have a `parent_id` field pointing to the parent comment
+  const parentId = (commentData.parent_id as string) || "";
+  if (parentId) {
+    console.log(`[Meta Webhook] Skipping reply (parent_id=${parentId}) from @${commenterUsername}`);
+    return;
+  }
+
   // Skip if this exact comment was already processed (Meta duplicate webhook)
   if (commentId && isCommentAlreadyProcessed(commentId)) {
     console.log(`[Meta Webhook] Skipping duplicate webhook for comment ${commentId}`);
