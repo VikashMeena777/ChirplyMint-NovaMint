@@ -5,7 +5,6 @@ import { generateAgentReply } from "@/lib/ai/agent-reply";
 import {
   sendInstagramDM,
   sendPrivateReply,
-  sendPrivateReplyWithQuickReplies,
   sendGenericTemplate,
   sendGenericTemplateDM,
   replyToComment,
@@ -362,7 +361,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     if (hasDrip) {
       // ── DRIP ACTIVE: Send window opener as Generic Template with postback buttons ──
       const dripData = activeDripSeq as Record<string, unknown>;
-      const openerText = ((dripData.window_opener_text as string) || "Hey {name}! 👋 Do you follow me?")
+      const openerText = ((dripData.window_opener_text as string) || "Do you follow me?")
         .replace(/\{name\}/gi, `@${commenterUsername}`)
         .replace(/\{keyword\}/gi, commentText);
 

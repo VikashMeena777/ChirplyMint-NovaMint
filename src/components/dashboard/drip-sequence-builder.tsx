@@ -13,7 +13,6 @@ import {
   updateWindowOpener,
   type DripStep,
   type DripSequence,
-  type QuickReplyBtn,
 } from "@/lib/actions/drip-sequences";
 import {
   Clock,
@@ -77,10 +76,6 @@ export default function DripSequenceBuilder({
     message_text: "",
   });
   const [windowOpener, setWindowOpener] = useState("");
-  const [openerButtons, setOpenerButtons] = useState<QuickReplyBtn[]>([
-    { title: "Yes \u2705", payload: "DRIP_YES" },
-    { title: "No \u274c", payload: "DRIP_NO" },
-  ]);
   const [savingOpener, setSavingOpener] = useState(false);
 
   const loadSequence = useCallback(async () => {
@@ -93,11 +88,7 @@ export default function DripSequenceBuilder({
       const raw = result.data as unknown as Record<string, unknown>;
       const rawSteps = raw.drip_steps ?? raw.steps ?? [];
       setSteps(rawSteps as DripStep[]);
-      setWindowOpener(result.data.window_opener_text || "Hey {name}! \uD83D\uDC4B Reply 'YES' to this message and I'll send you everything!");
-      setOpenerButtons(result.data.window_opener_buttons || [
-        { title: "Yes \u2705", payload: "DRIP_YES" },
-        { title: "No \u274c", payload: "DRIP_NO" },
-      ]);
+      setWindowOpener(result.data.window_opener_text || "Do you follow me?");
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
@@ -363,50 +354,25 @@ export default function DripSequenceBuilder({
           className="opener-textarea"
           value={windowOpener}
           onChange={(e) => setWindowOpener(e.target.value)}
-          placeholder={"Hey {name}! \uD83D\uDC4B Reply 'YES' to this message..."}
+          placeholder={"Do you follow me?"}
           rows={2}
-          maxLength={500}
+          maxLength={80}
         />
         <div className="opener-footer">
           <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
-          <span className="opener-count">{windowOpener.length}/500</span>
+          <span className="opener-count">{windowOpener.length}/80</span>
         </div>
 
-        {/* Quick Reply Buttons Editor */}
+        {/* Postback Buttons Preview (fixed — not editable) */}
         <div className="opener-buttons-section">
-          <span className="opener-buttons-label">Quick Reply Buttons (user taps to reply)</span>
-          <div className="opener-buttons-list">
-            {openerButtons.map((btn, i) => (
-              <div key={i} className="opener-btn-row">
-                <input
-                  className="opener-btn-input"
-                  value={btn.title}
-                  onChange={(e) => {
-                    const updated = [...openerButtons];
-                    updated[i] = { ...updated[i], title: e.target.value };
-                    setOpenerButtons(updated);
-                  }}
-                  placeholder="Button label..."
-                  maxLength={20}
-                />
-                <button
-                  className="opener-btn-remove"
-                  onClick={() => setOpenerButtons(openerButtons.filter((_, j) => j !== i))}
-                  title="Remove button"
-                >
-                  <XCircle size={14} />
-                </button>
-              </div>
-            ))}
+          <span className="opener-buttons-label">Buttons (shown to user)</span>
+          <div className="opener-buttons-preview">
+            <div className="preview-btn yes">Yes ✅</div>
+            <div className="preview-btn no">No, let me follow</div>
           </div>
-          {openerButtons.length < 13 && (
-            <button
-              className="opener-add-btn"
-              onClick={() => setOpenerButtons([...openerButtons, { title: "", payload: "" }])}
-            >
-              + Add Button
-            </button>
-          )}
+          <span className="opener-buttons-hint">
+            &quot;Yes&quot; → sends your automation template &amp; starts drip • &quot;No&quot; → redirects to your profile
+          </span>
         </div>
 
         {/* Save button */}
@@ -416,7 +382,7 @@ export default function DripSequenceBuilder({
           onClick={async () => {
             if (!sequence) return;
             setSavingOpener(true);
-            const result = await updateWindowOpener(sequence.id, windowOpener, openerButtons);
+            const result = await updateWindowOpener(sequence.id, windowOpener, []);
             if (result.error) {
               toast.error(result.error);
             } else {
@@ -952,7 +918,7 @@ export default function DripSequenceBuilder({
           color: #64748b;
         }
 
-        /* ── Quick Reply Buttons Editor ── */
+        /* ── Postback Buttons Preview ── */
         .opener-buttons-section {
           margin-top: 0.75rem;
           padding-top: 0.75rem;
@@ -965,61 +931,34 @@ export default function DripSequenceBuilder({
           display: block;
           margin-bottom: 0.5rem;
         }
-        .opener-buttons-list {
+        .opener-buttons-preview {
           display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.5rem;
         }
-        .opener-btn-row {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-        .opener-btn-input {
-          flex: 1;
-          padding: 0.45rem 0.7rem;
-          background: rgba(15, 23, 42, 0.5);
-          border: 1px solid rgba(139, 92, 246, 0.2);
-          border-radius: 0.4rem;
-          color: #e2e8f0;
+        .preview-btn {
+          padding: 0.45rem 1rem;
+          border-radius: 2rem;
           font-size: 0.78rem;
-          font-family: inherit;
-          transition: border-color 0.2s;
+          font-weight: 600;
+          text-align: center;
+          flex: 1;
         }
-        .opener-btn-input:focus {
-          outline: none;
-          border-color: #8b5cf6;
+        .preview-btn.yes {
+          background: rgba(34, 197, 94, 0.15);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+          color: #4ade80;
         }
-        .opener-btn-input::placeholder {
-          color: #475569;
-        }
-        .opener-btn-remove {
-          padding: 0.3rem;
-          background: none;
-          border: none;
-          color: #64748b;
-          cursor: pointer;
-          border-radius: 0.3rem;
-          transition: all 0.2s;
-        }
-        .opener-btn-remove:hover {
-          color: #ef4444;
+        .preview-btn.no {
           background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          color: #f87171;
         }
-        .opener-add-btn {
-          margin-top: 0.4rem;
-          padding: 0.35rem 0.75rem;
-          background: none;
-          border: 1px dashed rgba(139, 92, 246, 0.3);
-          border-radius: 0.4rem;
-          color: #8b5cf6;
-          font-size: 0.75rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .opener-add-btn:hover {
-          background: rgba(139, 92, 246, 0.08);
-          border-color: rgba(139, 92, 246, 0.5);
+        .opener-buttons-hint {
+          display: block;
+          margin-top: 0.5rem;
+          font-size: 0.68rem;
+          color: #64748b;
+          line-height: 1.4;
         }
         .opener-save-btn {
           margin-top: 0.75rem;
