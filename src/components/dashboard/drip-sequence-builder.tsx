@@ -347,32 +347,57 @@ export default function DripSequenceBuilder({
       <div className="drip-window-opener">
         <div className="opener-header">
           <MessageSquare size={14} />
-          <span className="opener-title">Window Opener Message</span>
-          <span className="opener-hint">Sent first to prompt a reply</span>
-        </div>
-        <textarea
-          className="opener-textarea"
-          value={windowOpener}
-          onChange={(e) => setWindowOpener(e.target.value)}
-          placeholder={"Do you follow me?"}
-          rows={2}
-          maxLength={80}
-        />
-        <div className="opener-footer">
-          <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
-          <span className="opener-count">{windowOpener.length}/80</span>
+          <span className="opener-title">Window Opener</span>
+          <span className="opener-hint">First message sent when someone comments</span>
         </div>
 
-        {/* Postback Buttons Preview (fixed — not editable) */}
-        <div className="opener-buttons-section">
-          <span className="opener-buttons-label">Buttons (shown to user)</span>
-          <div className="opener-buttons-preview">
-            <div className="preview-btn yes">Yes ✅</div>
-            <div className="preview-btn no">No, let me follow</div>
+        {/* Editable text */}
+        <div className="opener-edit-area">
+          <label className="opener-label">Card title text</label>
+          <input
+            className="opener-input"
+            type="text"
+            value={windowOpener}
+            onChange={(e) => setWindowOpener(e.target.value)}
+            placeholder="Do you follow me?"
+            maxLength={80}
+          />
+          <div className="opener-footer">
+            <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
+            <span className="opener-count">{windowOpener.length}/80</span>
           </div>
-          <span className="opener-buttons-hint">
-            &quot;Yes&quot; → sends your automation template &amp; starts drip • &quot;No&quot; → redirects to your profile
-          </span>
+        </div>
+
+        {/* Instagram DM Preview Mock */}
+        <div className="ig-preview">
+          <span className="ig-preview-label">Preview — what users see in their DMs</span>
+          <div className="ig-card">
+            <div className="ig-card-body">
+              <span className="ig-card-title">{windowOpener || "Do you follow me?"}</span>
+            </div>
+            <div className="ig-card-buttons">
+              <div className="ig-btn ig-btn-yes">Yes ✅</div>
+              <div className="ig-btn ig-btn-no">No, let me follow</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Flow explanation */}
+        <div className="opener-flow">
+          <div className="flow-step">
+            <span className="flow-icon">💬</span>
+            <span className="flow-text">User comments keyword</span>
+          </div>
+          <span className="flow-arrow">→</span>
+          <div className="flow-step">
+            <span className="flow-icon">📩</span>
+            <span className="flow-text">Gets this card in DMs</span>
+          </div>
+          <span className="flow-arrow">→</span>
+          <div className="flow-step">
+            <span className="flow-icon yes">✅</span>
+            <span className="flow-text">&quot;Yes&quot; → template + drip</span>
+          </div>
         </div>
 
         {/* Save button */}
@@ -391,7 +416,7 @@ export default function DripSequenceBuilder({
             setSavingOpener(false);
           }}
         >
-          {savingOpener ? "Saving..." : "Save Window Opener"}
+          {savingOpener ? "Saving..." : "Save"}
         </button>
       </div>
 
@@ -559,10 +584,11 @@ export default function DripSequenceBuilder({
 
       <style jsx>{`
         .drip-builder {
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          border: 1px solid var(--border);
           border-radius: 1rem;
-          background: rgba(139, 92, 246, 0.03);
+          background: var(--card);
           overflow: hidden;
+          box-shadow: 0 1px 3px oklch(0 0 0 / 5%);
         }
 
         /* ── Header ── */
@@ -571,7 +597,7 @@ export default function DripSequenceBuilder({
           align-items: center;
           justify-content: space-between;
           padding: 1rem 1.25rem;
-          border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+          border-bottom: 1px solid var(--border);
         }
         .drip-header-left {
           display: flex;
@@ -584,44 +610,45 @@ export default function DripSequenceBuilder({
           align-items: center;
           gap: 0.4rem;
           font-size: 0.95rem;
-          color: #e2e8f0;
+          color: var(--foreground);
         }
         .drip-badge {
-          font-size: 0.7rem;
-          padding: 0.2rem 0.5rem;
+          font-size: 0.68rem;
+          padding: 0.2rem 0.55rem;
           border-radius: 9999px;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         .drip-badge.active {
-          background: rgba(34, 197, 94, 0.15);
-          color: #22c55e;
+          background: oklch(0.52 0.19 162 / 12%);
+          color: oklch(0.52 0.19 162);
         }
         .drip-badge.paused {
-          background: rgba(234, 179, 8, 0.15);
-          color: #eab308;
+          background: oklch(0.7 0.15 85 / 15%);
+          color: oklch(0.6 0.15 85);
         }
         .drip-toggle-btn {
           display: flex;
           align-items: center;
           gap: 0.4rem;
           padding: 0.4rem 0.85rem;
-          border: 1px solid rgba(139, 92, 246, 0.3);
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
           background: transparent;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           font-size: 0.8rem;
           cursor: pointer;
           transition: all 0.2s;
         }
         .drip-toggle-btn:hover {
-          background: rgba(139, 92, 246, 0.1);
-          color: #8b5cf6;
+          background: var(--accent);
+          color: var(--primary);
+          border-color: var(--primary);
         }
         .drip-toggle-btn.active {
-          border-color: rgba(234, 179, 8, 0.4);
-          color: #eab308;
+          border-color: oklch(0.6 0.15 85);
+          color: oklch(0.6 0.15 85);
         }
 
         /* ── Stats ── */
@@ -629,21 +656,21 @@ export default function DripSequenceBuilder({
           display: flex;
           gap: 1.25rem;
           padding: 0.75rem 1.25rem;
-          border-bottom: 1px solid rgba(139, 92, 246, 0.1);
-          background: rgba(15, 23, 42, 0.3);
+          border-bottom: 1px solid var(--border);
+          background: var(--muted);
         }
         .stat-item {
           display: flex;
           align-items: center;
           gap: 0.35rem;
           font-size: 0.78rem;
-          color: #64748b;
+          color: var(--muted-foreground);
         }
         .stat-item.success {
-          color: #22c55e;
+          color: oklch(0.52 0.19 162);
         }
         .stat-item.warning {
-          color: #f97316;
+          color: oklch(0.65 0.18 45);
         }
 
         /* ── Timeline ── */
@@ -668,7 +695,7 @@ export default function DripSequenceBuilder({
           top: -10px;
           width: 2px;
           height: 24px;
-          background: linear-gradient(to bottom, rgba(139, 92, 246, 0.4), rgba(139, 92, 246, 0.2));
+          background: linear-gradient(to bottom, oklch(0.52 0.19 162 / 40%), oklch(0.52 0.19 162 / 15%));
         }
         .node-dot {
           width: 28px;
@@ -684,10 +711,10 @@ export default function DripSequenceBuilder({
           z-index: 1;
         }
         .timeline-node.initial .node-dot {
-          background: linear-gradient(135deg, #22c55e, #16a34a);
+          background: linear-gradient(135deg, oklch(0.52 0.19 162), oklch(0.48 0.17 162));
         }
         .node-dot.step {
-          background: linear-gradient(135deg, #8b5cf6, #a855f7);
+          background: linear-gradient(135deg, oklch(0.55 0.2 158), oklch(0.5 0.18 165));
         }
         .node-content {
           flex: 1;
@@ -696,11 +723,11 @@ export default function DripSequenceBuilder({
         .node-label {
           font-weight: 600;
           font-size: 0.85rem;
-          color: #e2e8f0;
+          color: var(--foreground);
         }
         .node-desc {
           font-size: 0.75rem;
-          color: #64748b;
+          color: var(--muted-foreground);
           display: block;
           margin-top: 0.15rem;
         }
@@ -709,12 +736,12 @@ export default function DripSequenceBuilder({
           align-items: center;
           justify-content: space-between;
           cursor: pointer;
-          padding: 0.25rem 0;
+          padding: 0.25rem 0.5rem;
           border-radius: 0.4rem;
           transition: all 0.15s;
         }
         .node-header:hover {
-          background: rgba(139, 92, 246, 0.05);
+          background: var(--accent);
         }
         .node-info {
           display: flex;
@@ -723,17 +750,17 @@ export default function DripSequenceBuilder({
         }
         .node-delay {
           font-size: 0.75rem;
-          color: #8b5cf6;
+          color: var(--primary);
           display: flex;
           align-items: center;
           gap: 0.3rem;
         }
         .node-actions {
-          color: #64748b;
+          color: var(--muted-foreground);
         }
         .node-preview {
           font-size: 0.78rem;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           margin: 0.3rem 0 0;
           line-height: 1.4;
         }
@@ -742,18 +769,18 @@ export default function DripSequenceBuilder({
         .node-edit {
           margin-top: 0.75rem;
           padding: 1rem;
-          background: rgba(15, 23, 42, 0.5);
+          background: var(--muted);
           border-radius: 0.75rem;
-          border: 1px solid rgba(139, 92, 246, 0.15);
+          border: 1px solid var(--border);
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
         }
         .edit-field label {
           display: block;
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 600;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           margin-bottom: 0.4rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -765,30 +792,30 @@ export default function DripSequenceBuilder({
         }
         .preset-btn {
           padding: 0.3rem 0.65rem;
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          border: 1px solid var(--border);
           border-radius: 0.4rem;
           background: transparent;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           font-size: 0.75rem;
           cursor: pointer;
           transition: all 0.15s;
         }
         .preset-btn:hover {
-          border-color: rgba(139, 92, 246, 0.4);
-          color: #8b5cf6;
+          border-color: var(--primary);
+          color: var(--primary);
         }
         .preset-btn.active {
-          background: rgba(139, 92, 246, 0.15);
-          border-color: #8b5cf6;
-          color: #8b5cf6;
+          background: oklch(0.52 0.19 162 / 12%);
+          border-color: var(--primary);
+          color: var(--primary);
         }
         textarea {
           width: 100%;
           padding: 0.65rem 0.85rem;
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
-          background: rgba(15, 23, 42, 0.6);
-          color: #e2e8f0;
+          background: var(--card);
+          color: var(--foreground);
           font-size: 0.85rem;
           line-height: 1.5;
           resize: vertical;
@@ -796,12 +823,12 @@ export default function DripSequenceBuilder({
         }
         textarea:focus {
           outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px oklch(0.52 0.19 162 / 15%);
         }
         .help-text {
           font-size: 0.7rem;
-          color: #64748b;
+          color: var(--muted-foreground);
           margin-top: 0.25rem;
           display: block;
         }
@@ -810,24 +837,24 @@ export default function DripSequenceBuilder({
           align-items: center;
           gap: 0.4rem;
           padding: 0.4rem 0.75rem;
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          border: 1px solid oklch(0.577 0.245 27.325 / 30%);
           border-radius: 0.4rem;
           background: transparent;
-          color: #ef4444;
+          color: oklch(0.577 0.245 27.325);
           font-size: 0.78rem;
           cursor: pointer;
           transition: all 0.2s;
           align-self: flex-start;
         }
         .delete-step-btn:hover {
-          background: rgba(239, 68, 68, 0.1);
+          background: oklch(0.577 0.245 27.325 / 8%);
         }
 
         /* ── Add step form ── */
         .add-step-form {
           padding: 1.25rem;
-          border-top: 1px solid rgba(139, 92, 246, 0.1);
-          background: rgba(15, 23, 42, 0.2);
+          border-top: 1px solid var(--border);
+          background: var(--muted);
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
@@ -838,15 +865,15 @@ export default function DripSequenceBuilder({
           align-items: center;
           gap: 0.4rem;
           font-size: 0.85rem;
-          color: #94a3b8;
+          color: var(--muted-foreground);
         }
         .add-step-btn {
           display: flex;
           align-items: center;
           gap: 0.5rem;
           padding: 0.55rem 1.25rem;
-          background: linear-gradient(135deg, #8b5cf6, #a855f7);
-          color: white;
+          background: var(--primary);
+          color: var(--primary-foreground);
           border: none;
           border-radius: 0.5rem;
           font-size: 0.82rem;
@@ -856,8 +883,9 @@ export default function DripSequenceBuilder({
           align-self: flex-start;
         }
         .add-step-btn:hover:not(:disabled) {
+          opacity: 0.9;
           transform: translateY(-1px);
-          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 4px 12px oklch(0.52 0.19 162 / 25%);
         }
         .add-step-btn:disabled {
           opacity: 0.5;
@@ -867,105 +895,152 @@ export default function DripSequenceBuilder({
         /* ── Window Opener ── */
         .drip-window-opener {
           padding: 1rem 1.25rem;
-          border: 1px solid rgba(139, 92, 246, 0.15);
+          border: 1px solid var(--border);
           border-radius: 0.75rem;
-          background: rgba(139, 92, 246, 0.04);
+          background: var(--card);
           margin-bottom: 0.5rem;
         }
         .opener-header {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          margin-bottom: 0.6rem;
-          color: #a78bfa;
+          margin-bottom: 0.75rem;
+          color: var(--primary);
         }
         .opener-title {
-          font-size: 0.82rem;
+          font-size: 0.85rem;
           font-weight: 600;
-          color: #e2e8f0;
+          color: var(--foreground);
         }
         .opener-hint {
           font-size: 0.72rem;
-          color: #64748b;
+          color: var(--muted-foreground);
           margin-left: auto;
         }
-        .opener-textarea {
+        .opener-edit-area {
+          margin-bottom: 0.75rem;
+        }
+        .opener-label {
+          display: block;
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: var(--muted-foreground);
+          margin-bottom: 0.35rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .opener-input {
           width: 100%;
-          padding: 0.65rem 0.85rem;
-          background: rgba(15, 23, 42, 0.5);
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          padding: 0.55rem 0.75rem;
+          background: var(--muted);
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
-          color: #e2e8f0;
-          font-size: 0.82rem;
-          line-height: 1.5;
-          resize: vertical;
-          min-height: 50px;
+          color: var(--foreground);
+          font-size: 0.85rem;
           font-family: inherit;
           transition: border-color 0.2s;
         }
-        .opener-textarea:focus {
+        .opener-input:focus {
           outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px oklch(0.52 0.19 162 / 15%);
         }
         .opener-footer {
           display: flex;
           justify-content: space-between;
-          margin-top: 0.4rem;
+          margin-top: 0.35rem;
         }
         .opener-vars, .opener-count {
-          font-size: 0.7rem;
-          color: #64748b;
+          font-size: 0.68rem;
+          color: var(--muted-foreground);
         }
 
-        /* ── Postback Buttons Preview ── */
-        .opener-buttons-section {
-          margin-top: 0.75rem;
-          padding-top: 0.75rem;
-          border-top: 1px solid rgba(139, 92, 246, 0.1);
+        /* ── Instagram DM Preview ── */
+        .ig-preview {
+          margin-bottom: 0.75rem;
         }
-        .opener-buttons-label {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: #94a3b8;
+        .ig-preview-label {
           display: block;
-          margin-bottom: 0.5rem;
-        }
-        .opener-buttons-preview {
-          display: flex;
-          gap: 0.5rem;
-        }
-        .preview-btn {
-          padding: 0.45rem 1rem;
-          border-radius: 2rem;
-          font-size: 0.78rem;
+          font-size: 0.7rem;
           font-weight: 600;
-          text-align: center;
-          flex: 1;
+          color: var(--muted-foreground);
+          margin-bottom: 0.4rem;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
         }
-        .preview-btn.yes {
-          background: rgba(34, 197, 94, 0.15);
-          border: 1px solid rgba(34, 197, 94, 0.3);
-          color: #4ade80;
+        .ig-card {
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
+          overflow: hidden;
+          background: var(--muted);
+          max-width: 280px;
         }
-        .preview-btn.no {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          color: #f87171;
+        .ig-card-body {
+          padding: 0.85rem 1rem;
         }
-        .opener-buttons-hint {
-          display: block;
-          margin-top: 0.5rem;
-          font-size: 0.68rem;
-          color: #64748b;
+        .ig-card-title {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: var(--foreground);
           line-height: 1.4;
         }
+        .ig-card-buttons {
+          border-top: 1px solid var(--border);
+        }
+        .ig-btn {
+          padding: 0.6rem;
+          text-align: center;
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: default;
+          border-top: 1px solid var(--border);
+        }
+        .ig-btn:first-child {
+          border-top: none;
+        }
+        .ig-btn-yes {
+          color: oklch(0.52 0.19 162);
+        }
+        .ig-btn-no {
+          color: oklch(0.55 0.2 25);
+        }
+
+        /* ── Flow Explanation ── */
+        .opener-flow {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.6rem 0.75rem;
+          background: var(--muted);
+          border-radius: 0.5rem;
+          margin-bottom: 0.75rem;
+          flex-wrap: wrap;
+        }
+        .flow-step {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+        }
+        .flow-icon {
+          font-size: 0.85rem;
+        }
+        .flow-text {
+          font-size: 0.72rem;
+          color: var(--muted-foreground);
+          font-weight: 500;
+        }
+        .flow-arrow {
+          color: var(--muted-foreground);
+          font-size: 0.75rem;
+          opacity: 0.5;
+        }
+
+        /* ── Save Button ── */
         .opener-save-btn {
-          margin-top: 0.75rem;
           width: 100%;
-          padding: 0.55rem;
-          background: linear-gradient(135deg, #8b5cf6, #a855f7);
-          color: white;
+          padding: 0.5rem;
+          background: var(--primary);
+          color: var(--primary-foreground);
           border: none;
           border-radius: 0.5rem;
           font-size: 0.8rem;
@@ -974,8 +1049,9 @@ export default function DripSequenceBuilder({
           transition: all 0.2s;
         }
         .opener-save-btn:hover:not(:disabled) {
+          opacity: 0.9;
           transform: translateY(-1px);
-          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 4px 12px oklch(0.52 0.19 162 / 25%);
         }
         .opener-save-btn:disabled {
           opacity: 0.6;
