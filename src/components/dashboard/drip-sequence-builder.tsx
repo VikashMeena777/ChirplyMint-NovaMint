@@ -10,7 +10,6 @@ import {
   updateDripStep,
   deleteDripStep,
   getDripStats,
-  updateWindowOpener,
   type DripStep,
   type DripSequence,
 } from "@/lib/actions/drip-sequences";
@@ -27,7 +26,6 @@ import {
   Users,
   CheckCircle2,
   XCircle,
-  MessageSquare,
   Loader2,
 } from "lucide-react";
 
@@ -75,8 +73,7 @@ export default function DripSequenceBuilder({
     delay_hours: 24,
     message_text: "",
   });
-  const [windowOpener, setWindowOpener] = useState("");
-  const [savingOpener, setSavingOpener] = useState(false);
+
 
   const loadSequence = useCallback(async () => {
     setLoading(true);
@@ -88,7 +85,7 @@ export default function DripSequenceBuilder({
       const raw = result.data as unknown as Record<string, unknown>;
       const rawSteps = raw.drip_steps ?? raw.steps ?? [];
       setSteps(rawSteps as DripStep[]);
-      setWindowOpener(result.data.window_opener_text || "Do you follow me?");
+
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
@@ -343,93 +340,18 @@ export default function DripSequenceBuilder({
         </div>
       )}
 
-      {/* Window Opener Message */}
-      <div className="drip-window-opener">
-        <div className="opener-header">
-          <MessageSquare size={14} />
-          <span className="opener-title">Window Opener</span>
-          <span className="opener-hint">First message sent when someone comments</span>
-        </div>
 
-        {/* Editable text */}
-        <div className="opener-edit-area">
-          <label className="opener-label">Card title text</label>
-          <input
-            className="opener-input"
-            type="text"
-            value={windowOpener}
-            onChange={(e) => setWindowOpener(e.target.value)}
-            placeholder="Do you follow me?"
-            maxLength={80}
-          />
-          <div className="opener-footer">
-            <span className="opener-vars">Variables: {'{name}'}, {'{keyword}'}</span>
-            <span className="opener-count">{windowOpener.length}/80</span>
-          </div>
-        </div>
-
-        {/* Instagram DM Preview Mock */}
-        <div className="ig-preview">
-          <span className="ig-preview-label">Preview — what users see in their DMs</span>
-          <div className="ig-card">
-            <div className="ig-card-body">
-              <span className="ig-card-title">{windowOpener || "Do you follow me?"}</span>
-            </div>
-            <div className="ig-card-buttons">
-              <div className="ig-btn ig-btn-yes">Yes ✅</div>
-              <div className="ig-btn ig-btn-no">No, let me follow</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Flow explanation */}
-        <div className="opener-flow">
-          <div className="flow-step">
-            <span className="flow-icon">💬</span>
-            <span className="flow-text">User comments keyword</span>
-          </div>
-          <span className="flow-arrow">→</span>
-          <div className="flow-step">
-            <span className="flow-icon">📩</span>
-            <span className="flow-text">Gets this card in DMs</span>
-          </div>
-          <span className="flow-arrow">→</span>
-          <div className="flow-step">
-            <span className="flow-icon yes">✅</span>
-            <span className="flow-text">&quot;Yes&quot; → template + drip</span>
-          </div>
-        </div>
-
-        {/* Save button */}
-        <button
-          className="opener-save-btn"
-          disabled={savingOpener}
-          onClick={async () => {
-            if (!sequence) return;
-            setSavingOpener(true);
-            const result = await updateWindowOpener(sequence.id, windowOpener, []);
-            if (result.error) {
-              toast.error(result.error);
-            } else {
-              toast.success("Window opener saved!");
-            }
-            setSavingOpener(false);
-          }}
-        >
-          {savingOpener ? "Saving..." : "Save"}
-        </button>
-      </div>
 
       {/* Timeline of steps */}
       <div className="drip-timeline">
         {/* Initial DM indicator */}
         <div className="timeline-node initial">
           <div className="node-dot">
-            <MessageSquare size={12} />
+            <Zap size={12} />
           </div>
           <div className="node-content">
-            <span className="node-label">Window Opener</span>
-            <span className="node-desc">Prompts user to reply, opening DM window</span>
+            <span className="node-label">Initial DM</span>
+            <span className="node-desc">Auto-sent when user taps &quot;Yes&quot;</span>
           </div>
         </div>
 
@@ -892,171 +814,7 @@ export default function DripSequenceBuilder({
           cursor: not-allowed;
         }
 
-        /* ── Window Opener ── */
-        .drip-window-opener {
-          padding: 1rem 1.25rem;
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          background: var(--card);
-          margin-bottom: 0.5rem;
-        }
-        .opener-header {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-          color: var(--primary);
-        }
-        .opener-title {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: var(--foreground);
-        }
-        .opener-hint {
-          font-size: 0.72rem;
-          color: var(--muted-foreground);
-          margin-left: auto;
-        }
-        .opener-edit-area {
-          margin-bottom: 0.75rem;
-        }
-        .opener-label {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 600;
-          color: var(--muted-foreground);
-          margin-bottom: 0.35rem;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .opener-input {
-          width: 100%;
-          padding: 0.55rem 0.75rem;
-          background: var(--muted);
-          border: 1px solid var(--border);
-          border-radius: 0.5rem;
-          color: var(--foreground);
-          font-size: 0.85rem;
-          font-family: inherit;
-          transition: border-color 0.2s;
-        }
-        .opener-input:focus {
-          outline: none;
-          border-color: var(--primary);
-          box-shadow: 0 0 0 2px oklch(0.52 0.19 162 / 15%);
-        }
-        .opener-footer {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 0.35rem;
-        }
-        .opener-vars, .opener-count {
-          font-size: 0.68rem;
-          color: var(--muted-foreground);
-        }
 
-        /* ── Instagram DM Preview ── */
-        .ig-preview {
-          margin-bottom: 0.75rem;
-        }
-        .ig-preview-label {
-          display: block;
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: var(--muted-foreground);
-          margin-bottom: 0.4rem;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-        }
-        .ig-card {
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          overflow: hidden;
-          background: var(--muted);
-          max-width: 280px;
-        }
-        .ig-card-body {
-          padding: 0.85rem 1rem;
-        }
-        .ig-card-title {
-          font-size: 0.88rem;
-          font-weight: 600;
-          color: var(--foreground);
-          line-height: 1.4;
-        }
-        .ig-card-buttons {
-          border-top: 1px solid var(--border);
-        }
-        .ig-btn {
-          padding: 0.6rem;
-          text-align: center;
-          font-size: 0.82rem;
-          font-weight: 600;
-          cursor: default;
-          border-top: 1px solid var(--border);
-        }
-        .ig-btn:first-child {
-          border-top: none;
-        }
-        .ig-btn-yes {
-          color: oklch(0.52 0.19 162);
-        }
-        .ig-btn-no {
-          color: oklch(0.55 0.2 25);
-        }
-
-        /* ── Flow Explanation ── */
-        .opener-flow {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.6rem 0.75rem;
-          background: var(--muted);
-          border-radius: 0.5rem;
-          margin-bottom: 0.75rem;
-          flex-wrap: wrap;
-        }
-        .flow-step {
-          display: flex;
-          align-items: center;
-          gap: 0.3rem;
-        }
-        .flow-icon {
-          font-size: 0.85rem;
-        }
-        .flow-text {
-          font-size: 0.72rem;
-          color: var(--muted-foreground);
-          font-weight: 500;
-        }
-        .flow-arrow {
-          color: var(--muted-foreground);
-          font-size: 0.75rem;
-          opacity: 0.5;
-        }
-
-        /* ── Save Button ── */
-        .opener-save-btn {
-          width: 100%;
-          padding: 0.5rem;
-          background: var(--primary);
-          color: var(--primary-foreground);
-          border: none;
-          border-radius: 0.5rem;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .opener-save-btn:hover:not(:disabled) {
-          opacity: 0.9;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px oklch(0.52 0.19 162 / 25%);
-        }
-        .opener-save-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
 
         :global(.spin) {
           animation: spin 1s linear infinite;
