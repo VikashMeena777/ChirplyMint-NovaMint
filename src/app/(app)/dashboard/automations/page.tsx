@@ -700,89 +700,35 @@ export default function AutomationsPage() {
           {filtered.map((a) => (
             <div
               key={a.id}
-              className="rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md transition-all group"
+              className="rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all group overflow-hidden"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-semibold text-foreground truncate">
-                      {a.name}
-                    </h3>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        a.status === "active"
-                          ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
-                          : "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
-                      }`}
-                    >
-                      {a.status === "active" ? "Active" : "Paused"}
-                    </span>
-                    {a.ai_enabled && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                        <Sparkles className="w-3 h-3" />
-                        AI
-                      </span>
-                    )}
-                    {a.require_follow && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
-                        <Shield className="w-3 h-3" />
-                        Follow
-                      </span>
-                    )}
-                    {a.template_type === "button" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
-                        <LayoutTemplate className="w-3 h-3" />
-                        Buttons
-                      </span>
-                    )}
-                    {a.comment_reply_enabled && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                        <MessageSquareReply className="w-3 h-3" />
-                        Reply
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                    <p className="text-sm text-muted-foreground">
-                      {(a.keyword || "").trim() === "*" ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full text-xs border border-amber-200 dark:border-amber-800">
-                          ⚡ All Comments
-                        </span>
-                      ) : (
-                        <>
-                          Keywords:{" "}
-                          {(a.keyword || "").split(",").map((kw, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex font-mono text-foreground bg-muted/50 px-1.5 py-0.5 rounded text-xs mr-1"
-                            >
-                              {kw.trim()}
-                            </span>
-                          ))}
-                        </>
-                      )}
-                    </p>
-                    <span className="text-xs text-muted-foreground">
-                      {a.scope_type === "media" ? "📌 Specific post" : "🌐 All posts"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-5 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5" title="DMs sent">
-                    <MessageCircle className="w-4 h-4" />
-                    <span className="font-medium">{a.dms_sent}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5" title="Leads captured">
-                    <Users className="w-4 h-4" />
-                    <span className="font-medium">{a.leads_captured}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
+              {/* ── Row 1: Title + Status + Actions ── */}
+              <div className="flex items-center gap-3 px-5 pt-5 pb-3">
+                {/* Status dot */}
+                <div
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    a.status === "active"
+                      ? "bg-green-500 shadow-[0_0_6px_oklch(0.52_0.19_162/40%)]"
+                      : "bg-amber-400"
+                  }`}
+                />
+                <h3 className="text-base font-semibold text-foreground truncate flex-1">
+                  {a.name}
+                </h3>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    a.status === "active"
+                      ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30"
+                      : "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30"
+                  }`}
+                >
+                  {a.status === "active" ? "Active" : "Paused"}
+                </span>
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 ml-2">
                   <button
                     onClick={() => handleToggle(a.id, a.status)}
-                    className={`p-2 rounded-lg border transition-colors ${
+                    className={`p-1.5 rounded-lg border transition-colors ${
                       a.status === "active"
                         ? "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                         : "border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
@@ -790,32 +736,108 @@ export default function AutomationsPage() {
                     title={a.status === "active" ? "Pause" : "Resume"}
                   >
                     {a.status === "active" ? (
-                      <Pause className="w-4 h-4" />
+                      <Pause className="w-3.5 h-3.5" />
                     ) : (
-                      <Play className="w-4 h-4" />
+                      <Play className="w-3.5 h-3.5" />
                     )}
                   </button>
                   <button
                     onClick={() => handleDelete(a.id)}
-                    className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                    className="p-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                     title="Delete"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Drip Sequence Builder (collapsible) */}
-              <DripToggle automationId={a.id} userPlan={userPlan} />
-
-              {/* A/B Testing (collapsible) */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <ABTestToggle automationId={a.id} userPlan={userPlan} />
+              {/* ── Row 2: Trigger + Features info ── */}
+              <div className="px-5 pb-3 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                {/* Keyword trigger */}
+                <span className="inline-flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  {(a.keyword || "").trim() === "*" ? (
+                    <span className="font-medium text-amber-600 dark:text-amber-400">All Comments</span>
+                  ) : (
+                    <>
+                      {(a.keyword || "").split(",").map((kw, i) => (
+                        <span
+                          key={i}
+                          className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded text-[11px]"
+                        >
+                          {kw.trim()}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </span>
+                <span className="text-muted-foreground/40">·</span>
+                {/* Scope */}
+                <span>
+                  {a.scope_type === "media" ? "Specific post" : "All posts"}
+                </span>
+                {/* Feature indicators */}
+                {a.template_type === "button" && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <LayoutTemplate className="w-3 h-3" /> Buttons
+                    </span>
+                  </>
+                )}
+                {a.comment_reply_enabled && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <MessageSquareReply className="w-3 h-3" /> Reply
+                    </span>
+                  </>
+                )}
+                {a.ai_enabled && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400">
+                      <Sparkles className="w-3 h-3" /> AI
+                    </span>
+                  </>
+                )}
+                {a.require_follow && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <Shield className="w-3 h-3" /> Follow gate
+                    </span>
+                  </>
+                )}
               </div>
 
-              {/* Postback Flow Builder (collapsible) */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <PostbackFlowToggle automationId={a.id} userPlan={userPlan} />
+              {/* ── Row 3: Stats ── */}
+              <div className="px-5 pb-4 flex items-center gap-5">
+                <div className="flex items-center gap-1.5 text-sm" title="DMs sent">
+                  <div className="w-6 h-6 rounded-md bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center">
+                    <Send className="w-3 h-3 text-[oklch(0.52_0.19_162)]" />
+                  </div>
+                  <span className="font-semibold text-foreground">{a.dms_sent}</span>
+                  <span className="text-xs text-muted-foreground">sent</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm" title="Leads captured">
+                  <div className="w-6 h-6 rounded-md bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center">
+                    <Users className="w-3 h-3 text-[oklch(0.52_0.19_162)]" />
+                  </div>
+                  <span className="font-semibold text-foreground">{a.leads_captured}</span>
+                  <span className="text-xs text-muted-foreground">leads</span>
+                </div>
+              </div>
+
+              {/* ── Accordion sections ── */}
+              <div className="border-t border-border px-5 py-3 space-y-0">
+                <DripToggle automationId={a.id} userPlan={userPlan} />
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <ABTestToggle automationId={a.id} userPlan={userPlan} />
+                </div>
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <PostbackFlowToggle automationId={a.id} userPlan={userPlan} />
+                </div>
               </div>
             </div>
           ))}

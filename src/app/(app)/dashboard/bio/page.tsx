@@ -287,7 +287,7 @@ export default function BioBuilderPage() {
               <label className="text-sm font-medium text-foreground mb-1.5 block">Username / Slug</label>
               <div className="flex items-center gap-0 border border-border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
                 <span className="px-3 py-2.5 bg-muted text-sm text-muted-foreground border-r border-border shrink-0">
-                  chirplymint.com/u/
+                  chirplymint.novamintnetworks.in/u/
                 </span>
                 <input
                   type="text"
@@ -366,9 +366,8 @@ export default function BioBuilderPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
-              activeTab === tab.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-4 py-2 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${activeTab === tab.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             <tab.icon className="w-3.5 h-3.5" /> {tab.label}
           </button>
@@ -439,11 +438,10 @@ export default function BioBuilderPage() {
                     <label className="text-xs text-muted-foreground mb-1 block">Status</label>
                     <button
                       onClick={() => setIsPublished(!isPublished)}
-                      className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors w-full ${
-                        isPublished
+                      className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors w-full ${isPublished
                           ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
                           : "bg-muted/40 border-border text-muted-foreground"
-                      }`}
+                        }`}
                     >
                       {isPublished ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       {isPublished ? "Published" : "Draft"}
@@ -528,9 +526,8 @@ export default function BioBuilderPage() {
                     {links.map((link, idx) => (
                       <div
                         key={link.id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                          link.is_active ? "border-border bg-card" : "border-border/50 bg-muted/30 opacity-60"
-                        }`}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${link.is_active ? "border-border bg-card" : "border-border/50 bg-muted/30 opacity-60"
+                          }`}
                       >
                         <div className="flex flex-col gap-0.5">
                           <button onClick={() => moveLink(idx, -1)} disabled={idx === 0} className="p-0.5 rounded hover:bg-muted/60 disabled:opacity-30">
@@ -572,9 +569,8 @@ export default function BioBuilderPage() {
                     <button
                       key={theme.id}
                       onClick={() => setEditTheme(theme.id)}
-                      className={`p-4 rounded-xl border-2 transition-all text-center ${
-                        editTheme === theme.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
-                      }`}
+                      className={`p-4 rounded-xl border-2 transition-all text-center ${editTheme === theme.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/30"
+                        }`}
                     >
                       <div className={`w-full h-16 rounded-lg ${theme.bg} mb-2`} />
                       <span className="text-xs font-medium">{theme.label}</span>
@@ -618,11 +614,10 @@ export default function BioBuilderPage() {
                       <button
                         key={font.id}
                         onClick={() => setEditFont(font.id === "system" ? null : font.id)}
-                        className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                          (editFont || "system") === font.id
+                        className={`p-2.5 rounded-xl border-2 text-left transition-all ${(editFont || "system") === font.id
                             ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/30"
-                        }`}
+                          }`}
                       >
                         <span className="text-sm font-medium" style={{ fontFamily: font.family }}>{font.label}</span>
                       </button>
@@ -638,11 +633,10 @@ export default function BioBuilderPage() {
                       <button
                         key={opt.id}
                         onClick={() => setEditCardRadius(opt.id)}
-                        className={`p-3 rounded-xl border-2 text-center transition-all ${
-                          editCardRadius === opt.id
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${editCardRadius === opt.id
                             ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/30"
-                        }`}
+                          }`}
                       >
                         <div
                           className="w-full h-8 bg-muted/60 border border-border mb-1.5"
@@ -676,13 +670,11 @@ export default function BioBuilderPage() {
                   {canHideBranding(userPlan) ? (
                     <button
                       onClick={() => setEditHideBranding(!editHideBranding)}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        editHideBranding ? "bg-primary" : "bg-muted"
-                      }`}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${editHideBranding ? "bg-primary" : "bg-muted"
+                        }`}
                     >
-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        editHideBranding ? "translate-x-5" : "translate-x-0.5"
-                      }`} />
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${editHideBranding ? "translate-x-5" : "translate-x-0.5"
+                        }`} />
                     </button>
                   ) : (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold flex items-center gap-1">
