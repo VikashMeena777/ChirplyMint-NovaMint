@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,12 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit: prevent order creation spam
+    const rateLimitResult = await checkRateLimit(getApiLimiter(), user.id);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
     }
 
     const { plan } = (await request.json()) as { plan: PlanKey };

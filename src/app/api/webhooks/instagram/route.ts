@@ -12,7 +12,7 @@ import {
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
-import { checkRateLimit, getDmLimiter } from "@/lib/utils/rate-limiter";
+import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-limiter";
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
 
@@ -724,7 +724,12 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   }
 
   // ── Strategy 1: AI Agent (persona + FAQs + conversation memory) ──
-  try {
+  // Rate-limit AI calls to prevent NIM credit burn
+  const aiLimiter = getAiLimiter();
+  const aiRateResult = await checkRateLimit(aiLimiter, userId);
+  if (!aiRateResult.allowed) {
+    console.log(`[AI Agent] Rate limited for user ${userId} — skipping AI reply`);
+  } else try {
     const agentResult = await generateAgentReply({
       userId,
       senderIgId: senderId,

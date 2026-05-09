@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
 
 /**
- * Tracks consecutive DM send failures per Instagram account.
+ * Tracks consecutive DM send failures per Instagram account using DB.
  * After 3 consecutive failures, sends the user a notification + email.
  *
  * Usage:
@@ -10,8 +10,6 @@ import { sendEmail } from "@/lib/email/send";
  *   resetFailureCount(igAccountId)                  — call on DM send success
  */
 
-// In-memory counter (resets on cold start, but sufficient for hot function)
-const failureCounts = new Map<string, number>();
 const ALERT_THRESHOLD = 3;
 
 function getAdminSupabase() {
@@ -23,18 +21,31 @@ function getAdminSupabase() {
 
 /**
  * Track a DM send failure. After 3 consecutive failures, alert the user.
+ * Uses the ig_accounts table's consecutive_failures column for persistence
+ * across serverless cold starts.
  */
 export async function trackDMFailure(
   userId: string,
   igAccountId: string,
   igUsername: string
 ): Promise<void> {
-  const current = (failureCounts.get(igAccountId) ?? 0) + 1;
-  failureCounts.set(igAccountId, current);
+  const supabase = getAdminSupabase();
+
+  // Increment failure counter in DB (atomic)
+  const { data: account } = await supabase
+    .from("instagram_accounts")
+    .select("consecutive_failures")
+    .eq("id", igAccountId)
+    .single();
+
+  const current = ((account as Record<string, unknown>)?.consecutive_failures as number ?? 0) + 1;
+
+  await supabase
+    .from("instagram_accounts")
+    .update({ consecutive_failures: current })
+    .eq("id", igAccountId);
 
   if (current === ALERT_THRESHOLD) {
-    const supabase = getAdminSupabase();
-
     // Check if we already sent a DM failure alert in the last 24 hours
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { count: existingAlerts } = await supabase
@@ -85,6 +96,10 @@ export async function trackDMFailure(
 /**
  * Reset failure counter on successful DM send.
  */
-export function resetFailureCount(igAccountId: string): void {
-  failureCounts.delete(igAccountId);
+export async function resetFailureCount(igAccountId: string): Promise<void> {
+  const supabase = getAdminSupabase();
+  await supabase
+    .from("instagram_accounts")
+    .update({ consecutive_failures: 0 })
+    .eq("id", igAccountId);
 }

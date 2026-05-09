@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { verifyPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
 
 function getAdminSupabase() {
   return createAdminClient(
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit: prevent verify spam
+    const rateLimitResult = await checkRateLimit(getApiLimiter(), user.id);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
     const { orderId } = (await request.json()) as { orderId: string };
