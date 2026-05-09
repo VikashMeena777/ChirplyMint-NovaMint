@@ -19,6 +19,9 @@ import {
   Clock,
   Lock,
   ArrowUpRight,
+  Globe,
+  Layout,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -46,6 +49,63 @@ const TONE_OPTIONS = [
   { value: "casual", label: "Casual", emoji: "😎" },
   { value: "enthusiastic", label: "Enthusiastic", emoji: "🔥" },
   { value: "witty", label: "Witty", emoji: "😏" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "auto", label: "Auto-detect", flag: "🌐" },
+  { value: "english", label: "English", flag: "🇺🇸" },
+  { value: "hindi", label: "Hindi (हिन्दी)", flag: "🇮🇳" },
+  { value: "hinglish", label: "Hinglish", flag: "🇮🇳" },
+  { value: "tamil", label: "Tamil (தமிழ்)", flag: "🇮🇳" },
+  { value: "telugu", label: "Telugu (తెలుగు)", flag: "🇮🇳" },
+  { value: "marathi", label: "Marathi (मराठी)", flag: "🇮🇳" },
+  { value: "bangla", label: "Bangla (বাংলা)", flag: "🇮🇳" },
+  { value: "gujarati", label: "Gujarati (ગુજરાતી)", flag: "🇮🇳" },
+];
+
+const PERSONA_TEMPLATES = [
+  {
+    name: "Movie Page Bot",
+    emoji: "🎬",
+    persona: "You are an assistant for a movie fan page. You recommend movies, share trivia, fun facts, and engage fans with polls and quizzes. You're passionate about cinema and love discussing plot twists and character arcs.",
+    tone: "friendly",
+    agentName: "CinemaBot",
+  },
+  {
+    name: "E-commerce Support",
+    emoji: "🛍️",
+    persona: "You help customers with product questions, order status, returns, and recommendations. Be helpful, professional, and always aim to resolve issues quickly. If you don't know the answer, say you'll connect them with the team.",
+    tone: "professional",
+    agentName: "ShopAssist",
+  },
+  {
+    name: "Fitness Coach",
+    emoji: "💪",
+    persona: "You are a fitness coach. Help followers with workout tips, diet plans, and motivation. Be energetic and encouraging. Specialize in home workouts and healthy eating. Share actionable advice, not generic tips.",
+    tone: "enthusiastic",
+    agentName: "FitCoach",
+  },
+  {
+    name: "Restaurant Bot",
+    emoji: "🍽️",
+    persona: "You manage inquiries for a restaurant. Share menu details, hours, location, reservation info, and daily specials. Be warm, welcoming, and make people excited to visit.",
+    tone: "friendly",
+    agentName: "TableBot",
+  },
+  {
+    name: "Photographer",
+    emoji: "📸",
+    persona: "You are a photographer's assistant. Help with booking inquiries, pricing, availability, and portfolio sharing. Be creative and passionate about visual storytelling. Share tips about the best locations and times for shoots.",
+    tone: "casual",
+    agentName: "LensAssist",
+  },
+  {
+    name: "Educator / Coach",
+    emoji: "🎓",
+    persona: "You are an online educator. Help students with course info, enrollment, learning tips, and study resources. Be supportive, patient, and encouraging. Break down complex topics into simple explanations.",
+    tone: "professional",
+    agentName: "EduBot",
+  },
 ];
 
 export default function AIAgentPage() {
@@ -79,9 +139,11 @@ export default function AIAgentPage() {
   const [agentName, setAgentName] = useState("");
   const [persona, setPersona] = useState("");
   const [tone, setTone] = useState("friendly");
+  const [language, setLanguage] = useState("auto");
   const [greetingMessage, setGreetingMessage] = useState("");
   const [fallbackMessage, setFallbackMessage] = useState("");
   const [maxReplyLength, setMaxReplyLength] = useState(300);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState("");
@@ -94,6 +156,7 @@ export default function AIAgentPage() {
       setAgentName(data.agent_name);
       setPersona(data.persona);
       setTone(data.tone);
+      setLanguage(data.language || "auto");
       setGreetingMessage(data.greeting_message);
       setFallbackMessage(data.fallback_message);
       setMaxReplyLength(data.max_reply_length);
@@ -133,6 +196,7 @@ export default function AIAgentPage() {
       agent_name: agentName,
       persona,
       tone,
+      language,
       greeting_message: greetingMessage,
       fallback_message: fallbackMessage,
       max_reply_length: maxReplyLength,
@@ -421,15 +485,51 @@ export default function AIAgentPage() {
             </div>
           </div>
 
-          {/* Persona */}
+          {/* Language */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              Persona Instructions
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <Globe className="w-4 h-4 text-violet-500" />
+              Reply Language
             </label>
             <p className="text-xs text-muted-foreground">
-              Describe who your agent is, what it knows, and how it should
-              behave. Be specific!
+              Auto-detect mirrors the user&apos;s language. Pick a specific language to always reply in it.
             </p>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGE_OPTIONS.map((l) => (
+                <button
+                  key={l.value}
+                  onClick={() => setLanguage(l.value)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    language === l.value
+                      ? "border-violet-500 bg-violet-500/10 text-violet-600"
+                      : "border-border bg-background text-muted-foreground hover:border-violet-500/40"
+                  }`}
+                >
+                  {l.flag} {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Persona */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Persona Instructions
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Describe who your agent is, what it knows, and how it should behave.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowTemplates(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-600 text-xs font-medium hover:bg-violet-500/20 transition-all"
+              >
+                <Layout className="w-3.5 h-3.5" />
+                Templates
+              </button>
+            </div>
             <textarea
               value={persona}
               onChange={(e) => setPersona(e.target.value)}
@@ -438,6 +538,46 @@ export default function AIAgentPage() {
               className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none text-sm"
             />
           </div>
+
+          {/* Persona Templates Modal */}
+          {showTemplates && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowTemplates(false)}>
+              <div className="bg-card border border-border rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-violet-500" />
+                    Persona Templates
+                  </h3>
+                  <button onClick={() => setShowTemplates(false)} className="p-2 rounded-lg hover:bg-muted transition-colors">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">Pick a template to get started. You can customize it after.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {PERSONA_TEMPLATES.map((tmpl) => (
+                    <button
+                      key={tmpl.name}
+                      onClick={() => {
+                        setAgentName(tmpl.agentName);
+                        setPersona(tmpl.persona);
+                        setTone(tmpl.tone);
+                        setShowTemplates(false);
+                        toast.success(`Applied "${tmpl.name}" template — edit and save!`);
+                      }}
+                      className="text-left p-4 rounded-xl border border-border bg-background hover:border-violet-500/50 hover:bg-violet-500/5 transition-all group"
+                    >
+                      <div className="text-2xl mb-2">{tmpl.emoji}</div>
+                      <h4 className="font-semibold text-foreground group-hover:text-violet-600 transition-colors">{tmpl.name}</h4>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tmpl.persona}</p>
+                      <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600">
+                        {TONE_OPTIONS.find((t) => t.value === tmpl.tone)?.emoji} {tmpl.tone}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Greeting Message */}

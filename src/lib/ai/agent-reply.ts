@@ -20,6 +20,7 @@ interface AgentConfig {
   agent_name: string;
   persona: string;
   tone: string;
+  language: string;
   greeting_message: string;
   fallback_message: string;
   max_reply_length: number;
@@ -187,8 +188,24 @@ export async function generateAgentReply(params: {
     : "";
 
   // 5. Detect language and intent
-  const languageHint = detectLanguageHint(params.incomingMessage);
+  let languageHint = detectLanguageHint(params.incomingMessage);
   const intent = classifyIntent(params.incomingMessage);
+
+  // Override language if user set an explicit preference (not "auto")
+  const savedLang = config.language;
+  if (savedLang && savedLang !== "auto") {
+    const langMap: Record<string, string> = {
+      english: "ALWAYS reply in English, regardless of what language the user writes in.",
+      hindi: "ALWAYS reply in Hindi (Devanagari script हिन्दी), regardless of what language the user writes in.",
+      hinglish: "ALWAYS reply in Hinglish (Hindi + English mix), regardless of what language the user writes in.",
+      tamil: "ALWAYS reply in Tamil (தமிழ்), regardless of what language the user writes in.",
+      telugu: "ALWAYS reply in Telugu (తెలుగు), regardless of what language the user writes in.",
+      marathi: "ALWAYS reply in Marathi (मराठी), regardless of what language the user writes in.",
+      bangla: "ALWAYS reply in Bangla (বাংলা), regardless of what language the user writes in.",
+      gujarati: "ALWAYS reply in Gujarati (ગુજરાતી), regardless of what language the user writes in.",
+    };
+    languageHint = langMap[savedLang] || languageHint;
+  }
 
   // 6. Build anti-repetition context
   const antiRepetition = buildAntiRepetitionContext(conversationHistory);

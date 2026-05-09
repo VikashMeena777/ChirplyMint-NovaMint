@@ -22,6 +22,7 @@ import {
   Lightbulb,
   BrainCircuit,
   MessagesSquare,
+  Gift,
 } from "lucide-react";
 
 const navItems = [
@@ -69,6 +70,11 @@ const navItems = [
     label: "Insights",
     href: "/dashboard/insights",
     icon: Lightbulb,
+  },
+  {
+    label: "Referrals",
+    href: "/dashboard/referrals",
+    icon: Gift,
   },
 ];
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sparkles, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { User } from "@supabase/supabase-js";
 
 const navLinks = [
@@ -83,6 +84,7 @@ export function Navbar() {
 
           {/* Desktop CTA — Auth Aware */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             {isLoading ? (
               /* Skeleton while checking auth */
               <div className="w-28 h-10 rounded-xl bg-secondary animate-pulse" />
@@ -151,6 +153,10 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="pt-4 border-t border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Theme</span>
+                  <ThemeToggle />
+                </div>
                 {user ? (
                   /* Logged in — show Dashboard */
                   <Link

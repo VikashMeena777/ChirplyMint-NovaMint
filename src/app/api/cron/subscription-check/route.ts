@@ -212,12 +212,56 @@ export async function GET(request: Request) {
 
     console.log(`[Sub Check] Done: ${renewed} renewed, ${graced} grace, ${downgraded} downgraded`);
 
+    // ── REFERRAL PRO EXPIRY CHECK ──
+    // Downgrade users whose referral-granted Pro has expired
+    const { data: expiredReferrals } = await supabase
+      .from("profiles")
+      .select("id, plan, plan_expires_at")
+      .not("plan_expires_at", "is", null)
+      .lt("plan_expires_at", nowIso)
+      .neq("plan", "free");
+
+    let referralDowngraded = 0;
+    for (const profile of (expiredReferrals || [])) {
+      const p = profile as Record<string, unknown>;
+      // Only downgrade if they don't have an active paid subscription
+      const { data: activeSub } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", p.id)
+        .in("status", ["active", "grace_period"])
+        .single();
+
+      if (!activeSub) {
+        await supabase.from("profiles").update({
+          plan: "free",
+          dm_limit: PLANS.free.dmLimit,
+          plan_expires_at: null,
+          updated_at: nowIso,
+        }).eq("id", p.id);
+
+        await supabase.from("notifications").insert({
+          user_id: p.id,
+          type: "info",
+          title: "Referral Pro Trial Ended",
+          body: "Your referral Pro trial has expired. Refer more friends for more Pro days, or upgrade to a paid plan!",
+          metadata: {},
+        });
+
+        referralDowngraded++;
+        console.log(`[Sub Check] 🎁→📉 Referral Pro expired: ${p.id}`);
+      }
+    }
+
+    console.log(`[Sub Check] Referral expirations: ${referralDowngraded} downgraded`);
+
     return NextResponse.json({
       status: "ok",
       total: expiredSubs.length,
       renewed,
       graced,
       downgraded,
+      referralDowngraded,
       timestamp: nowIso,
     });
   } catch (err) {

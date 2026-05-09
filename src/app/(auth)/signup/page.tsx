@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Loader2, Check } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Loader2, Check, Gift } from "lucide-react";
 import { signup, signInWithGoogle } from "@/lib/actions/auth";
+import { applyReferralCode } from "@/lib/actions/referral";
 import { toast } from "sonner";
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6"><div className="h-64 bg-card rounded-2xl animate-pulse" /></div>}>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupContent() {
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [password, setPassword] = useState("");
+  const [refCode, setRefCode] = useState("");
+  const hasRefParam = !!searchParams.get("ref");
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) setRefCode(ref);
+  }, [searchParams]);
 
   const passwordChecks = [
     { label: "At least 8 characters", met: password.length >= 8 },
@@ -27,6 +45,12 @@ export default function SignupPage() {
     if (result?.error) {
       toast.error(result.error);
       setIsLoading(false);
+    } else if (refCode.trim()) {
+      // Apply referral code after successful signup
+      const refResult = await applyReferralCode(refCode.trim());
+      if (refResult.success) {
+        toast.success("Referral applied! Your friend got 14 days of Pro 🎉");
+      }
     }
   };
 
@@ -39,6 +63,17 @@ export default function SignupPage() {
 
   return (
     <div className="space-y-6">
+      {/* Referral Banner */}
+      {hasRefParam && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+          <Gift className="w-5 h-5 text-emerald-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-600">You&apos;ve been invited!</p>
+            <p className="text-xs text-muted-foreground">Sign up and your friend gets 14 days of Pro free.</p>
+          </div>
+        </div>
+      )}
+
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
         <p className="text-sm text-muted-foreground">
@@ -116,6 +151,22 @@ export default function SignupPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Referral Code */}
+        <div className="space-y-1.5">
+          <label htmlFor="signup-referral" className="text-sm font-medium text-foreground">Referral Code <span className="text-muted-foreground font-normal">(optional)</span></label>
+          <div className="relative">
+            <Gift className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              id="signup-referral"
+              type="text"
+              placeholder="Enter referral code"
+              value={refCode}
+              onChange={(e) => setRefCode(e.target.value.toUpperCase())}
+              className="w-full h-12 pl-10 pr-4 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent transition-shadow uppercase tracking-wider"
+            />
+          </div>
         </div>
 
         <button type="submit" disabled={isLoading} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none shadow-sm">
