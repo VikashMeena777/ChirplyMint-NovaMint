@@ -2,10 +2,20 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+export interface AutomationStat {
+  automationId: string;
+  automationName: string;
+  keyword: string;
+  dmsSent: number;
+  dmsFailed: number;
+  leadsCapture: number;
+  conversionRate: string;
+}
+
 /**
  * Get performance stats per automation: DMs sent, leads captured, conversion rate.
  */
-export async function getPerAutomationStats(): Promise<Record<string, unknown>[]> {
+export async function getPerAutomationStats(): Promise<AutomationStat[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -20,7 +30,7 @@ export async function getPerAutomationStats(): Promise<Record<string, unknown>[]
 
   if (!automations || automations.length === 0) return [];
 
-  const results: Record<string, unknown>[] = [];
+  const results: AutomationStat[] = [];
 
   for (const auto of automations) {
     const a = auto as Record<string, unknown>;
@@ -54,16 +64,13 @@ export async function getPerAutomationStats(): Promise<Record<string, unknown>[]
     const conversionRate = sent > 0 ? ((leads / sent) * 100).toFixed(1) : "0";
 
     results.push({
-      id: autoId,
-      name: a.name,
-      keyword: a.keyword,
-      status: a.status,
-      trigger_type: a.trigger_type,
-      dms_sent: sent,
-      dms_failed: dmsFailed ?? 0,
-      leads_captured: leads,
-      conversion_rate: conversionRate,
-      created_at: a.created_at,
+      automationId: autoId,
+      automationName: (a.name as string) || "Untitled",
+      keyword: (a.keyword as string) || "",
+      dmsSent: sent,
+      dmsFailed: dmsFailed ?? 0,
+      leadsCapture: leads,
+      conversionRate,
     });
   }
 

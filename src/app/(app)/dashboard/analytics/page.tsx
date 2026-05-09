@@ -11,6 +11,7 @@ import {
   getDailyLeadStats,
   getTopAutomations,
 } from "@/lib/actions/analytics";
+import { getPerAutomationStats } from "@/lib/actions/automation-stats";
 import AnalyticsChartsClient from "@/components/dashboard/analytics-charts-client";
 
 export default async function AnalyticsPage() {
@@ -47,10 +48,10 @@ export default async function AnalyticsPage() {
   const conversionRate =
     dmsSent > 0 ? ((leadsCount / dmsSent) * 100).toFixed(1) : "0";
 
-  // Fetch real chart data
   const dailyDMs = await getDailyDMStats(7);
   const dailyLeads = await getDailyLeadStats(7);
   const topAutomations = await getTopAutomations(5);
+  const automationStats = await getPerAutomationStats();
 
   const stats = [
     {
@@ -117,13 +118,13 @@ export default async function AnalyticsPage() {
         ))}
       </div>
 
-      {/* Charts - Client Component with recharts */}
       <AnalyticsChartsClient
         dmsSent={dmsSent}
         leadsCount={leadsCount}
         dailyDMs={dailyDMs}
         dailyLeads={dailyLeads}
         topAutomations={topAutomations}
+        automationStats={automationStats}
       />
     </div>
   );

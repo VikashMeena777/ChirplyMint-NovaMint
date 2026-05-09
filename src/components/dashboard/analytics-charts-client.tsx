@@ -7,6 +7,8 @@ import {
   Bot,
   BarChart3,
   Zap,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
 
 // Lazy-load heavy recharts components
@@ -35,12 +37,23 @@ interface TopAutomation {
   status: string;
 }
 
+interface AutomationStat {
+  automationId: string;
+  automationName: string;
+  keyword: string;
+  dmsSent: number;
+  dmsFailed: number;
+  leadsCapture: number;
+  conversionRate: string;
+}
+
 interface AnalyticsChartsClientProps {
   dmsSent: number;
   leadsCount: number;
   dailyDMs: ChartDataPoint[];
   dailyLeads: ChartDataPoint[];
   topAutomations: TopAutomation[];
+  automationStats?: AutomationStat[];
 }
 
 export default function AnalyticsChartsClient({
@@ -49,6 +62,7 @@ export default function AnalyticsChartsClient({
   dailyDMs,
   dailyLeads,
   topAutomations,
+  automationStats,
 }: AnalyticsChartsClientProps) {
   return (
     <>
@@ -187,6 +201,71 @@ export default function AnalyticsChartsClient({
           </div>
         )}
       </div>
+
+      {/* Per-Automation Performance Table (#12) */}
+      {automationStats && automationStats.length > 0 && (
+        <div className="rounded-2xl bg-card border border-border p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Per-Automation Performance
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-2 text-muted-foreground font-medium">Automation</th>
+                  <th className="text-left py-3 px-2 text-muted-foreground font-medium">Keyword</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">DMs Sent</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">Failed</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">Leads</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground font-medium">Conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {automationStats.map((stat) => (
+                  <tr key={stat.automationId} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="py-3 px-2 font-medium text-foreground truncate max-w-[200px]">
+                      {stat.automationName}
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className="inline-flex px-2 py-0.5 rounded-md bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-xs font-mono">
+                        {stat.keyword}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-right text-foreground">
+                      {stat.dmsSent}
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      {stat.dmsFailed > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-red-500">
+                          <AlertTriangle className="w-3 h-3" />
+                          {stat.dmsFailed}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 text-right text-foreground">
+                      {stat.leadsCapture}
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <span className={`inline-flex items-center gap-1 font-medium ${
+                        parseFloat(stat.conversionRate) > 20
+                          ? "text-green-600 dark:text-green-400"
+                          : parseFloat(stat.conversionRate) > 5
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-muted-foreground"
+                      }`}>
+                        <TrendingUp className="w-3 h-3" />
+                        {stat.conversionRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -694,6 +694,26 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
           </strong>{" "}
           DMs used this month
         </p>
+        {(() => {
+          const used = profile?.dmCountThisMonth ?? 0;
+          const limit = profile?.dmLimit ?? 50;
+          const isUnlim = isUnlimitedDM(limit);
+          if (isUnlim) return null;
+          const pct = Math.min(100, (used / limit) * 100);
+          const barColor = pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-[oklch(0.52_0.19_162)]";
+          return (
+            <div className="mt-3">
+              <div className="w-full h-2 rounded-full bg-muted/50">
+                <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: `${pct}%` }} />
+              </div>
+              {pct >= 80 && (
+                <p className={`text-xs mt-1 ${pct >= 100 ? "text-red-500" : "text-yellow-600 dark:text-yellow-400"}`}>
+                  {pct >= 100 ? "Limit reached! Upgrade to keep sending." : "Almost at your limit — consider upgrading."}
+                </p>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
