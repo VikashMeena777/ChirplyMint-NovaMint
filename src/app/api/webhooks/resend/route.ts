@@ -145,6 +145,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err) {
     console.error("[Resend Webhook] Error:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    // Always return 200 to prevent Resend retry storms on persistent errors
+    return NextResponse.json({ message: "Error processed" }, { status: 200 });
   }
 }

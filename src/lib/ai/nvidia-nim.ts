@@ -54,29 +54,51 @@ export async function generateDMReply(context: {
       messages: [
         {
           role: "system",
-          content: `You are a friendly Instagram DM assistant for a business. Your job is to send helpful, engaging DMs to users who comment on posts. Keep messages:
-- Short (2-4 sentences max)
-- Friendly and professional
-- Include the key info from the template
-- Personalize with the user's name when available
-- Use 1-2 relevant emojis max
-- Never sound robotic or spammy
-- Never include hashtags in DMs`,
+          content: `You're the person behind an Instagram page, DMing a follower who just commented on your post. Write like a real person — casual, warm, like you're texting a friend.
+
+RULES:
+- 1-3 sentences MAX. This is a DM, not an email
+- Acknowledge what they commented — don't ignore it
+- Naturally weave in the key info from the template below — don't copy-paste it word for word
+- Use their name if provided (just first use, don't overdo it)
+- Max 1-2 emojis
+- NO hashtags, NO "Feel free to", NO "Don't hesitate to"
+- NO "Sure!", "Of course!", "Great question!" — that sounds like AI
+- If they commented in Hindi/Hinglish, reply in Hindi/Hinglish
+- Sound like a real DM, not a marketing message`,
         },
         {
           role: "user",
-          content: `The user @${context.commenterUsername} commented "${context.commentText || context.keyword}" on our post.
+          content: `@${context.commenterUsername} commented: "${context.commentText || context.keyword}"
 
-Our DM template is: "${resolvedTemplate}"
+Template to base your DM on (rephrase naturally, don't copy): "${resolvedTemplate}"
 
-Generate a personalized DM reply. Make it feel natural and human.`,
+Write the DM:`,
         },
       ],
-      max_tokens: 256,
-      temperature: 0.7,
+      max_tokens: 150,
+      temperature: 0.5,
+      frequency_penalty: 0.3,
     });
 
-    const reply = completion.choices?.[0]?.message?.content?.trim();
+    let reply = completion.choices?.[0]?.message?.content?.trim();
+    if (reply) {
+      // Strip wrapping quotes
+      if (
+        (reply.startsWith('"') && reply.endsWith('"')) ||
+        (reply.startsWith("'") && reply.endsWith("'"))
+      ) {
+        reply = reply.slice(1, -1);
+      }
+      // Strip robotic openers
+      reply = reply.replace(
+        /^(Sure!|Of course!|Absolutely!|Great question!|Hey there!|Hello there!|Hi there!)\s*/i,
+        ""
+      );
+      if (reply.length > 0) {
+        reply = reply.charAt(0).toUpperCase() + reply.slice(1);
+      }
+    }
     return reply || resolvedTemplate;
   } catch (error) {
     console.error("[NIM AI] Error generating DM reply:", error);
