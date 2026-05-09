@@ -13,6 +13,7 @@ import {
 } from "@/lib/instagram/send-dm";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getDmLimiter } from "@/lib/utils/rate-limiter";
+import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
 
 const VERIFY_TOKEN =
@@ -578,6 +579,13 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
         },
       })
     ).catch(() => { });
+
+    // Track DM failures for alerting (#13)
+    if (sendResult.success) {
+      resetFailureCount(igAccount.id);
+    } else {
+      trackDMFailure(userId, igAccount.id, igAccount.ig_username || "").catch(() => {});
+    }
 
     console.log(
       `[Meta Webhook] ${isCatchAll ? "Catch-all" : `Keyword "${keywords.join(",")}"`} matched from @${commenterUsername} → ${templateType === "button" ? "Template" : "DM"} ${sendResult.success ? "sent ✅" : "failed ❌"}`

@@ -11,8 +11,10 @@ import {
   Clock,
   AlertCircle,
   Send,
+  RotateCcw,
 } from "lucide-react";
 import { getMessages, getMessageStats } from "@/lib/actions/messages";
+import { retryFailedDM } from "@/lib/actions/retry-dm";
 
 type Message = Record<string, unknown>;
 type StatusFilter = "all" | "sent" | "pending" | "failed";
@@ -39,7 +41,25 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, sent: 0, pending: 0, failed: 0 });
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const limit = 15;
+
+  const handleRetry = async (dmLogId: string) => {
+    setRetryingId(dmLogId);
+    try {
+      const result = await retryFailedDM(dmLogId);
+      if (result.success) {
+        // Refresh messages to show updated status
+        loadMessages();
+      } else {
+        alert(result.error || "Failed to retry DM");
+      }
+    } catch {
+      alert("Something went wrong. Try again.");
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -200,19 +220,38 @@ export default function MessagesPage() {
                         <p className="text-sm text-foreground whitespace-pre-wrap">
                           {(msg.message_text as string) || "No message content"}
                         </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
-                          <span>
-                            Context:{" "}
-                            <strong className="text-foreground">
-                              {(msg.comment_text as string) || "direct"}
-                            </strong>
-                          </span>
-                          <span>
-                            Sent:{" "}
-                            <strong className="text-foreground">
-                              {new Date(msg.sent_at as string).toLocaleString()}
-                            </strong>
-                          </span>
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>
+                              Context:{" "}
+                              <strong className="text-foreground">
+                                {(msg.comment_text as string) || "direct"}
+                              </strong>
+                            </span>
+                            <span>
+                              Sent:{" "}
+                              <strong className="text-foreground">
+                                {new Date(msg.sent_at as string).toLocaleString()}
+                              </strong>
+                            </span>
+                          </div>
+                          {(msg.status as string) === "failed" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRetry(id);
+                              }}
+                              disabled={retryingId === id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[oklch(0.52_0.19_162)] text-white hover:bg-[oklch(0.45_0.2_158)] disabled:opacity-50 transition-colors"
+                            >
+                              {retryingId === id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3 h-3" />
+                              )}
+                              {retryingId === id ? "Retrying..." : "Retry"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

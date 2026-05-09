@@ -75,14 +75,30 @@ export function AnimatedPlanCard({
     ? Math.min((dmsSent / 5000) * 100, 100) // visual cap for unlimited
     : Math.min((dmsSent / dmLimit) * 100, 100);
 
+  // Color-coded progress: green → yellow at 80% → red at 100%
+  const progressColor =
+    progressPercent >= 100
+      ? "bg-red-400"
+      : progressPercent >= 80
+        ? "bg-yellow-400"
+        : "bg-white/90";
+
+  // Days until reset (1st of next month for free, or billing cycle end for paid)
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const daysUntilReset = Math.ceil((nextMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
   return (
     <div className="rounded-2xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] p-6 text-white flex flex-col justify-between relative overflow-hidden">
       {/* Subtle glow orb */}
       <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
       <div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium opacity-90">
             {plan.charAt(0).toUpperCase() + plan.slice(1)} Plan
+          </span>
+          <span className="text-xs opacity-70">
+            Resets in {daysUntilReset} day{daysUntilReset !== 1 ? "s" : ""}
           </span>
         </div>
         <p className="text-lg font-bold">
@@ -93,10 +109,18 @@ export function AnimatedPlanCard({
         {/* Progress bar */}
         <div className="mt-3 w-full h-2 rounded-full bg-card/20">
           <div
-            className="h-full rounded-full bg-card transition-all duration-1000 ease-out"
+            className={`h-full rounded-full ${progressColor} transition-all duration-1000 ease-out`}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
+        {/* Warning text */}
+        {!isUnlimited && progressPercent >= 80 && (
+          <p className="text-xs mt-2 opacity-90">
+            {progressPercent >= 100
+              ? "⚠️ Limit reached — upgrade to continue sending"
+              : `⚠️ ${Math.round(progressPercent)}% used — upgrade for more DMs`}
+          </p>
+        )}
       </div>
     </div>
   );

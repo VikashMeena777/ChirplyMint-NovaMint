@@ -170,11 +170,55 @@ export async function GET(request: Request) {
       `[Token Refresh] Done: ${refreshed} refreshed, ${failed} failed out of ${accounts.length} total`
     );
 
+    // ── TOKEN EXPIRY WARNING (#14) ──
+    // Check ALL active accounts for tokens expiring within 7 days
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // Tokens last ~60 days from updated_at. If updated_at is >53 days ago, token expires in <7 days.
+    const fiftyThreeDaysAgo = new Date(now.getTime() - 53 * 24 * 60 * 60 * 1000);
+
+    const { data: expiringAccounts } = await supabase
+      .from("instagram_accounts")
+      .select("id, user_id, ig_username, updated_at")
+      .eq("is_active", true)
+      .lt("updated_at", fiftyThreeDaysAgo.toISOString())
+      .gte("updated_at", fiftyDaysAgo.toISOString()); // Between 53-50 days = expiring in 7-10 days, not yet due for refresh
+
+    if (expiringAccounts && expiringAccounts.length > 0) {
+      for (const ea of expiringAccounts) {
+        const acc = ea as Record<string, string>;
+        const updatedAt = new Date(acc.updated_at);
+        const expiresAt = new Date(updatedAt.getTime() + 60 * 24 * 60 * 60 * 1000);
+        const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Only warn once — check if notification already exists this week
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const { count: existingWarnings } = await supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", acc.user_id)
+          .eq("type", "warning")
+          .ilike("title", "%token expires%")
+          .gte("created_at", oneWeekAgo.toISOString());
+
+        if ((existingWarnings ?? 0) === 0) {
+          await supabase.from("notifications").insert({
+            user_id: acc.user_id,
+            type: "warning",
+            title: `⏰ Instagram token expires in ${daysLeft} days`,
+            body: `Your token for @${acc.ig_username} will expire soon. It should auto-refresh, but if it fails, reconnect your account in Settings.`,
+            is_read: false,
+          });
+          console.log(`[Token Refresh] ⏰ Expiry warning for @${acc.ig_username}: ${daysLeft} days left`);
+        }
+      }
+    }
+
     return NextResponse.json({
       status: "ok",
       total: accounts.length,
       refreshed,
       failed,
+      expiry_warnings: expiringAccounts?.length ?? 0,
       failures: failures.length > 0 ? failures : undefined,
       timestamp: now.toISOString(),
     });

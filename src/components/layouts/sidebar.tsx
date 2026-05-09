@@ -21,6 +21,7 @@ import {
   X,
   Lightbulb,
   BrainCircuit,
+  MessagesSquare,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,11 @@ const navItems = [
     label: "AI Agent",
     href: "/dashboard/ai-agent",
     icon: BrainCircuit,
+  },
+  {
+    label: "AI Inbox",
+    href: "/dashboard/ai-agent/conversations",
+    icon: MessagesSquare,
   },
   {
     label: "Link-in-Bio",

@@ -26,6 +26,7 @@ import {
   Link2,
   HelpCircle,
   BrainCircuit,
+  MessagesSquare,
 } from "lucide-react";
 
 export function CommandPalette() {
@@ -98,6 +99,13 @@ export function CommandPalette() {
             >
               <BrainCircuit className="w-4 h-4 text-muted-foreground" />
               AI Agent
+            </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/dashboard/ai-agent/conversations")}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer text-sm aria-selected:bg-primary/10"
+            >
+              <MessagesSquare className="w-4 h-4 text-muted-foreground" />
+              AI Inbox
             </CommandItem>
             <CommandItem
               onSelect={() => navigate("/dashboard/bio")}

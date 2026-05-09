@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err) {
     console.error("[Cashfree Webhook] Error:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    // Always return 200 to prevent Cashfree retry storms
+    return NextResponse.json({ error: "Error processed" }, { status: 200 });
   }
 }

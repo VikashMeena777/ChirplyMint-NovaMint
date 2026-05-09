@@ -117,6 +117,29 @@ export async function createAutomation(formData: FormData) {
   if (templateType === "button" && !templateTitle?.trim())
     return { error: "Template title is required for button templates" };
 
+  // ── DUPLICATE KEYWORD CHECK ──
+  // Prevent two automations from triggering on the same keyword for the same IG account
+  const keywordsToCheck = keyword.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
+  const { data: existingAutomations } = await supabase
+    .from("automations")
+    .select("id, name, keyword")
+    .eq("user_id", user.id)
+    .eq("instagram_account_id", targetAccountId)
+    .in("status", ["active", "paused"]);
+
+  if (existingAutomations) {
+    for (const existing of existingAutomations) {
+      const e = existing as Record<string, string>;
+      const existingKeywords = (e.keyword || "").split(",").map((k: string) => k.trim().toLowerCase());
+      const duplicates = keywordsToCheck.filter((k: string) => existingKeywords.includes(k));
+      if (duplicates.length > 0) {
+        return {
+          error: `The keyword "${duplicates[0]}" is already used by automation "${e.name}". Each keyword must be unique per Instagram account.`,
+        };
+      }
+    }
+  }
+
   const { data: inserted, error } = await supabase.from("automations").insert({
     user_id: user.id,
     instagram_account_id: targetAccountId,

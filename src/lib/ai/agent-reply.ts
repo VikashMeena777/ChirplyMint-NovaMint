@@ -193,6 +193,33 @@ export async function generateAgentReply(params: {
   // 6. Build anti-repetition context
   const antiRepetition = buildAntiRepetitionContext(conversationHistory);
 
+  // 6b. Feedback loop — inject bad-rated replies so the agent avoids repeating them (#11)
+  let feedbackContext = "";
+  const { data: badFeedback } = await supabase
+    .from("ai_conversation_feedback")
+    .select("conversation_id")
+    .eq("agent_id", config.id)
+    .eq("user_id", params.userId)
+    .eq("rating", "bad")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (badFeedback && badFeedback.length > 0) {
+    const badIds = (badFeedback as { conversation_id: string }[]).map((f) => f.conversation_id);
+    const { data: badMessages } = await supabase
+      .from("ai_conversations")
+      .select("content")
+      .in("id", badIds)
+      .eq("role", "assistant");
+
+    if (badMessages && badMessages.length > 0) {
+      const examples = (badMessages as { content: string }[])
+        .map((m) => `"${m.content.slice(0, 100)}"`)
+        .join(", ");
+      feedbackContext = `\n\n⚠️ AVOID THESE REPLY STYLES (owner marked them as bad):\n${examples}\nDo NOT repeat similar phrasing, tone, or structure as the replies above.`;
+    }
+  }
+
   // 7. Build the human-like system prompt
   const systemPrompt = `You are "${config.agent_name}" — a real person running an Instagram page. You chat with followers in your DMs.
 
@@ -219,7 +246,7 @@ CONVERSATION AWARENESS:
 - If someone asks something you don't know, just say "${config.fallback_message}" — don't make stuff up
 - NEVER start with "Sure!", "Of course!", "Great question!", "I'd be happy to help!" — that sounds like AI
 - NEVER use phrases like "Feel free to", "Don't hesitate to", "Let me know if" — those are robotic
-${faqContext}${antiRepetition}`;
+${faqContext}${antiRepetition}${feedbackContext}`;
 
   // 8. Save incoming message to conversation history
   await supabase.from("ai_conversations").insert({
