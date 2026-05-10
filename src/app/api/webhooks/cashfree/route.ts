@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyWebhookSignature } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { sendEmail } from "@/lib/email/send";
+import { getPlanUpgradedHtml } from "@/lib/email/templates/plan-upgraded";
 
 function getAdminSupabase() {
   return createClient(
@@ -94,6 +96,30 @@ export async function POST(request: Request) {
           body: `You've been upgraded to the ${planConfig.name} plan. Enjoy your new features!`,
           metadata: { plan, order_id: orderId },
         });
+
+        // Send Plan Upgraded email (fire-and-forget)
+        void (async () => {
+          try {
+            const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
+            const userEmail = authUser?.user?.email;
+            const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", order.user_id).single();
+            if (userEmail) {
+              await sendEmail({
+                to: userEmail,
+                subject: `💎 Welcome to ${planConfig.name} — Your Plan is Upgraded!`,
+                html: getPlanUpgradedHtml({
+                  name: (prof as Record<string, unknown>)?.full_name as string || "there",
+                  planName: planConfig.name,
+                  dmLimit: planConfig.dmLimit === -1 ? "Unlimited" : String(planConfig.dmLimit),
+                  features: planConfig.features.slice(0, 5) as unknown as string[],
+                }),
+              });
+              await supabase.from("profiles").update({ plan_upgraded_email_sent: true }).eq("id", order.user_id);
+            }
+          } catch (e) {
+            console.error("[Cashfree Webhook] Email error:", e);
+          }
+        })();
       }
     } else if (eventType === "PAYMENT_FAILED_WEBHOOK") {
       await supabase

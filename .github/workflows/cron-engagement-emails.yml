@@ -1,0 +1,26 @@
+name: "Cron: Engagement Emails"
+
+on:
+  schedule:
+    # Every day at 4:00 AM UTC (9:30 AM IST)
+    - cron: "0 4 * * *"
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  engagement-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Engagement Emails
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/engagement-emails")
+          
+          echo "Status: $response"
+          
+          if [ "$response" -ne 200 ]; then
+            echo "❌ Engagement emails cron failed with status $response"
+            exit 1
+          fi
+          
+          echo "✅ Engagement emails processed successfully"

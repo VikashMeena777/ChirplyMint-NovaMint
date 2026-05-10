@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { NextRequest, NextResponse } from "next/server";
+import { sendEmail } from "@/lib/email/send";
+import { getInstagramConnectedHtml } from "@/lib/email/templates/instagram-connected";
 
 /**
  * Instagram App ID & Secret from the App Dashboard:
@@ -290,6 +293,40 @@ export async function GET(request: NextRequest) {
     console.log(
       `[IG OAuth] ✅ Complete! @${igUsername} connected for user ${state}`
     );
+
+    // ── Step 8: Send Instagram Connected celebration email ───────────
+    // Fire-and-forget, only once per user
+    void (async () => {
+      try {
+        const admin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("ig_connected_email_sent, full_name")
+          .eq("id", state)
+          .single();
+
+        if (!(profile as Record<string, unknown>)?.ig_connected_email_sent) {
+          const { data: authUser } = await admin.auth.admin.getUserById(state);
+          const email = authUser?.user?.email;
+          if (email) {
+            await sendEmail({
+              to: email,
+              subject: `🎉 Instagram Connected — @${igUsername} is linked!`,
+              html: getInstagramConnectedHtml({
+                name: (profile as Record<string, unknown>)?.full_name as string || "there",
+                igUsername,
+              }),
+            });
+            await admin.from("profiles").update({ ig_connected_email_sent: true }).eq("id", state);
+          }
+        }
+      } catch (e) {
+        console.error("[IG OAuth] Email send error:", e);
+      }
+    })();
 
     return NextResponse.redirect(
       `${APP_URL}/dashboard/settings?success=instagram_connected`

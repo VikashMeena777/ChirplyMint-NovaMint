@@ -15,6 +15,7 @@ import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-limiter";
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
+import { checkDmMilestones } from "@/lib/email/dm-milestones";
 
 const VERIFY_TOKEN =
   process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
@@ -471,6 +472,14 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
         .update({ dm_count_this_month: ((senderProfile?.dm_count_this_month as number) || 0) + 1 })
         .eq("id", userId)
         .then(() => { });
+
+      // Check DM milestones (first DM, 100 DMs) — fire-and-forget
+      void checkDmMilestones(
+        supabase,
+        userId,
+        commenterUsername,
+        (automation.name as string) || "Automation"
+      ).catch(() => {});
     }
 
     // ═══════════════════════════════════════════════

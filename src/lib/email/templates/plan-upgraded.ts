@@ -1,0 +1,88 @@
+/**
+ * Plan Upgraded — Success Email
+ * Sent after successful payment and plan upgrade.
+ */
+export function getPlanUpgradedHtml(data: {
+  name: string;
+  planName: string;
+  dmLimit: string;
+  features: string[];
+}): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.novamintnetworks.in";
+  const featuresHtml = data.features
+    .map(f => `<tr><td style="padding:4px 0;color:#166534;font-size:16px;width:24px;vertical-align:top;">✅</td><td style="padding:4px 0;color:#3f3f46;font-size:13px;">${f}</td></tr>`)
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" style="width:100%;border-collapse:collapse;">
+    <tr>
+      <td align="center" style="padding:40px 20px;">
+        <table role="presentation" style="max-width:520px;width:100%;border-collapse:collapse;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:32px 32px 24px;text-align:center;">
+              <div style="font-size:48px;margin-bottom:12px;">💎</div>
+              <h1 style="margin:0 0 4px;color:#ffffff;font-size:22px;font-weight:700;">Welcome to ${data.planName}!</h1>
+              <p style="margin:0;color:rgba(255,255,255,0.85);font-size:13px;">Your account has been upgraded</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;color:#18181b;font-size:16px;line-height:1.6;">
+                Hey ${data.name || "there"} 🎉
+              </p>
+              <p style="margin:0 0 24px;color:#3f3f46;font-size:14px;line-height:1.7;">
+                Thank you for upgrading to the <strong>${data.planName}</strong> plan! Your account is now unlocked with premium features.
+              </p>
+
+              <!-- New Limits -->
+              <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #ddd6fe;border-radius:12px;padding:20px;margin:0 0 20px;text-align:center;">
+                <p style="margin:0 0 4px;font-size:13px;color:#6d28d9;font-weight:500;">Your new DM limit</p>
+                <p style="margin:0;font-size:36px;font-weight:700;color:#7c3aed;">${data.dmLimit}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#52525b;">DMs per month</p>
+              </div>
+
+              <!-- Features Unlocked -->
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin:0 0 24px;">
+                <p style="margin:0 0 12px;font-weight:600;color:#166534;font-size:14px;">What's unlocked:</p>
+                <table style="width:100%;border-collapse:collapse;">
+                  ${featuresHtml}
+                </table>
+              </div>
+
+              <!-- CTA -->
+              <table role="presentation" style="width:100%;border-collapse:collapse;">
+                <tr>
+                  <td align="center">
+                    <a href="${appUrl}/dashboard"
+                       style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;font-size:14px;font-weight:600;">
+                      Explore Your Upgraded Dashboard →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 32px;border-top:1px solid #f4f4f5;text-align:center;">
+              <p style="margin:0 0 8px;color:#a1a1aa;font-size:11px;">
+                Questions about your plan? Reply to this email.
+              </p>
+              <p style="margin:0;color:#a1a1aa;font-size:11px;">
+                © ${new Date().getFullYear()} ChirplyMint by NovaMint Networks
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}

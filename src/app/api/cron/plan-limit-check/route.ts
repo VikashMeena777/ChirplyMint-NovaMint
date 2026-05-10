@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { sendEmail } from "@/lib/email/send";
+import { getApproachingLimitHtml } from "@/lib/email/templates/approaching-limit";
 
 function getAdminSupabase() {
   return createClient(
@@ -117,6 +118,26 @@ export async function GET(request: Request) {
 
       warningsSent++;
       console.log(`[Limit Check] Warned ${userId}: ${threshold}% (${dmCount}/${limit})`);
+
+      // Send email at 80% threshold too (not just 100%)
+      if (!isMax) {
+        const { data: authUser80 } = await supabase.auth.admin.getUserById(userId);
+        const userEmail80 = authUser80?.user?.email;
+        const { data: prof80 } = await supabase.from("profiles").select("full_name, plan").eq("id", userId).single();
+        if (userEmail80) {
+          sendEmail({
+            to: userEmail80,
+            subject: `⚠️ You've used ${Math.round(pct)}% of your DM limit`,
+            html: getApproachingLimitHtml({
+              name: (prof80 as Record<string, unknown>)?.full_name as string || "there",
+              used: dmCount,
+              limit,
+              plan: (prof80 as Record<string, unknown>)?.plan as string || "Starter",
+            }),
+          }).catch(() => {});
+        }
+      }
+
     }
 
     console.log(`[Limit Check] Done: ${warningsSent} warnings sent`);
