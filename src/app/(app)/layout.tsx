@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/layouts/sidebar";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { OnboardingWrapper } from "@/components/dashboard/onboarding-wrapper";
 
 export default function AppLayout({
   children,
@@ -23,6 +24,7 @@ export default function AppLayout({
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
       </main>
       <CommandPalette />
+      <OnboardingWrapper />
     </div>
   );
 }

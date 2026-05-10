@@ -106,6 +106,14 @@ export async function getProfile() {
     .eq("status", "sent")
     .gte("sent_at", startOfMonth.toISOString());
 
+  // Determine auth provider
+  const providers = (user.app_metadata?.providers as string[]) || [];
+  const authProvider: "email" | "google" | "oauth" = providers.includes("google")
+    ? "google"
+    : providers.includes("email")
+      ? "email"
+      : "oauth";
+
   return {
     id: user.id,
     email: user.email ?? "",
@@ -114,6 +122,7 @@ export async function getProfile() {
     plan: (profile as Record<string, unknown>)?.plan as string || "free",
     dmCountThisMonth: dmsSentThisMonth ?? 0,
     dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
+    authProvider,
   };
 }
 

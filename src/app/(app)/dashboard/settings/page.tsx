@@ -32,6 +32,7 @@ interface UserProfile {
   plan: string;
   dmCountThisMonth: number;
   dmLimit: number;
+  authProvider: "email" | "google" | "oauth";
 }
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
@@ -226,6 +227,7 @@ export default function SettingsPage() {
               </button>
             ) : (
               <div className="space-y-3 p-4 rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                {/* Step 1: Type DELETE */}
                 <p className="text-sm text-red-700 dark:text-red-400 font-medium">
                   Type <span className="font-mono font-bold">DELETE</span> to confirm:
                 </p>
@@ -235,16 +237,30 @@ export default function SettingsPage() {
                   placeholder="Type DELETE"
                   className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
-                <p className="text-sm text-red-700 dark:text-red-400 font-medium">
-                  Enter your password to confirm:
-                </p>
-                <input
-                  type="password"
-                  value={deletePassword}
-                  onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(""); }}
-                  placeholder="Your account password"
-                  className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
+
+                {/* Step 2: Email/password users enter password; OAuth users see a final warning */}
+                {profile?.authProvider === "email" ? (
+                  <>
+                    <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                      Enter your password to verify:
+                    </p>
+                    <input
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(""); }}
+                      placeholder="Your account password"
+                      className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-800">
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-700 dark:text-red-400">
+                      You signed in with <span className="font-semibold">Google</span>. Deleting your account will remove all automations, leads, messages, and settings permanently. This cannot be reversed.
+                    </p>
+                  </div>
+                )}
+
                 {deleteError && (
                   <p className="text-xs text-red-600 font-medium">{deleteError}</p>
                 )}
@@ -261,11 +277,16 @@ export default function SettingsPage() {
                     Cancel
                   </button>
                   <button
-                    disabled={deleteConfirmText !== "DELETE" || !deletePassword || deleting}
+                    disabled={
+                      deleteConfirmText !== "DELETE" ||
+                      (profile?.authProvider === "email" && !deletePassword) ||
+                      deleting
+                    }
                     onClick={async () => {
                       setDeleting(true);
                       setDeleteError("");
-                      const result = await deleteAccount(deletePassword);
+                      const pw = profile?.authProvider === "email" ? deletePassword : "__oauth_confirmed__";
+                      const result = await deleteAccount(pw);
                       if (result?.error) {
                         setDeleteError(result.error);
                         setDeleting(false);

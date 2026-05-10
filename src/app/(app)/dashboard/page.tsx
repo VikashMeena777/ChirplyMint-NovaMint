@@ -115,7 +115,7 @@ export default async function DashboardPage() {
           />
           {data?.user.plan === "free" && (
             <Link
-              href="/dashboard/settings"
+              href="/pricing"
               className="flex items-center justify-center gap-1.5 text-sm font-semibold text-[oklch(0.52_0.19_162)] hover:gap-2.5 transition-all py-2"
             >
               Upgrade to Pro <ArrowRight className="w-4 h-4" />

@@ -71,6 +71,14 @@ export function Footer() {
                   How It Works
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/changelog"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Changelog
+                </Link>
+              </li>
             </ul>
           </div>
 
