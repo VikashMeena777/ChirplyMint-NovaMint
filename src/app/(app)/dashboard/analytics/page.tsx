@@ -24,34 +24,47 @@ export default async function AnalyticsPage() {
   let leadsCount = 0;
   let automationCount = 0;
 
-  if (user) {
-    const { count: dms } = await supabase
-      .from("dm_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
-    dmsSent = dms ?? 0;
+  // Parallel fetch all analytics data for maximum speed
+  const [
+    dmsResult,
+    leadsResult,
+    autosResult,
+    dailyDMs,
+    dailyLeads,
+    topAutomations,
+    automationStats,
+  ] = await Promise.all([
+    user
+      ? supabase
+          .from("dm_logs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+      : Promise.resolve({ count: 0 }),
+    user
+      ? supabase
+          .from("leads")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+      : Promise.resolve({ count: 0 }),
+    user
+      ? supabase
+          .from("automations")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("status", "active")
+      : Promise.resolve({ count: 0 }),
+    getDailyDMStats(7),
+    getDailyLeadStats(7),
+    getTopAutomations(5),
+    getPerAutomationStats(),
+  ]);
 
-    const { count: leads } = await supabase
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id);
-    leadsCount = leads ?? 0;
-
-    const { count: autos } = await supabase
-      .from("automations")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("status", "active");
-    automationCount = autos ?? 0;
-  }
+  dmsSent = (dmsResult as { count: number | null }).count ?? 0;
+  leadsCount = (leadsResult as { count: number | null }).count ?? 0;
+  automationCount = (autosResult as { count: number | null }).count ?? 0;
 
   const conversionRate =
     dmsSent > 0 ? ((leadsCount / dmsSent) * 100).toFixed(1) : "0";
-
-  const dailyDMs = await getDailyDMStats(7);
-  const dailyLeads = await getDailyLeadStats(7);
-  const topAutomations = await getTopAutomations(5);
-  const automationStats = await getPerAutomationStats();
 
   const stats = [
     {

@@ -8,7 +8,7 @@
  * Fire-and-forget — never blocks the DM pipeline.
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient, createClient as createAdminClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
 import { getFirstDmSentHtml } from "@/lib/email/templates/first-dm-sent";
 import { getMilestone100DmsHtml } from "@/lib/email/templates/milestone-100-dms";
@@ -42,8 +42,12 @@ export async function checkDmMilestones(
       })
       .eq("id", userId);
 
-    // Get user email
-    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+    // Get user email — need admin client for auth.admin
+    const admin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
     const email = authUser?.user?.email;
     if (!email) return;
 

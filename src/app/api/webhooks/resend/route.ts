@@ -84,16 +84,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify signature
-    if (process.env.RESEND_WEBHOOK_SECRET) {
-      const isValid = verifySvixSignature(rawBody, svixId, svixTimestamp, svixSignature);
-      if (!isValid) {
-        console.error("[Resend Webhook] Invalid signature");
-        return NextResponse.json(
-          { error: "Invalid webhook signature" },
-          { status: 403 }
-        );
-      }
+    // Verify signature — ALWAYS required, never skip
+    if (!process.env.RESEND_WEBHOOK_SECRET) {
+      console.error("[Resend Webhook] CRITICAL: RESEND_WEBHOOK_SECRET not configured");
+      return NextResponse.json(
+        { error: "Server misconfigured" },
+        { status: 500 }
+      );
+    }
+
+    const isValid = verifySvixSignature(rawBody, svixId, svixTimestamp, svixSignature);
+    if (!isValid) {
+      console.error("[Resend Webhook] Invalid signature");
+      return NextResponse.json(
+        { error: "Invalid webhook signature" },
+        { status: 403 }
+      );
     }
 
     const body = JSON.parse(rawBody);
