@@ -55,6 +55,8 @@ export default function SettingsPage() {
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const searchParamsMain = useSearchParams();
 
@@ -233,21 +235,41 @@ export default function SettingsPage() {
                   placeholder="Type DELETE"
                   className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
+                <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                  Enter your password to confirm:
+                </p>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(""); }}
+                  placeholder="Your account password"
+                  className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+                {deleteError && (
+                  <p className="text-xs text-red-600 font-medium">{deleteError}</p>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
                       setShowDeleteConfirm(false);
                       setDeleteConfirmText("");
+                      setDeletePassword("");
+                      setDeleteError("");
                     }}
                     className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted/30 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    disabled={deleteConfirmText !== "DELETE" || deleting}
+                    disabled={deleteConfirmText !== "DELETE" || !deletePassword || deleting}
                     onClick={async () => {
                       setDeleting(true);
-                      await deleteAccount();
+                      setDeleteError("");
+                      const result = await deleteAccount(deletePassword);
+                      if (result?.error) {
+                        setDeleteError(result.error);
+                        setDeleting(false);
+                      }
                     }}
                     className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 transition-colors"
                   >

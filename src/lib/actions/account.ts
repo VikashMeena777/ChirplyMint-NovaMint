@@ -6,10 +6,11 @@ import { redirect } from "next/navigation";
 
 /**
  * Delete the current user's account and all associated data.
+ * Requires password re-entry for security.
  * Cascading deletes on FK constraints handle child rows.
  * Also removes the auth.users entry so the email is fully freed.
  */
-export async function deleteAccount() {
+export async function deleteAccount(password: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,6 +19,28 @@ export async function deleteAccount() {
   if (!user) {
     return { error: "Not authenticated" };
   }
+
+  if (!password || password.trim().length === 0) {
+    return { error: "Password is required" };
+  }
+
+  // Verify password before proceeding
+  // For OAuth users: check if they have an email identity with a password
+  const hasPasswordIdentity = user.app_metadata?.providers?.includes("email");
+
+  if (hasPasswordIdentity) {
+    // Email/password user — verify their password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password,
+    });
+
+    if (signInError) {
+      return { error: "Incorrect password. Please try again." };
+    }
+  }
+  // OAuth-only users: password field acts as extra friction (any value accepted)
+  // They already passed the "type DELETE" check on the frontend
 
   try {
     // 1. Delete profile (cascades to automations, leads, dm_logs, etc.)
