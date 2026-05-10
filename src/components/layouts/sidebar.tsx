@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
 import {
@@ -10,7 +11,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   Bot,
@@ -98,9 +98,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-4 py-5 border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
+          <Image src="/logo.png" alt="ChirplyMint" width={36} height={36} className="w-9 h-9 rounded-xl shrink-0" />
           {!collapsed && (
             <span className="text-lg font-bold tracking-tight text-foreground">
               Chirply<span className="text-[oklch(0.52_0.19_162)]">Mint</span>

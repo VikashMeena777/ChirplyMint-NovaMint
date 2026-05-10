@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sparkles, LayoutDashboard } from "lucide-react";
+import { Menu, X, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { User } from "@supabase/supabase-js";
@@ -61,9 +62,7 @@ export function Navbar() {
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-mint flex items-center justify-center shadow-sm">
-              <Sparkles className="w-4.5 h-4.5 text-white" />
-            </div>
+            <Image src="/logo.png" alt="ChirplyMint" width={36} height={36} className="w-9 h-9 rounded-xl" />
             <span className="text-xl font-bold tracking-tight text-foreground">
               Chirply<span className="text-mint">Mint</span>
             </span>

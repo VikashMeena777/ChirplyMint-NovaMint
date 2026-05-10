@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
 
 export default function AuthLayout({
   children,
@@ -10,9 +10,7 @@ export default function AuthLayout({
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-12">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2.5 mb-10">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] flex items-center justify-center shadow-sm">
-          <Sparkles className="w-5 h-5 text-white" />
-        </div>
+        <Image src="/logo.png" alt="ChirplyMint" width={40} height={40} className="w-10 h-10 rounded-xl" />
         <span className="text-2xl font-bold tracking-tight text-foreground">
           Chirply<span className="text-[oklch(0.52_0.19_162)]">Mint</span>
         </span>

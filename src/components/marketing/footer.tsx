@@ -1,7 +1,8 @@
 "use client";
 
-import { Sparkles, Globe, Send } from "lucide-react";
+import { Globe, Send } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function Footer() {
   return (
@@ -11,9 +12,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-mint flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              <Image src="/logo.png" alt="ChirplyMint" width={32} height={32} className="w-8 h-8 rounded-lg" />
               <span className="text-lg font-bold tracking-tight text-foreground">
                 Chirply<span className="text-mint">Mint</span>
               </span>
