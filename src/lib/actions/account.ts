@@ -1,11 +1,13 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 /**
  * Delete the current user's account and all associated data.
  * Cascading deletes on FK constraints handle child rows.
+ * Also removes the auth.users entry so the email is fully freed.
  */
 export async function deleteAccount() {
   const supabase = await createClient();
@@ -29,6 +31,15 @@ export async function deleteAccount() {
 
     // 4. Sign out the user
     await supabase.auth.signOut();
+
+    // 5. Delete the auth.users entry (requires service role)
+    const admin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await admin.auth.admin.deleteUser(user.id);
+
+    console.log(`[Account] 🗑️ Deleted account for ${user.email}`);
   } catch (err) {
     console.error("[deleteAccount] Error:", err);
     return { error: "Failed to delete account. Please contact support." };

@@ -83,6 +83,7 @@ export async function applyReferralCode(code: string): Promise<{
   if (!user) return { success: false, error: "Not authenticated" };
 
   const admin = getAdminSupabase();
+  const userEmail = user.email || "";
 
   // Find the referrer
   const { data: referrer } = await admin
@@ -100,7 +101,7 @@ export async function applyReferralCode(code: string): Promise<{
     return { success: false, error: "You can't use your own referral code" };
   }
 
-  // Check if already referred
+  // Check if already referred (profile-level check)
   const { data: myProfile } = await admin
     .from("profiles")
     .select("referred_by")
@@ -111,11 +112,33 @@ export async function applyReferralCode(code: string): Promise<{
     return { success: false, error: "You've already used a referral code" };
   }
 
+  // Anti-abuse: check referral_log by email (survives account deletion)
+  if (userEmail) {
+    const { data: existingLog } = await admin
+      .from("referral_log")
+      .select("id")
+      .eq("referred_email", userEmail.toLowerCase())
+      .limit(1)
+      .single();
+
+    if (existingLog) {
+      return { success: false, error: "This email has already been used for a referral" };
+    }
+  }
+
   // Mark the new user as referred
   await admin
     .from("profiles")
     .update({ referred_by: referrerId })
     .eq("id", user.id);
+
+  // Log the referral permanently (anti-abuse)
+  await admin.from("referral_log").insert({
+    referrer_id: referrerId,
+    referred_email: userEmail.toLowerCase(),
+    referred_user_id: user.id,
+    reward_days: 14,
+  });
 
   // Increment referrer's count
   const currentCount = ((referrer as Record<string, unknown>).referral_count as number) || 0;

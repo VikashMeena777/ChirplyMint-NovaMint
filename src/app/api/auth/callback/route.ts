@@ -75,6 +75,10 @@ export async function GET(request: Request) {
 async function applyReferral(code: string, newUserId: string) {
   const admin = getAdminSupabase();
 
+  // Get new user's email for anti-abuse check
+  const { data: authData } = await admin.auth.admin.getUserById(newUserId);
+  const userEmail = authData?.user?.email?.toLowerCase() || "";
+
   // Find referrer
   const { data: referrer } = await admin
     .from("profiles")
@@ -89,7 +93,7 @@ async function applyReferral(code: string, newUserId: string) {
   // Can't refer yourself
   if (referrerId === newUserId) return;
 
-  // Check if already referred
+  // Check if already referred (profile-level)
   const { data: myProfile } = await admin
     .from("profiles")
     .select("referred_by")
@@ -98,11 +102,34 @@ async function applyReferral(code: string, newUserId: string) {
 
   if ((myProfile as Record<string, unknown>)?.referred_by) return;
 
+  // Anti-abuse: check referral_log by email (survives account deletion)
+  if (userEmail) {
+    const { data: existingLog } = await admin
+      .from("referral_log")
+      .select("id")
+      .eq("referred_email", userEmail)
+      .limit(1)
+      .single();
+
+    if (existingLog) {
+      console.log(`[Referral] ⚠️ Blocked: ${userEmail} already used for a referral`);
+      return;
+    }
+  }
+
   // Mark new user as referred
   await admin
     .from("profiles")
     .update({ referred_by: referrerId })
     .eq("id", newUserId);
+
+  // Log the referral permanently (anti-abuse)
+  await admin.from("referral_log").insert({
+    referrer_id: referrerId,
+    referred_email: userEmail,
+    referred_user_id: newUserId,
+    reward_days: 14,
+  });
 
   // Increment referrer count
   const currentCount = ((referrer as Record<string, unknown>).referral_count as number) || 0;
