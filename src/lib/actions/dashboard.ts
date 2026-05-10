@@ -94,13 +94,25 @@ export async function getProfile() {
     .eq("id", user.id)
     .single();
 
+  // Count DMs sent this month from dm_logs (source of truth)
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const { count: dmsSentThisMonth } = await supabase
+    .from("dm_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "sent")
+    .gte("sent_at", startOfMonth.toISOString());
+
   return {
     id: user.id,
     email: user.email ?? "",
     name: (profile as Record<string, unknown>)?.full_name as string || "",
     avatar: (profile as Record<string, unknown>)?.avatar_url as string || "",
     plan: (profile as Record<string, unknown>)?.plan as string || "free",
-    dmCountThisMonth: (profile as Record<string, unknown>)?.dm_count_this_month as number || 0,
+    dmCountThisMonth: dmsSentThisMonth ?? 0,
     dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
   };
 }

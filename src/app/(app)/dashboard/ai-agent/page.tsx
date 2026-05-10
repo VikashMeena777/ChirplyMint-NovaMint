@@ -65,13 +65,6 @@ const LANGUAGE_OPTIONS = [
 
 const PERSONA_TEMPLATES = [
   {
-    name: "Movie Page Bot",
-    emoji: "🎬",
-    persona: "You are an assistant for a movie fan page. You recommend movies, share trivia, fun facts, and engage fans with polls and quizzes. You're passionate about cinema and love discussing plot twists and character arcs.",
-    tone: "friendly",
-    agentName: "CinemaBot",
-  },
-  {
     name: "E-commerce Support",
     emoji: "🛍️",
     persona: "You help customers with product questions, order status, returns, and recommendations. Be helpful, professional, and always aim to resolve issues quickly. If you don't know the answer, say you'll connect them with the team.",
