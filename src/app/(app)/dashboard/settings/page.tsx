@@ -167,7 +167,7 @@ export default function SettingsPage() {
       <div className="rounded-2xl bg-card border border-border shadow-sm p-6">
         {activeTab === "account" && (
           <>
-          <form onSubmit={handleSaveProfile} className="space-y-5 max-w-md">
+          <form onSubmit={handleSaveProfile} className="space-y-5 max-w-xl">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
                 Full Name
@@ -269,7 +269,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "notifications" && (
-          <div className="space-y-2 max-w-md">
+          <div className="space-y-2 max-w-xl">
             {[
               {
                 key: "dm_delivery_alerts",
@@ -414,7 +414,7 @@ function InstagramConnectionTab() {
 
   if (loading) {
     return (
-      <div className="space-y-4 max-w-lg animate-pulse">
+      <div className="space-y-4 animate-pulse">
         <div className="rounded-xl border border-border p-6 space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-muted/50" />
@@ -432,7 +432,7 @@ function InstagramConnectionTab() {
   const usagePercent = limit > 0 ? Math.round((accounts.length / limit) * 100) : 0;
 
   return (
-    <div className="space-y-5 max-w-lg">
+    <div className="space-y-5">
       {/* ── Account Usage Bar ── */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
@@ -680,7 +680,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
   }
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-6">
       <div className="rounded-xl border border-[oklch(0.52_0.19_162/30%)] bg-[oklch(0.52_0.19_162/5%)] p-5">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
@@ -716,7 +716,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
         })()}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {tiers.map((tier) => {
           const isCurrentPlan = currentPlan === tier.key;
           const isHigherPlan =
