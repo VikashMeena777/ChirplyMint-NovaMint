@@ -55,6 +55,10 @@ function SignupContent() {
   };
 
   const handleGoogleSignIn = async () => {
+    // Save referral code to cookie before OAuth redirect
+    if (refCode.trim()) {
+      document.cookie = `pending_referral=${encodeURIComponent(refCode.trim())}; path=/; max-age=600; SameSite=Lax`;
+    }
     const result = await signInWithGoogle();
     if (result?.error) {
       toast.error(result.error);
