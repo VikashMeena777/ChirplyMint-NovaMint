@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
+import { trackServerEvent } from "@/lib/analytics/posthog-server";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ export async function disconnectIGAccount(accountId: string): Promise<{
     account_id: accountId,
     username: (account as Record<string, string>).ig_username,
   }).catch(() => {});
+  trackServerEvent(user.id, "ig.disconnected", { username: (account as Record<string, string>).ig_username });
 
   revalidatePath("/dashboard/settings");
   return { success: true };

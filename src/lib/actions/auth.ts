@@ -1,5 +1,7 @@
 "use server";
 
+import { logInfo } from "@/lib/utils/logger";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +11,7 @@ import { checkRateLimit, getAuthLimiter } from "@/lib/utils/rate-limiter";
 import { headers } from "next/headers";
 import { sendEmail } from "@/lib/email/send";
 import { getWelcomeOnboardingHtml } from "@/lib/email/templates/onboarding-day1";
+import { trackServerEvent, identifyServerUser } from "@/lib/analytics/posthog-server";
 
 /**
  * Get client IP for rate limiting.
@@ -40,7 +43,10 @@ export async function login(formData: FormData) {
   }
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) logActivity(user.id, "auth.login", { method: "email" }).catch(() => {});
+  if (user) {
+    logActivity(user.id, "auth.login", { method: "email" }).catch(() => {});
+    trackServerEvent(user.id, "user.logged_in", { method: "email" });
+  }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
@@ -78,6 +84,8 @@ export async function signup(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     logActivity(user.id, "auth.signup", { method: "email" }).catch(() => {});
+    identifyServerUser(user.id, { email, name, plan: "free" });
+    trackServerEvent(user.id, "user.signed_up", { method: "email" });
 
     // Send welcome email immediately (fire-and-forget)
     sendWelcomeEmail(user.id, email, name).catch((err) => {
@@ -111,7 +119,10 @@ export async function signInWithGoogle() {
 export async function signOut() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (user) logActivity(user.id, "auth.signout").catch(() => {});
+  if (user) {
+    logActivity(user.id, "auth.signout").catch(() => {});
+    trackServerEvent(user.id, "user.signed_out");
+  }
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");
@@ -155,5 +166,5 @@ async function sendWelcomeEmail(userId: string, email: string, name: string) {
     onboarding_email_next_at: nextAt.toISOString(),
   }).eq("id", userId);
 
-  console.log(`[Onboarding] ✉️ Welcome email sent to ${email}`);
+  logInfo("Onboarding", "✉️ Welcome email sent", { email });
 }

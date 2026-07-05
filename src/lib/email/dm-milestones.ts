@@ -12,6 +12,7 @@ import { SupabaseClient, createClient as createAdminClient } from "@supabase/sup
 import { sendEmail } from "@/lib/email/send";
 import { getFirstDmSentHtml } from "@/lib/email/templates/first-dm-sent";
 import { getMilestone100DmsHtml } from "@/lib/email/templates/milestone-100-dms";
+import { logInfo, logError } from "@/lib/utils/logger";
 
 export async function checkDmMilestones(
   supabase: SupabaseClient,
@@ -68,7 +69,7 @@ export async function checkDmMilestones(
         .from("profiles")
         .update({ first_dm_email_sent: true })
         .eq("id", userId);
-      console.log(`[Milestone] 🚀 First DM email sent to ${userId}`);
+      logInfo("Milestone", "🚀 First DM email sent", { userId });
     }
 
     // ── 100 DMs milestone ──
@@ -96,10 +97,10 @@ export async function checkDmMilestones(
         .from("profiles")
         .update({ milestone_100_email_sent: true })
         .eq("id", userId);
-      console.log(`[Milestone] 🏆 100 DMs email sent to ${userId}`);
+      logInfo("Milestone", "🏆 100 DMs email sent", { userId });
     }
   } catch (err) {
     // Never crash the DM pipeline for email failures
-    console.error("[DM Milestone] Error:", err);
+    logError("DM Milestone", "Error", err);
   }
 }

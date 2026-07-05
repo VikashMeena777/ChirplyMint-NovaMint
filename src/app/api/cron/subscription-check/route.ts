@@ -109,72 +109,87 @@ export async function GET(request: Request) {
         console.log(`[Sub Check] ✅ Renewed: ${userId} → ${renewPlan}`);
 
       } else if (daysSinceExpiry <= GRACE_PERIOD_DAYS) {
-        // ── SCENARIO 2: GRACE PERIOD ──
+        // ── SCENARIO 2: GRACE PERIOD — Daily countdown emails ──
+        const daysLeft = GRACE_PERIOD_DAYS - daysSinceExpiry;
+
+        // Set grace_period status (only on first day, idempotent on subsequent)
         if ((s.status as string) !== "grace_period") {
           await supabase.from("subscriptions").update({
             status: "grace_period",
             updated_at: nowIso,
           }).eq("user_id", userId);
-
-          // Get user email for warning
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", userId)
-            .single();
-
-          const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-          const userEmail = authUser?.user?.email;
-          const userName = (profile as Record<string, string>)?.full_name || "there";
-
-          // In-app notification
-          await supabase.from("notifications").insert({
-            user_id: userId,
-            type: "warning",
-            title: "⚠️ Subscription Expiring",
-            body: `Your plan expires in ${GRACE_PERIOD_DAYS - daysSinceExpiry} day(s). Renew now to keep your features.`,
-            metadata: { days_left: GRACE_PERIOD_DAYS - daysSinceExpiry },
-          });
-
-          // Email warning
-          if (userEmail) {
-            sendEmail({
-              to: userEmail,
-              subject: "Your ChirplyMint plan is expiring soon",
-              html: `
-                <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
-                  <h2 style="color: #16a34a;">ChirplyMint</h2>
-                  <p>Hey ${userName},</p>
-                  <p>Your subscription has expired. You have <strong>${GRACE_PERIOD_DAYS - daysSinceExpiry} day(s)</strong> left before your account is downgraded to the free plan.</p>
-                  <p>Renew now to keep your DM limits, AI agent, and all Pro features.</p>
-                  <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"}/dashboard/settings" 
-                     style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 12px;">
-                    Renew Now
-                  </a>
-                  <p style="color: #888; font-size: 12px; margin-top: 24px;">ChirplyMint — Instagram DM Automation</p>
-                </div>
-              `,
-            }).catch(() => {});
-          }
-
-          graced++;
-          console.log(`[Sub Check] ⏳ Grace period: ${userId} (${daysSinceExpiry}/${GRACE_PERIOD_DAYS} days)`);
         }
 
+        // Get user info for email
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", userId)
+          .single();
+
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+        const userEmail = authUser?.user?.email;
+        const userName = (profile as Record<string, string>)?.full_name || "there";
+
+        // Daily in-app notification with countdown
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "warning",
+          title: daysLeft === 0
+            ? "🚨 Last Day — Plan Expires Today!"
+            : `⚠️ ${daysLeft} Day${daysLeft > 1 ? "s" : ""} Left — Plan Expiring`,
+          body: daysLeft === 0
+            ? "Today is your last day. Your plan will be downgraded tomorrow if you don't renew."
+            : `Your plan expires in ${daysLeft} day${daysLeft > 1 ? "s" : ""}. Renew now to keep your features.`,
+          metadata: { days_left: daysLeft },
+        });
+
+        // Daily countdown email
+        if (userEmail) {
+          const urgencyColor = daysLeft <= 1 ? "#dc2626" : "#f59e0b";
+          sendEmail({
+            to: userEmail,
+            subject: daysLeft === 0
+              ? "🚨 LAST DAY — Your ChirplyMint plan expires today"
+              : `⚠️ ${daysLeft} day${daysLeft > 1 ? "s" : ""} left — Your ChirplyMint plan is expiring`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
+                <h2 style="color: #16a34a;">ChirplyMint</h2>
+                <p>Hey ${userName},</p>
+                <div style="background: ${urgencyColor}11; border-left: 4px solid ${urgencyColor}; padding: 12px 16px; border-radius: 8px; margin: 16px 0;">
+                  <strong style="color: ${urgencyColor};">${daysLeft === 0 ? "⏰ Final Warning" : `⚠️ ${daysLeft} Day${daysLeft > 1 ? "s" : ""} Remaining`}</strong>
+                  <p style="margin: 4px 0 0 0;">Your subscription has expired. ${daysLeft === 0 ? "Your account will be downgraded to the free plan tomorrow." : `You have <strong>${daysLeft} day${daysLeft > 1 ? "s" : ""}</strong> left before your account is downgraded.`}</p>
+                </div>
+                <p>Renew now to keep your DM limits, AI agent, and all Pro features.</p>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"}/dashboard/settings" 
+                   style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 12px;">
+                  Renew Now
+                </a>
+                <p style="color: #888; font-size: 12px; margin-top: 24px;">ChirplyMint — Instagram DM Automation</p>
+              </div>
+            `,
+          }).catch(() => {});
+        }
+
+        graced++;
+        console.log(`[Sub Check] ⏳ Grace: ${userId} — ${daysLeft} day(s) left`);
+
       } else {
-        // ── SCENARIO 3: HARD DOWNGRADE ──
+        // ── SCENARIO 3: HARD DOWNGRADE — One-time only ──
+        // IMPORTANT: Set status to 'expired' FIRST so if the cron fires again
+        // before the loop finishes, this user won't be picked up again.
+        await supabase.from("subscriptions").update({
+          status: "expired",
+          updated_at: nowIso,
+        }).eq("user_id", userId);
+
         await supabase.from("profiles").update({
           plan: "free",
           dm_limit: PLANS.free.dmLimit,
           updated_at: nowIso,
         }).eq("id", userId);
 
-        await supabase.from("subscriptions").update({
-          status: "expired",
-          updated_at: nowIso,
-        }).eq("user_id", userId);
-
-        // In-app notification
+        // In-app notification (one-time — status is already 'expired' so cron won't pick it up again)
         await supabase.from("notifications").insert({
           user_id: userId,
           type: "warning",
@@ -183,7 +198,7 @@ export async function GET(request: Request) {
           metadata: { previous_plan: s.plan },
         });
 
-        // Email
+        // One-time downgrade email
         const { data: authUser } = await supabase.auth.admin.getUserById(userId);
         const userEmail = authUser?.user?.email;
         if (userEmail) {

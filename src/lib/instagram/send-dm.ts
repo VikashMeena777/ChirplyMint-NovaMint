@@ -7,6 +7,8 @@
  *
  * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
  */
+import { logDebug, logInfo, logWarn, logError } from "@/lib/utils/logger";
+
 const GRAPH_API_BASE = "https://graph.instagram.com/v25.0";
 
 /**
@@ -85,7 +87,7 @@ export async function sendPrivateReply(
   messageText: string
 ): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
   try {
-    console.log(`[IG Private Reply] Sending via /${igUserId}/messages with comment_id=${commentId}`);
+    logDebug("IG Private Reply", `Sending via /${igUserId}/messages`, { commentId });
 
     const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
       method: "POST",
@@ -102,11 +104,11 @@ export async function sendPrivateReply(
     const data = await res.json();
 
     if (data.error) {
-      console.error("[IG Private Reply] API Error:", JSON.stringify(data.error));
+      logError("IG Private Reply", "API Error", data.error);
       return { success: false, error: data.error.message };
     }
 
-    console.log(`[IG Private Reply] Success! recipient_id=${data.recipient_id}, message_id=${data.message_id}`);
+    logInfo("IG Private Reply", "Success", { recipientId: data.recipient_id, messageId: data.message_id });
     return {
       success: true,
       messageId: data.message_id,
@@ -114,7 +116,7 @@ export async function sendPrivateReply(
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Private Reply] Network error:", msg);
+    logError("IG Private Reply", "Network error", error);
     return { success: false, error: msg };
   }
 }
@@ -144,7 +146,7 @@ export async function sendPrivateReplyWithQuickReplies(
   quickReplies: QuickReplyButton[]
 ): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
   try {
-    console.log(`[IG Private Reply+QR] Sending via /${igUserId}/messages with comment_id=${commentId}, ${quickReplies.length} quick replies`);
+    logDebug("IG Private Reply+QR", `Sending with ${quickReplies.length} quick replies`, { commentId });
 
     const qr = quickReplies.map((btn) => ({
       content_type: "text",
@@ -171,11 +173,11 @@ export async function sendPrivateReplyWithQuickReplies(
 
     if (data.error) {
       // If quick replies aren't supported for private replies, fall back to plain text
-      console.warn("[IG Private Reply+QR] Quick replies failed, falling back to plain text:", data.error.message);
+      logWarn("IG Private Reply+QR", "Quick replies failed, falling back to plain text", { error: data.error.message });
       return sendPrivateReply(igUserId, accessToken, commentId, messageText);
     }
 
-    console.log(`[IG Private Reply+QR] Success! recipient_id=${data.recipient_id}`);
+    logInfo("IG Private Reply+QR", "Success", { recipientId: data.recipient_id });
     return {
       success: true,
       messageId: data.message_id,
@@ -183,7 +185,7 @@ export async function sendPrivateReplyWithQuickReplies(
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Private Reply+QR] Network error:", msg);
+    logError("IG Private Reply+QR", "Network error", error);
     return { success: false, error: msg };
   }
 }
@@ -206,7 +208,7 @@ export async function sendGenericTemplate(
   }
 ): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
   try {
-    console.log(`[IG Generic Template] Sending template "${template.title}" via comment_id=${commentId}`);
+    logDebug("IG Generic Template", `Sending "${template.title}"`, { commentId });
 
     const element: Record<string, unknown> = {
       title: template.title.slice(0, 80),
@@ -247,11 +249,11 @@ export async function sendGenericTemplate(
     const data = await res.json();
 
     if (data.error) {
-      console.error("[IG Generic Template] API Error:", JSON.stringify(data.error));
+      logError("IG Generic Template", "API Error", data.error);
       return { success: false, error: data.error.message };
     }
 
-    console.log(`[IG Generic Template] Success! message_id=${data.message_id}`);
+    logInfo("IG Generic Template", "Success", { messageId: data.message_id });
     return {
       success: true,
       messageId: data.message_id,
@@ -259,7 +261,7 @@ export async function sendGenericTemplate(
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Generic Template] Network error:", msg);
+    logError("IG Generic Template", "Network error", error);
     return { success: false, error: msg };
   }
 }
@@ -284,7 +286,7 @@ export async function sendGenericTemplateDM(
   options?: { humanAgent?: boolean }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    console.log(`[IG Template DM] Sending template "${template.title}" to user=${recipientIgId}`);
+    logDebug("IG Template DM", `Sending "${template.title}"`, { recipientIgId });
 
     const element: Record<string, unknown> = {
       title: template.title.slice(0, 80),
@@ -333,15 +335,15 @@ export async function sendGenericTemplateDM(
     const data = await res.json();
 
     if (data.error) {
-      console.error("[IG Template DM] API Error:", JSON.stringify(data.error));
+      logError("IG Template DM", "API Error", data.error);
       return { success: false, error: data.error.message };
     }
 
-    console.log(`[IG Template DM] Success! message_id=${data.message_id}`);
+    logInfo("IG Template DM", "Success", { messageId: data.message_id });
     return { success: true, messageId: data.message_id };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Template DM] Network error:", msg);
+    logError("IG Template DM", "Network error", error);
     return { success: false, error: msg };
   }
 }
@@ -360,7 +362,7 @@ export async function checkIfFollower(
   accessToken: string
 ): Promise<{ isFollower: boolean | null; username?: string; error?: string }> {
   try {
-    console.log(`[IG Follower Check] Checking follower status for IGSID=${igScopedId}`);
+    logDebug("IG Follower Check", "Checking follower status", { igScopedId });
 
     const res = await fetch(
       `${GRAPH_API_BASE}/${igScopedId}?fields=name,username,is_user_follow_business&access_token=${accessToken}`,
@@ -371,16 +373,16 @@ export async function checkIfFollower(
 
     if (data.error) {
       // Common error: "User consent is required" for first-time commenters
-      console.warn("[IG Follower Check] API Error:", data.error.message);
+      logWarn("IG Follower Check", "API Error", { error: data.error.message });
       return { isFollower: null, error: data.error.message };
     }
 
     const isFollower = data.is_user_follow_business ?? null;
-    console.log(`[IG Follower Check] ${data.username || igScopedId} follows=${isFollower}`);
+    logDebug("IG Follower Check", `${data.username || igScopedId} follows=${isFollower}`);
     return { isFollower, username: data.username };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Follower Check] Network error:", msg);
+    logError("IG Follower Check", "Network error", error);
     return { isFollower: null, error: msg };
   }
 }

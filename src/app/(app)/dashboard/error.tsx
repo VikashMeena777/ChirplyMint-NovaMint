@@ -12,32 +12,25 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Structured logging — console.error is appropriate for error boundaries
     console.error("[Dashboard Error]", error);
   }, [error]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-      <div
-        className="flex items-center justify-center w-16 h-16 rounded-2xl mb-6"
-        style={{
-          background: "oklch(0.6 0.2 30 / 10%)",
-        }}
-      >
-        <AlertTriangle
-          className="w-8 h-8"
-          style={{ color: "oklch(0.6 0.2 30)" }}
-        />
+      <div className="flex items-center justify-center w-16 h-16 rounded-2xl mb-6 bg-red-50 dark:bg-red-950/20">
+        <AlertTriangle className="w-8 h-8 text-red-500" />
       </div>
 
-      <h2 className="text-xl font-semibold text-white mb-2">
+      <h2 className="text-xl font-semibold text-foreground mb-2">
         Something went wrong
       </h2>
-      <p className="text-sm text-[oklch(0.65_0.02_260)] mb-1 max-w-md">
+      <p className="text-sm text-muted-foreground mb-1 max-w-md">
         An unexpected error occurred while loading this page.
         Please try again or return to the dashboard.
       </p>
       {error.digest && (
-        <p className="text-xs text-[oklch(0.45_0.02_260)] mb-6 font-mono">
+        <p className="text-xs text-muted-foreground/60 mb-6 font-mono">
           Error ID: {error.digest}
         </p>
       )}
@@ -45,23 +38,14 @@ export default function DashboardError({
       <div className="flex gap-3">
         <button
           onClick={reset}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style={{
-            background: "oklch(0.52 0.19 162)",
-            color: "white",
-          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-medium hover:bg-[oklch(0.48_0.19_162)] transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           Try Again
         </button>
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style={{
-            background: "oklch(0.25 0.02 260)",
-            color: "oklch(0.75 0.02 260)",
-            border: "1px solid oklch(0.3 0.02 260)",
-          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
         >
           <Home className="w-4 h-4" />
           Dashboard

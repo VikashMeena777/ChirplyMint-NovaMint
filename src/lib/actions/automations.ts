@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canCreateAutomation, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
+import { trackServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function getAutomations() {
   const supabase = await createClient();
@@ -172,6 +173,7 @@ export async function createAutomation(formData: FormData) {
     require_follow: requireFollow,
     template_type: templateType,
   }).catch(() => {});
+  trackServerEvent(user.id, "automation.created", { name, keyword, scope_type: scopeType, template_type: templateType });
 
   revalidatePath("/dashboard/automations");
   return { success: true, id: (inserted as Record<string, string>)?.id };
@@ -198,6 +200,7 @@ export async function toggleAutomation(
   logActivity(user.id, `automation.${newStatus}`, {
     automation_id: id,
   }).catch(() => {});
+  trackServerEvent(user.id, "automation.toggled", { automation_id: id, status: newStatus });
 
   revalidatePath("/dashboard/automations");
   return { success: true };
@@ -221,6 +224,7 @@ export async function deleteAutomation(id: string) {
   logActivity(user.id, "automation.deleted", { automation_id: id }).catch(
     () => {}
   );
+  trackServerEvent(user.id, "automation.deleted", { automation_id: id });
 
   revalidatePath("/dashboard/automations");
   return { success: true };

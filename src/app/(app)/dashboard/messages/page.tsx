@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getMessages, getMessageStats } from "@/lib/actions/messages";
 import { retryFailedDM } from "@/lib/actions/retry-dm";
+import { toast } from "sonner";
 
 type Message = Record<string, unknown>;
 type StatusFilter = "all" | "sent" | "pending" | "failed";
@@ -52,10 +53,10 @@ export default function MessagesPage() {
         // Refresh messages to show updated status
         loadMessages();
       } else {
-        alert(result.error || "Failed to retry DM");
+        toast.error(result.error || "Failed to retry DM");
       }
     } catch {
-      alert("Something went wrong. Try again.");
+      toast.error("Something went wrong. Try again.");
     } finally {
       setRetryingId(null);
     }

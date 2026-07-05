@@ -4,6 +4,7 @@ import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email/send";
 import { getInstagramConnectedHtml } from "@/lib/email/templates/instagram-connected";
+import { trackServerEvent } from "@/lib/analytics/posthog-server";
 
 /**
  * Instagram App ID & Secret from the App Dashboard:
@@ -327,6 +328,8 @@ export async function GET(request: NextRequest) {
         console.error("[IG OAuth] Email send error:", e);
       }
     })();
+
+    trackServerEvent(state, "ig.connected", { username: igUsername });
 
     return NextResponse.redirect(
       `${APP_URL}/dashboard/settings?success=instagram_connected`

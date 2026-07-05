@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { logInfo, logError } from "@/lib/utils/logger";
 
 /**
  * Delete the current user's account and all associated data.
@@ -62,9 +63,9 @@ export async function deleteAccount(password: string) {
     );
     await admin.auth.admin.deleteUser(user.id);
 
-    console.log(`[Account] 🗑️ Deleted account for ${user.email}`);
+    logInfo("Account", "🗑️ Deleted account", { email: user.email });
   } catch (err) {
-    console.error("[deleteAccount] Error:", err);
+    logError("deleteAccount", "Error", err);
     return { error: "Failed to delete account. Please contact support." };
   }
 

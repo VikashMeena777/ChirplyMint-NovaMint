@@ -24,6 +24,8 @@ export function CookieConsent() {
       path: "/",
       sameSite: "lax",
     });
+    // Notify PostHogProvider to re-initialize immediately
+    window.dispatchEvent(new Event("cookie-consent-changed"));
     setShow(false);
   }
 

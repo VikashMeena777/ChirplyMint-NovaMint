@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
+import { logInfo } from "@/lib/utils/logger";
 
 /**
  * Tracks consecutive DM send failures per Instagram account using DB.
@@ -89,7 +90,7 @@ export async function trackDMFailure(
       }).catch(() => {});
     }
 
-    console.log(`[Failure Tracker] 🚨 Alert sent for @${igUsername} (${current} consecutive failures)`);
+    logInfo("Failure Tracker", `🚨 Alert sent for @${igUsername}`, { consecutiveFailures: current });
   }
 }
 
