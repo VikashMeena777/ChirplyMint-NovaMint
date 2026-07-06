@@ -5,11 +5,44 @@
  * - Media/profile: graph.instagram.com
  * - DMs/comments: graph.instagram.com (same base)
  *
+ * Rate Limit Handling:
+ * - Meta allows ~200 DMs per IG account per 24 hours
+ * - On 429 / rate limit errors, we retry with exponential backoff (3 attempts)
+ * - If all retries fail, we return rateLimited: true so the caller can queue for later
+ *
  * @see https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
  */
 import { logDebug, logInfo, logWarn, logError } from "@/lib/utils/logger";
 
 const GRAPH_API_BASE = "https://graph.instagram.com/v25.0";
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 2000; // 2 seconds, doubles each retry
+
+/**
+ * Check if a Meta API error is a rate limit error.
+ * Meta uses error codes 4 (app-level), 32 (rate limit), 613 (calls limit).
+ */
+function isRateLimitError(error: Record<string, unknown>): boolean {
+  const code = error.code as number;
+  const subcode = error.error_subcode as number;
+  const message = ((error.message as string) || "").toLowerCase();
+  return (
+    code === 4 ||
+    code === 32 ||
+    code === 613 ||
+    subcode === 2207051 ||
+    message.includes("rate limit") ||
+    message.includes("too many calls") ||
+    message.includes("limit reached")
+  );
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Send a DM to an Instagram user via the Instagram Messaging API.
@@ -29,43 +62,66 @@ export async function sendInstagramDM(
   recipientIgScopedId: string,
   messageText: string,
   options?: { humanAgent?: boolean }
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    // Build request body
-    const body: Record<string, unknown> = {
-      recipient: { id: recipientIgScopedId },
-      message: { text: messageText },
-    };
+): Promise<{ success: boolean; messageId?: string; error?: string; rateLimited?: boolean }> {
+  // Build request body
+  const body: Record<string, unknown> = {
+    recipient: { id: recipientIgScopedId },
+    message: { text: messageText },
+  };
 
-    // Add HUMAN_AGENT tag for messages sent outside the 24-hour window
-    // (e.g., drip sequence follow-ups sent days after initial interaction)
-    if (options?.humanAgent) {
-      body.messaging_type = "MESSAGE_TAG";
-      body.tag = "HUMAN_AGENT";
-    }
-
-    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-
-    if (data.error) {
-      console.error("[IG Send DM] API Error:", data.error.message);
-      return { success: false, error: data.error.message };
-    }
-
-    return { success: true, messageId: data.message_id };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("[IG Send DM] Network error:", msg);
-    return { success: false, error: msg };
+  // Add HUMAN_AGENT tag for messages sent outside the 24-hour window
+  if (options?.humanAgent) {
+    body.messaging_type = "MESSAGE_TAG";
+    body.tag = "HUMAN_AGENT";
   }
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        // Rate limit → retry with exponential backoff
+        if (isRateLimitError(data.error) && attempt < MAX_RETRIES) {
+          const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
+          logWarn("IG Send DM", `Rate limited, retry ${attempt + 1}/${MAX_RETRIES} in ${delayMs}ms`, { error: data.error.message });
+          await sleep(delayMs);
+          continue;
+        }
+
+        // Rate limit but out of retries
+        if (isRateLimitError(data.error)) {
+          logWarn("IG Send DM", "Rate limit — all retries exhausted, queuing for later", { recipientIgScopedId });
+          return { success: false, error: data.error.message, rateLimited: true };
+        }
+
+        logError("IG Send DM", "API Error", data.error);
+        return { success: false, error: data.error.message };
+      }
+
+      return { success: true, messageId: data.message_id };
+    } catch (error) {
+      if (attempt < MAX_RETRIES) {
+        const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
+        logWarn("IG Send DM", `Network error, retry ${attempt + 1}/${MAX_RETRIES} in ${delayMs}ms`);
+        await sleep(delayMs);
+        continue;
+      }
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      logError("IG Send DM", "Network error after retries", error);
+      return { success: false, error: msg };
+    }
+  }
+
+  return { success: false, error: "Max retries exceeded" };
 }
 
 /**
@@ -85,40 +141,63 @@ export async function sendPrivateReply(
   accessToken: string,
   commentId: string,
   messageText: string
-): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string }> {
-  try {
-    logDebug("IG Private Reply", `Sending via /${igUserId}/messages`, { commentId });
+): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string; rateLimited?: boolean }> {
+  logDebug("IG Private Reply", `Sending via /${igUserId}/messages`, { commentId });
 
-    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        recipient: { comment_id: commentId },
-        message: { text: messageText },
-      }),
-    });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          recipient: { comment_id: commentId },
+          message: { text: messageText },
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.error) {
-      logError("IG Private Reply", "API Error", data.error);
-      return { success: false, error: data.error.message };
+      if (data.error) {
+        // Rate limit → retry with exponential backoff
+        if (isRateLimitError(data.error) && attempt < MAX_RETRIES) {
+          const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
+          logWarn("IG Private Reply", `Rate limited, retry ${attempt + 1}/${MAX_RETRIES} in ${delayMs}ms`, { error: data.error.message });
+          await sleep(delayMs);
+          continue;
+        }
+
+        if (isRateLimitError(data.error)) {
+          logWarn("IG Private Reply", "Rate limit — all retries exhausted, queuing for later", { commentId });
+          return { success: false, error: data.error.message, rateLimited: true };
+        }
+
+        logError("IG Private Reply", "API Error", data.error);
+        return { success: false, error: data.error.message };
+      }
+
+      logInfo("IG Private Reply", "Success", { recipientId: data.recipient_id, messageId: data.message_id });
+      return {
+        success: true,
+        messageId: data.message_id,
+        recipientId: data.recipient_id,
+      };
+    } catch (error) {
+      if (attempt < MAX_RETRIES) {
+        const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
+        logWarn("IG Private Reply", `Network error, retry ${attempt + 1}/${MAX_RETRIES} in ${delayMs}ms`);
+        await sleep(delayMs);
+        continue;
+      }
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      logError("IG Private Reply", "Network error after retries", error);
+      return { success: false, error: msg };
     }
-
-    logInfo("IG Private Reply", "Success", { recipientId: data.recipient_id, messageId: data.message_id });
-    return {
-      success: true,
-      messageId: data.message_id,
-      recipientId: data.recipient_id,
-    };
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    logError("IG Private Reply", "Network error", error);
-    return { success: false, error: msg };
   }
+
+  return { success: false, error: "Max retries exceeded" };
 }
 
 /**

@@ -436,7 +436,13 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
           aiEnabled: (automation.ai_enabled as boolean) ?? false,
         });
 
-    // Log the DM
+    // Log the DM — mark rate-limited DMs for later retry
+    const dmStatus = sendResult.success
+      ? "sent"
+      : (sendResult as Record<string, unknown>).rateLimited
+        ? "rate_limited"
+        : "failed";
+
     await supabase.from("dm_logs").insert({
       user_id: userId,
       automation_id: automation.id,
@@ -446,7 +452,11 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       recipient_username: commenterUsername,
       message_text: typeof logMessageText === "string" ? logMessageText : String(logMessageText),
       comment_text: commentText,
-      status: sendResult.success ? "sent" : "failed",
+      status: dmStatus,
+      // Queue rate-limited DMs for retry in 1 hour
+      ...(dmStatus === "rate_limited" ? {
+        retry_after: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      } : {}),
     });
 
     // Update automation stats
