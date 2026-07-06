@@ -11,17 +11,17 @@ function getAdminSupabase() {
 
 /**
  * DM Retry Cron
- * Runs every hour via cron-job.org.
+ * Runs every 15 minutes via cron-job.org.
  *
  * Picks up DMs that were rate-limited by Meta (status = 'rate_limited')
- * and retries them. Spreads retries across the hour to avoid hitting
- * the limit again.
+ * and retries them. Spreads retries to avoid hitting the limit again.
  *
  * Rules:
  * - Only retries DMs where retry_after < now
  * - Max 3 retries per DM (then marked as 'failed')
- * - Sends at most 50 DMs per cron run (to stay within rate limits)
+ * - Sends at most 10 DMs per cron run (~20s total, under 30s timeout)
  * - 2-second delay between each DM to spread the load
+ * - Capacity: 10 × 4/hour × 24 = 960 retries/day
  *
  * Protected by CRON_SECRET.
  */
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       .eq("status", "rate_limited")
       .lt("retry_after", nowIso)
       .order("created_at", { ascending: true })
-      .limit(50); // Max 50 per run to stay safe
+      .limit(10); // Max 10 per run to stay under cron-job.org 30s timeout (10 × 2s = 20s)
 
     if (fetchError) {
       console.error("[DM Retry] Fetch error:", fetchError);
