@@ -271,35 +271,20 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       }
 
       if (followerCheck.isFollower === null) {
-        // API couldn't verify (no consent / first-time) — skip per strict mode
+        // API couldn't verify (no consent / first-time commenter)
+        // Meta's is_user_follow_business requires the user to have DM'd the 
+        // business before (consent). First-time commenters ALWAYS return null,
+        // even if they follow the account. So we proceed with the DM — don't block.
         console.log(
-          `[Meta Webhook] Could not verify follower status for @${commenterUsername} — skipping (strict mode)`
+          `[Meta Webhook] Could not verify follower status for @${commenterUsername} — proceeding anyway (consent not yet established)`
         );
-
-        await supabase.from("dm_logs").insert({
-          user_id: userId,
-          automation_id: automation.id,
-          instagram_account_id: (automation as Record<string, unknown>)
-            .instagram_account_id,
-          recipient_ig_id: commenterId,
-          recipient_username: commenterUsername,
-          message_text: "[SKIPPED] Follower status could not be verified",
-          comment_text: commentText,
-          status: "skipped_not_follower",
-        });
-
-        // Reply with a "follow me first" message
-        if (commentId) {
-          const followPrompt = `Hey @${commenterUsername}! 👋 Follow us first and then comment again to receive your DM! 💌`;
-          await replyToComment(accessToken, commentId, followPrompt);
-          console.log(`[Meta Webhook] Posted "follow first" reply to @${commenterUsername} (unverified)`);
-        }
-
-        continue;
+        // Fall through to send the DM
       }
 
-      // followerCheck.isFollower === true → proceed with DM
-      console.log(`[Meta Webhook] @${commenterUsername} follows ✅ — proceeding with DM`);
+      // followerCheck.isFollower === true OR null (unverifiable) → proceed with DM
+      if (followerCheck.isFollower === true) {
+        console.log(`[Meta Webhook] @${commenterUsername} follows ✅ — proceeding with DM`);
+      }
     }
 
     // ═══════════════════════════════════════════════
