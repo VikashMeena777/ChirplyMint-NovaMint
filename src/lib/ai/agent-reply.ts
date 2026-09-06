@@ -1,12 +1,5 @@
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-
-const client = new OpenAI({
-  baseURL: "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
-});
-
-const MODEL = "meta/llama-3.3-70b-instruct";
+import { generateLLMCompletion, ChatMessage } from "@/lib/ai/llm-provider";
 
 function getSupabase() {
   return createClient(
@@ -289,22 +282,10 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
     return { reply: config.greeting_message, agentId: config.id };
   }
 
-  // 10. Generate AI reply
-  if (!process.env.NVIDIA_NIM_API_KEY) {
-    await supabase.from("ai_conversations").insert({
-      agent_id: config.id,
-      user_id: params.userId,
-      sender_ig_id: params.senderIgId,
-      sender_username: params.senderUsername,
-      role: "assistant",
-      content: config.fallback_message,
-    });
-    return { reply: config.fallback_message, agentId: config.id };
-  }
-
+  // 10. Generate AI reply via resilient multi-provider engine
   try {
     // Build messages array with optional conversation summary for long chats
-    const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    const chatMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
     ];
 
@@ -336,16 +317,15 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
 
     chatMessages.push({ role: "user", content: params.incomingMessage });
 
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    const generated = await generateLLMCompletion({
       messages: chatMessages,
-      max_tokens: 200,
+      maxTokens: 200,
       temperature: 0.5,
-      frequency_penalty: 0.4,
-      presence_penalty: 0.2,
+      frequencyPenalty: 0.4,
+      presencePenalty: 0.2,
     });
 
-    let reply = completion.choices?.[0]?.message?.content?.trim() || config.fallback_message;
+    let reply = generated?.trim() || config.fallback_message;
 
     // Post-process: strip AI artifacts
     reply = humanizeReply(reply);

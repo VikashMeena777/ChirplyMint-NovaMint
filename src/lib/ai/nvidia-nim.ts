@@ -1,11 +1,4 @@
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
-});
-
-const MODEL = "meta/llama-3.3-70b-instruct";
+import { generateLLMCompletion } from "@/lib/ai/llm-provider";
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
@@ -41,7 +34,7 @@ export async function generateDMReply(context: {
   };
 
   // If AI is not enabled, return the static template with variables replaced
-  if (!context.aiEnabled || !process.env.NVIDIA_NIM_API_KEY) {
+  if (!context.aiEnabled) {
     return replaceTemplateVars(context.dmTemplate, templateVars);
   }
 
@@ -49,8 +42,7 @@ export async function generateDMReply(context: {
   const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    const generated = await generateLLMCompletion({
       messages: [
         {
           role: "system",
@@ -76,12 +68,12 @@ Template to base your DM on (rephrase naturally, don't copy): "${resolvedTemplat
 Write the DM:`,
         },
       ],
-      max_tokens: 150,
+      maxTokens: 150,
       temperature: 0.5,
-      frequency_penalty: 0.3,
+      frequencyPenalty: 0.3,
     });
 
-    let reply = completion.choices?.[0]?.message?.content?.trim();
+    let reply = generated?.trim();
     if (reply) {
       // Strip wrapping quotes
       if (
@@ -116,13 +108,8 @@ export async function generateWeeklyInsight(stats: {
   conversionRate: string;
   previousDmsSent: number;
 }): Promise<string> {
-  if (!process.env.NVIDIA_NIM_API_KEY) {
-    return `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
-  }
-
   try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    const generated = await generateLLMCompletion({
       messages: [
         {
           role: "system",
@@ -139,11 +126,11 @@ export async function generateWeeklyInsight(stats: {
 Generate a brief weekly insight summary.`,
         },
       ],
-      max_tokens: 200,
+      maxTokens: 200,
       temperature: 0.6,
     });
 
-    const insight = completion.choices?.[0]?.message?.content?.trim();
+    const insight = generated?.trim();
     return insight || `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured.`;
   } catch (error) {
     console.error("[NIM AI] Error generating weekly insight:", error);
