@@ -11,95 +11,83 @@ export interface CompletionOptions {
   temperature?: number;
   frequencyPenalty?: number;
   presencePenalty?: number;
+  topP?: number;
 }
 
 interface ProviderCandidate {
   name: string;
   client: OpenAI;
   model: string;
+  extraBody?: Record<string, unknown>;
 }
 
 /**
- * Build priority candidate list of LLM providers based on configured environment variables.
- * Priority order:
- * 1. Groq (Llama 3.3 70B - ultra fast, generous free tier)
- * 2. NVIDIA NIM (Active supported models, avoids retired/410 models)
- * 3. Google Gemini (Gemini 2.0 Flash)
- * 4. OpenAI (GPT-4o Mini)
+ * Strip thinking tags and reasoning blocks from reasoning models (e.g. Nemotron, GPT-OSS).
+ * Followers on Instagram should only see the final message, never internal reasoning thoughts.
+ */
+function cleanReasoningOutput(text: string): string {
+  let cleaned = text;
+
+  // Strip <think>...</think> blocks if present
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+
+  // Strip [REASONING]...[/REASONING] blocks if present
+  cleaned = cleaned.replace(/\[reasoning\][\s\S]*?\[\/reasoning\]/gi, "");
+
+  return cleaned.trim();
+}
+
+/**
+ * Build list of configured LLM providers (NVIDIA NIM and Groq).
+ * All model names are dynamically read from environment variables.
  */
 function getCandidateProviders(): ProviderCandidate[] {
   const candidates: ProviderCandidate[] = [];
 
-  // 1. Groq (Primary recommended - ultra fast, free tier, reliable)
+  // 1. Groq (Configurable via GROQ_API_KEY & GROQ_MODEL)
   if (process.env.GROQ_API_KEY) {
+    const groqBaseUrl =
+      process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
+    const groqModel =
+      process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+
     const groqClient = new OpenAI({
-      baseURL: "https://api.groq.com/openai/v1",
+      baseURL: groqBaseUrl,
       apiKey: process.env.GROQ_API_KEY,
     });
+
     candidates.push({
-      name: "Groq (Llama 3.3 70B)",
+      name: `Groq (${groqModel})`,
       client: groqClient,
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      model: groqModel,
     });
   }
 
-  // 2. NVIDIA NIM (Live supported models on integrate.api.nvidia.com)
-  if (process.env.NVIDIA_NIM_API_KEY) {
+  // 2. NVIDIA NIM (Configurable via NVIDIA_NIM_API_KEY/NVIDIA_API_KEY & NVIDIA_NIM_MODEL)
+  const nvidiaKey =
+    process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY;
+
+  if (nvidiaKey) {
+    const nvidiaBaseUrl =
+      process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1";
+    const nvidiaModel =
+      process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
+
     const nimClient = new OpenAI({
-      baseURL: "https://integrate.api.nvidia.com/v1",
-      apiKey: process.env.NVIDIA_NIM_API_KEY,
+      baseURL: nvidiaBaseUrl,
+      apiKey: nvidiaKey,
     });
 
-    // Default to active models (meta/llama-3.3-70b-instruct was retired with HTTP 410 Gone)
-    const primaryNimModel =
-      process.env.NVIDIA_NIM_MODEL || "nvidia/llama-3.1-nemotron-70b-instruct";
-
-    candidates.push({
-      name: `NVIDIA NIM (${primaryNimModel})`,
-      client: nimClient,
-      model: primaryNimModel,
-    });
-
-    // Fallback models hosted on NVIDIA NIM
-    const nimFallbacks = [
-      "mistralai/mistral-large-2-instruct",
-      "meta/llama-3.2-11b-vision-instruct",
-      "ibm/granite-3.0-8b-instruct",
-    ];
-
-    for (const fallbackModel of nimFallbacks) {
-      if (fallbackModel !== primaryNimModel) {
-        candidates.push({
-          name: `NVIDIA NIM Fallback (${fallbackModel})`,
-          client: nimClient,
-          model: fallbackModel,
-        });
-      }
+    const extraBody: Record<string, unknown> = {};
+    if (process.env.NVIDIA_ENABLE_THINKING === "true") {
+      extraBody.chat_template_kwargs = { enable_thinking: true };
     }
-  }
 
-  // 3. Google Gemini (OpenAI-compatible endpoint)
-  if (process.env.GEMINI_API_KEY) {
-    const geminiClient = new OpenAI({
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-      apiKey: process.env.GEMINI_API_KEY,
-    });
     candidates.push({
-      name: "Google Gemini (Gemini 2.0 Flash)",
-      client: geminiClient,
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
-    });
-  }
-
-  // 4. OpenAI (Standard fallback)
-  if (process.env.OPENAI_API_KEY) {
-    const openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    candidates.push({
-      name: "OpenAI (GPT-4o Mini)",
-      client: openaiClient,
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      name: `NVIDIA NIM (${nvidiaModel})`,
+      client: nimClient,
+      model: nvidiaModel,
+      extraBody: Object.keys(extraBody).length > 0 ? extraBody : undefined,
     });
   }
 
@@ -107,8 +95,8 @@ function getCandidateProviders(): ProviderCandidate[] {
 }
 
 /**
- * Generate a text completion with automatic multi-provider and multi-model fallback.
- * Prevents single-point-of-failure outages when upstream providers deprecate models (e.g. HTTP 410 Gone).
+ * Generate a text completion using either Groq or NVIDIA NIM.
+ * All models are loaded from environment variables and stripped of internal reasoning artifacts.
  */
 export async function generateLLMCompletion(
   options: CompletionOptions
@@ -117,7 +105,7 @@ export async function generateLLMCompletion(
 
   if (candidates.length === 0) {
     console.warn(
-      "[AI Engine] No AI API keys configured. Set GROQ_API_KEY, NVIDIA_NIM_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY."
+      "[AI Engine] No AI API keys configured. Set GROQ_API_KEY or NVIDIA_NIM_API_KEY (or NVIDIA_API_KEY)."
     );
     return null;
   }
@@ -126,28 +114,35 @@ export async function generateLLMCompletion(
 
   for (const candidate of candidates) {
     try {
-      const completion = await candidate.client.chat.completions.create({
+      const requestPayload: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
         model: candidate.model,
         messages: options.messages,
-        max_tokens: options.maxTokens ?? 200,
-        temperature: options.temperature ?? 0.5,
-        frequency_penalty: options.frequencyPenalty,
-        presence_penalty: options.presencePenalty,
-      });
+        max_tokens: options.maxTokens ?? 1024,
+        temperature: options.temperature ?? 0.7,
+        ...(options.topP ? { top_p: options.topP } : {}),
+        ...(options.frequencyPenalty ? { frequency_penalty: options.frequencyPenalty } : {}),
+        ...(options.presencePenalty ? { presence_penalty: options.presencePenalty } : {}),
+        ...(candidate.extraBody ? candidate.extraBody : {}),
+      };
 
-      const reply = completion.choices?.[0]?.message?.content?.trim();
-      if (reply) {
-        return reply;
+      const completion = await candidate.client.chat.completions.create(requestPayload);
+
+      const rawContent = completion.choices?.[0]?.message?.content?.trim();
+      if (rawContent) {
+        const cleaned = cleanReasoningOutput(rawContent);
+        if (cleaned) {
+          return cleaned;
+        }
       }
     } catch (err: any) {
       lastError = err;
       const status = err?.status || err?.statusCode || "unknown";
       console.warn(
-        `[AI Engine] ${candidate.name} failed (HTTP ${status}): ${err?.message || err}. Trying next candidate...`
+        `[AI Engine] ${candidate.name} failed (HTTP ${status}): ${err?.message || err}. Trying next provider...`
       );
     }
   }
 
-  console.error("[AI Engine] All candidate AI models/providers failed. Last error:", lastError);
+  console.error("[AI Engine] All candidate AI providers failed. Last error:", lastError);
   return null;
 }
