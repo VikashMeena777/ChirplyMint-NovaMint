@@ -18,28 +18,11 @@ interface ProviderCandidate {
   name: string;
   client: OpenAI;
   model: string;
-  extraBody?: Record<string, unknown>;
-}
-
-/**
- * Strip thinking tags from reasoning models so Instagram followers
- * only see the final human response, never internal thoughts.
- */
-function cleanReasoningOutput(text: string): string {
-  let cleaned = text;
-
-  // Strip <think>...</think> blocks if present
-  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
-
-  // Strip [reasoning]...[/reasoning] blocks if present
-  cleaned = cleaned.replace(/\[reasoning\][\s\S]*?\[\/reasoning\]/gi, "");
-
-  return cleaned.trim();
 }
 
 /**
  * Build candidate list for Groq and NVIDIA NIM.
- * Model names are read from environment variables (GROQ_MODEL and NVIDIA_NIM_MODEL).
+ * Model names are read directly from environment variables.
  */
 function getCandidateProviders(): ProviderCandidate[] {
   const candidates: ProviderCandidate[] = [];
@@ -61,24 +44,17 @@ function getCandidateProviders(): ProviderCandidate[] {
 
   // 2. NVIDIA NIM (Permanent base URL)
   if (process.env.NVIDIA_NIM_API_KEY) {
-    const nvidiaModel = process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
+    const nvidiaModel =
+      process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
     const nimClient = new OpenAI({
       baseURL: "https://integrate.api.nvidia.com/v1",
       apiKey: process.env.NVIDIA_NIM_API_KEY,
     });
 
-    // Thinking is disabled by default for fast Instagram DM replies,
-    // but can be toggled via NVIDIA_ENABLE_THINKING=true.
-    const enableThinking = process.env.NVIDIA_ENABLE_THINKING === "true";
-    const extraBody: Record<string, unknown> = {
-      chat_template_kwargs: { enable_thinking: enableThinking },
-    };
-
     candidates.push({
       name: `NVIDIA NIM (${nvidiaModel})`,
       client: nimClient,
       model: nvidiaModel,
-      extraBody,
     });
   }
 
@@ -86,7 +62,7 @@ function getCandidateProviders(): ProviderCandidate[] {
 }
 
 /**
- * Generate a text completion using either Groq or NVIDIA NIM.
+ * Generate a standard text completion using either Groq or NVIDIA NIM.
  */
 export async function generateLLMCompletion(
   options: CompletionOptions
@@ -104,7 +80,7 @@ export async function generateLLMCompletion(
 
   for (const candidate of candidates) {
     try {
-      const requestPayload: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+      const completion = await candidate.client.chat.completions.create({
         model: candidate.model,
         messages: options.messages,
         max_tokens: options.maxTokens ?? 1024,
@@ -112,17 +88,11 @@ export async function generateLLMCompletion(
         ...(options.topP ? { top_p: options.topP } : {}),
         ...(options.frequencyPenalty ? { frequency_penalty: options.frequencyPenalty } : {}),
         ...(options.presencePenalty ? { presence_penalty: options.presencePenalty } : {}),
-        ...(candidate.extraBody ? candidate.extraBody : {}),
-      };
+      });
 
-      const completion = await candidate.client.chat.completions.create(requestPayload);
-
-      const rawContent = completion.choices?.[0]?.message?.content?.trim();
-      if (rawContent) {
-        const cleaned = cleanReasoningOutput(rawContent);
-        if (cleaned) {
-          return cleaned;
-        }
+      const reply = completion.choices?.[0]?.message?.content?.trim();
+      if (reply) {
+        return reply;
       }
     } catch (err: any) {
       lastError = err;
