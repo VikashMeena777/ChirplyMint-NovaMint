@@ -1,11 +1,19 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
+let hasWarnedRedisMissing = false;
+
 function getRedis() {
   if (
     !process.env.UPSTASH_REDIS_REST_URL ||
     !process.env.UPSTASH_REDIS_REST_TOKEN
   ) {
+    if (!hasWarnedRedisMissing) {
+      console.warn(
+        "[RateLimiter] UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN not configured — operating in degraded mode (rate limiting bypassed)"
+      );
+      hasWarnedRedisMissing = true;
+    }
     return null;
   }
   return new Redis({
@@ -68,7 +76,7 @@ export function getAiLimiter() {
 
 /**
  * Check rate limit — returns { allowed, remaining, resetAt }
- * Gracefully returns allowed=true if Redis is not configured.
+ * Gracefully returns allowed=true if Redis is not configured or fails.
  */
 export async function checkRateLimit(
   limiter: Ratelimit | null,
@@ -78,10 +86,18 @@ export async function checkRateLimit(
     return { allowed: true, remaining: 999, resetAt: new Date() };
   }
 
-  const result = await limiter.limit(identifier);
-  return {
-    allowed: result.success,
-    remaining: result.remaining,
-    resetAt: new Date(result.reset),
-  };
+  try {
+    const result = await limiter.limit(identifier);
+    return {
+      allowed: result.success,
+      remaining: result.remaining,
+      resetAt: new Date(result.reset),
+    };
+  } catch (error) {
+    console.warn(
+      `[RateLimiter] Redis connection error during check for "${identifier}" — failing open:`,
+      error
+    );
+    return { allowed: true, remaining: 999, resetAt: new Date() };
+  }
 }

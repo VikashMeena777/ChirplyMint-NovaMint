@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import { captureException } from "@/lib/sentry";
 
 export default function MarketingError({
   error,
@@ -10,6 +12,9 @@ export default function MarketingError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    captureException(error, { digest: error.digest, boundary: "marketing" });
+  }, [error]);
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center max-w-md">

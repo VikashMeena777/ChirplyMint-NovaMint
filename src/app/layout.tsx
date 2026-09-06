@@ -1,24 +1,13 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"),
   title: "ChirplyMint — Automate Instagram DMs & Comments",
   description:
     "Turn every Instagram comment into a customer. ChirplyMint automates your DMs with AI-powered responses, lead capture, and smart content delivery.",
@@ -64,7 +53,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className="font-sans font-mono h-full antialiased"
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider

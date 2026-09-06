@@ -14,6 +14,8 @@ import {
   Tag,
   Send,
   GitBranch,
+  FlaskConical,
+  Workflow,
 } from "lucide-react";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
 import ABTestPanel from "@/components/dashboard/ab-test-panel";
@@ -24,29 +26,29 @@ import type { Automation } from "./automation-types";
 function DripToggle({ automationId, userPlan }: { automationId: string; userPlan: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mt-4 pt-4 border-t border-border">
+    <div>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+        className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full group py-1"
       >
         <ChevronRight
-          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`}
         />
-        <GitBranch className="w-4 h-4" />
-        Drip Sequence
-        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
+        <span>Drip Sequence</span>
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
       <div
         className="overflow-hidden transition-all duration-300 ease-in-out"
         style={{
-          maxHeight: open ? "2000px" : "0px",
+          maxHeight: open ? "2500px" : "0px",
           opacity: open ? 1 : 0,
         }}
       >
-        <div className="pt-3">
+        <div className="pt-3 pb-1">
           <DripSequenceBuilder automationId={automationId} userPlan={userPlan} />
         </div>
       </div>
@@ -62,25 +64,25 @@ function ABTestToggle({ automationId, userPlan }: { automationId: string; userPl
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+        className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full group py-1"
       >
         <ChevronRight
-          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`}
         />
-        <Sparkles className="w-4 h-4" />
-        A/B Testing
-        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <FlaskConical className="w-3.5 h-3.5 text-emerald-500" />
+        <span>A/B Testing</span>
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
       <div
         className="overflow-hidden transition-all duration-300 ease-in-out"
         style={{
-          maxHeight: open ? "2000px" : "0px",
+          maxHeight: open ? "2500px" : "0px",
           opacity: open ? 1 : 0,
         }}
       >
-        <div className="pt-3">
+        <div className="pt-3 pb-1">
           <ABTestPanel automationId={automationId} userPlan={userPlan} />
         </div>
       </div>
@@ -96,25 +98,25 @@ function PostbackFlowToggle({ automationId, userPlan }: { automationId: string; 
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full group"
+        className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full group py-1"
       >
         <ChevronRight
-          className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`}
         />
-        <Sparkles className="w-4 h-4" />
-        Postback Flows
-        <span className="text-xs font-normal text-muted-foreground/70 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <Workflow className="w-3.5 h-3.5 text-blue-500" />
+        <span>Postback Flows</span>
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
       <div
         className="overflow-hidden transition-all duration-300 ease-in-out"
         style={{
-          maxHeight: open ? "2000px" : "0px",
+          maxHeight: open ? "2500px" : "0px",
           opacity: open ? 1 : 0,
         }}
       >
-        <div className="pt-3">
+        <div className="pt-3 pb-1">
           <PostbackFlowPanel automationId={automationId} userPlan={userPlan} />
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
+import { captureException } from "@/lib/sentry";
 
 export default function DashboardError({
   error,
@@ -12,8 +13,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Structured logging — console.error is appropriate for error boundaries
-    console.error("[Dashboard Error]", error);
+    captureException(error, { digest: error.digest, boundary: "dashboard" });
   }, [error]);
 
   return (

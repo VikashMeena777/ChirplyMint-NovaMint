@@ -16,6 +16,7 @@ import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-lim
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
 import { checkDmMilestones } from "@/lib/email/dm-milestones";
+import { pickABVariant } from "@/lib/actions/ab-test";
 
 const VERIFY_TOKEN =
   process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
@@ -34,10 +35,10 @@ function getSupabase() {
  */
 function verifySignature(payload: string, signature: string | null): boolean {
   if (!APP_SECRET) {
-    console.warn(
-      "[Meta Webhook] META_APP_SECRET not set — skipping signature verification"
+    console.error(
+      "[Meta Webhook] CRITICAL: META_APP_SECRET / META_WEBHOOK_SECRET not set — rejecting payload (fail-closed)"
     );
-    return true;
+    return false;
   }
   if (!signature) return false;
 
@@ -45,10 +46,11 @@ function verifySignature(payload: string, signature: string | null): boolean {
     "sha256=" +
     crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  const sigBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expectedSignature);
+  if (sigBuf.length !== expectedBuf.length) return false;
+
+  return crypto.timingSafeEqual(sigBuf, expectedBuf);
 }
 
 /**
@@ -353,6 +355,9 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     const templateType = (automation.template_type as string) || "text";
     let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
 
+    // Check for active A/B test variant
+    const abVariant = !hasDrip ? await pickABVariant(automation.id, supabase) : null;
+
     if (hasDrip) {
       // ── DRIP ACTIVE: Send window opener as Generic Template with postback buttons ──
       const dripData = activeDripSeq as Record<string, unknown>;
@@ -377,6 +382,33 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       console.log(
         `[Meta Webhook] Drip active → sent window opener template to @${commenterUsername} (${sendResult.success ? "✅" : "❌"})`
       );
+    } else if (abVariant) {
+      // ── A/B TEST VARIANT ACTIVE: Send selected variant template ──
+      console.log(
+        `[Meta Webhook] A/B test active → sending variant "${abVariant.variant_name}" to @${commenterUsername}`
+      );
+      if (abVariant.template_type === "button" && abVariant.template_title) {
+        const buttons = (abVariant.template_buttons as TemplateButton[]) || [];
+        const title = (abVariant.template_title || "")
+          .replace(/\{name\}/gi, `@${commenterUsername}`)
+          .replace(/\{keyword\}/gi, commentText);
+        const subtitle = (abVariant.template_subtitle || "")
+          .replace(/\{name\}/gi, `@${commenterUsername}`)
+          .replace(/\{keyword\}/gi, commentText);
+
+        sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
+          title,
+          subtitle: subtitle || undefined,
+          image_url: abVariant.template_image_url || undefined,
+          buttons,
+        });
+      } else {
+        const dmText = (abVariant.dm_template || "")
+          .replace(/\{name\}/gi, `@${commenterUsername}`)
+          .replace(/\{keyword\}/gi, commentText);
+
+        sendResult = await sendPrivateReply(igUserId, accessToken, commentId, dmText);
+      }
     } else if (templateType === "button" && automation.template_title) {
       // ── NO DRIP: BUTTON TEMPLATE DM ──
       const buttons = (automation.template_buttons as TemplateButton[]) || [];
@@ -410,6 +442,8 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     // Build display text for logging
     const logMessageText = hasDrip
       ? `[WINDOW OPENER] ${((activeDripSeq as Record<string, string>).window_opener_text || "").slice(0, 100)}`
+      : abVariant
+      ? `[VARIANT: ${abVariant.variant_name}] ${abVariant.template_type === "button" ? abVariant.template_title : abVariant.dm_template}`
       : templateType === "button"
       ? `[TEMPLATE] ${automation.template_title}`
       : await generateDMReply({
@@ -420,6 +454,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
           commentText,
           aiEnabled: (automation.ai_enabled as boolean) ?? false,
         });
+
 
     // Log the DM — mark rate-limited DMs for later retry
     const dmStatus = sendResult.success

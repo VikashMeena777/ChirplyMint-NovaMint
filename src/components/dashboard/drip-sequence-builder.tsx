@@ -10,6 +10,7 @@ import {
   updateDripStep,
   deleteDripStep,
   getDripStats,
+  updateWindowOpener,
   type DripStep,
   type DripSequence,
 } from "@/lib/actions/drip-sequences";
@@ -73,19 +74,22 @@ export default function DripSequenceBuilder({
     delay_hours: 24,
     message_text: "",
   });
-
+  const [windowOpenerText, setWindowOpenerText] = useState("Do you follow me?");
+  const [expandedOpener, setExpandedOpener] = useState(false);
 
   const loadSequence = useCallback(async () => {
     setLoading(true);
     const result = await getDripSequence(automationId);
     if (result.data) {
       setSequence(result.data);
+      if (result.data.window_opener_text) {
+        setWindowOpenerText(result.data.window_opener_text);
+      }
       // Backend returns steps under "drip_steps" key (Supabase join alias)
       // but the DripSequence interface defines it as "steps"
       const raw = result.data as unknown as Record<string, unknown>;
       const rawSteps = raw.drip_steps ?? raw.steps ?? [];
       setSteps(rawSteps as DripStep[]);
-
     }
     const statsResult = await getDripStats(automationId);
     setStats(statsResult);
@@ -95,6 +99,23 @@ export default function DripSequenceBuilder({
   useEffect(() => {
     loadSequence();
   }, [loadSequence]);
+
+  const handleSaveOpener = async () => {
+    if (!sequence) return;
+    if (!windowOpenerText.trim()) {
+      toast.error("Window opener text is required");
+      return;
+    }
+    setSaving(true);
+    const result = await updateWindowOpener(sequence.id, windowOpenerText.trim());
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Window opener updated!");
+      await loadSequence();
+    }
+    setSaving(false);
+  };
 
   const handleCreateSequence = async () => {
     setSaving(true);
@@ -344,14 +365,58 @@ export default function DripSequenceBuilder({
 
       {/* Timeline of steps */}
       <div className="drip-timeline">
-        {/* Initial DM indicator */}
+        {/* Initial DM indicator (Window Opener) */}
         <div className="timeline-node initial">
           <div className="node-dot">
             <Zap size={12} />
           </div>
           <div className="node-content">
-            <span className="node-label">Initial DM</span>
-            <span className="node-desc">Auto-sent when user taps &quot;Yes&quot;</span>
+            <div
+              className="node-header"
+              onClick={() => setExpandedOpener(!expandedOpener)}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="node-info">
+                <span className="node-label">Initial DM &bull; 24h Window Opener</span>
+                <span className="node-delay">
+                  Interactive template sent to open Meta messaging window
+                </span>
+              </div>
+              <div className="node-actions">
+                {expandedOpener ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </div>
+            </div>
+
+            {expandedOpener && (
+              <div className="node-edit">
+                <div className="edit-field">
+                  <label>Window Opener Prompt Text</label>
+                  <textarea
+                    value={windowOpenerText}
+                    rows={2}
+                    placeholder="Do you follow me? Tap Yes to get access!"
+                    onChange={(e) => setWindowOpenerText(e.target.value)}
+                  />
+                  <span className="help-text">
+                    Sent with &quot;Yes ✅&quot; (starts drip) and profile link buttons.
+                  </span>
+                </div>
+                <button
+                  className="preset-btn active"
+                  style={{ alignSelf: "flex-start", marginTop: "0.5rem", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+                  onClick={handleSaveOpener}
+                  disabled={saving}
+                >
+                  <Save size={13} /> Save Opener
+                </button>
+              </div>
+            )}
+
+            {!expandedOpener && (
+              <p className="node-preview">
+                {windowOpenerText || "Do you follow me? Tap Yes to get access!"}
+              </p>
+            )}
           </div>
         </div>
 

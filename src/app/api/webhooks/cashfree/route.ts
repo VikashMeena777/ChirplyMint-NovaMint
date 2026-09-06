@@ -23,12 +23,12 @@ export async function POST(request: Request) {
     // Verify webhook signature — ALWAYS verify, never skip
     if (!process.env.CASHFREE_WEBHOOK_SECRET) {
       console.error("[Cashfree Webhook] CRITICAL: CASHFREE_WEBHOOK_SECRET not configured");
-      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 200 });
     }
     const isValid = verifyWebhookSignature(rawBody, timestamp, signature);
     if (!isValid) {
       console.error("[Cashfree Webhook] Invalid signature — rejecting");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 200 });
     }
     console.log("[Cashfree Webhook] Signature verified ✅");
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     console.log("[Cashfree Webhook] Event type:", eventType, "Order ID:", orderData?.order_id);
 
     if (!orderData?.order_id) {
-      return NextResponse.json({ error: "Missing order_id" }, { status: 400 });
+      return NextResponse.json({ error: "Missing order_id" }, { status: 200 });
     }
 
     const supabase = getAdminSupabase();

@@ -1,3 +1,18 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["bom1"],
+  "functions": {
+    "src/app/api/cron/**/*": {
+      "maxDuration": 60
+    },
+    "src/app/api/webhooks/**/*": {
+      "maxDuration": 60
+    },
+    "src/app/api/payments/**/*": {
+      "maxDuration": 30
+    },
+    "src/app/api/auth/**/*": {
+      "maxDuration": 30
+    }
+  }
 }

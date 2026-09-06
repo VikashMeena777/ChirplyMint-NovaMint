@@ -207,9 +207,15 @@ export async function updateWindowOpener(
 
   if (error) return { error: error.message };
 
+  logActivity(user.id, "drip.window_opener_updated", {
+    sequence_id: sequenceId,
+    window_opener_text: trimmed,
+  }).catch(() => {});
+
   revalidatePath("/dashboard/automations");
   return { success: true };
 }
+
 
 // ─── Step CRUD ───────────────────────────────────────────
 

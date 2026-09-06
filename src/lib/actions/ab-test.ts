@@ -177,8 +177,12 @@ export async function declareABWinner(
  * Pick a random variant for sending (used by webhook handler).
  * Returns the variant's template data or null if no AB test is active.
  */
-export async function pickABVariant(automationId: string): Promise<ABVariant | null> {
-  const supabase = await createClient();
+export async function pickABVariant(
+  automationId: string,
+  supabaseClient?: unknown
+): Promise<ABVariant | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase: any = supabaseClient || (await createClient());
 
   const { data: variants } = await supabase
     .from("ab_test_variants")
@@ -200,3 +204,4 @@ export async function pickABVariant(automationId: string): Promise<ABVariant | n
 
   return picked as unknown as ABVariant;
 }
+
