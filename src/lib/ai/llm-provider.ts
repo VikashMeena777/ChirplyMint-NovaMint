@@ -18,6 +18,33 @@ interface ProviderCandidate {
   name: string;
   client: OpenAI;
   model: string;
+  isNvidia: boolean;
+}
+
+/**
+ * Clean any accidental reasoning/thinking artifacts from the response
+ * so followers only receive the final human message.
+ */
+function stripReasoningArtifacts(text: string): string {
+  let cleaned = text.trim();
+
+  // Strip <think>...</think> blocks
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // Strip [reasoning]...[/reasoning] blocks
+  cleaned = cleaned.replace(/\[reasoning\][\s\S]*?\[\/reasoning\]/gi, "").trim();
+
+  // If the model leaked an internal thought preamble followed by the reply (e.g. "Okay, the user just said... \n\n Hey!")
+  const thoughtPreambleRegex =
+    /^(?:okay,?\s+the\s+user|thinking\s+process|let\s+me\s+think|i\s+need\s+to\s+reply)[\s\S]*?\n\n+/i;
+  if (thoughtPreambleRegex.test(cleaned)) {
+    const afterPreamble = cleaned.replace(thoughtPreambleRegex, "").trim();
+    if (afterPreamble.length > 0) {
+      cleaned = afterPreamble;
+    }
+  }
+
+  return cleaned;
 }
 
 /**
@@ -39,6 +66,7 @@ function getCandidateProviders(): ProviderCandidate[] {
       name: `Groq (${groqModel})`,
       client: groqClient,
       model: groqModel,
+      isNvidia: false,
     });
   }
 
@@ -55,6 +83,7 @@ function getCandidateProviders(): ProviderCandidate[] {
       name: `NVIDIA NIM (${nvidiaModel})`,
       client: nimClient,
       model: nvidiaModel,
+      isNvidia: true,
     });
   }
 
@@ -62,7 +91,8 @@ function getCandidateProviders(): ProviderCandidate[] {
 }
 
 /**
- * Generate a standard text completion using either Groq or NVIDIA NIM.
+ * Generate a clean text completion using either Groq or NVIDIA NIM.
+ * Explicitly disables thinking mode so reasoning models output direct replies.
  */
 export async function generateLLMCompletion(
   options: CompletionOptions
@@ -80,7 +110,8 @@ export async function generateLLMCompletion(
 
   for (const candidate of candidates) {
     try {
-      const completion = await candidate.client.chat.completions.create({
+      // Build request payload
+      const requestPayload: any = {
         model: candidate.model,
         messages: options.messages,
         max_tokens: options.maxTokens ?? 1024,
@@ -88,11 +119,25 @@ export async function generateLLMCompletion(
         ...(options.topP ? { top_p: options.topP } : {}),
         ...(options.frequencyPenalty ? { frequency_penalty: options.frequencyPenalty } : {}),
         ...(options.presencePenalty ? { presence_penalty: options.presencePenalty } : {}),
-      });
+      };
 
-      const reply = completion.choices?.[0]?.message?.content?.trim();
-      if (reply) {
-        return reply;
+      // Explicitly disable thinking on NVIDIA NIM so the model outputs the final answer directly
+      if (candidate.isNvidia) {
+        requestPayload.extra_body = {
+          chat_template_kwargs: {
+            enable_thinking: false,
+          },
+        };
+      }
+
+      const completion = await candidate.client.chat.completions.create(requestPayload);
+
+      const raw = completion.choices?.[0]?.message?.content?.trim();
+      if (raw) {
+        const clean = stripReasoningArtifacts(raw);
+        if (clean) {
+          return clean;
+        }
       }
     } catch (err: any) {
       lastError = err;
