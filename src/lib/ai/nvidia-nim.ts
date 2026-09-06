@@ -1,19 +1,11 @@
 import OpenAI from "openai";
 
-const isGroq = Boolean(process.env.GROQ_API_KEY);
-
 const client = new OpenAI({
-  baseURL: isGroq
-    ? "https://api.groq.com/openai/v1"
-    : "https://integrate.api.nvidia.com/v1",
-  apiKey: isGroq
-    ? (process.env.GROQ_API_KEY || "")
-    : (process.env.NVIDIA_NIM_API_KEY || ""),
+  baseURL: "https://integrate.api.nvidia.com/v1",
+  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
 });
 
-const MODEL = isGroq
-  ? (process.env.GROQ_MODEL || "openai/gpt-oss-120b")
-  : (process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b");
+const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct";
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
@@ -48,10 +40,8 @@ export async function generateDMReply(context: {
     keyword: context.keyword,
   };
 
-  const activeKey = isGroq ? process.env.GROQ_API_KEY : process.env.NVIDIA_NIM_API_KEY;
-
   // If AI is not enabled, return the static template with variables replaced
-  if (!context.aiEnabled || !activeKey) {
+  if (!context.aiEnabled || !process.env.NVIDIA_NIM_API_KEY) {
     return replaceTemplateVars(context.dmTemplate, templateVars);
   }
 
@@ -86,16 +76,13 @@ Template to base your DM on (rephrase naturally, don't copy): "${resolvedTemplat
 Write the DM:`,
         },
       ],
-      max_tokens: 200,
+      max_tokens: 150,
       temperature: 0.5,
       frequency_penalty: 0.3,
     });
 
     let reply = completion.choices?.[0]?.message?.content?.trim();
     if (reply) {
-      // Strip <think> tags if any
-      reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-
       // Strip wrapping quotes
       if (
         (reply.startsWith('"') && reply.endsWith('"')) ||
@@ -129,8 +116,7 @@ export async function generateWeeklyInsight(stats: {
   conversionRate: string;
   previousDmsSent: number;
 }): Promise<string> {
-  const activeKey = isGroq ? process.env.GROQ_API_KEY : process.env.NVIDIA_NIM_API_KEY;
-  if (!activeKey) {
+  if (!process.env.NVIDIA_NIM_API_KEY) {
     return `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
   }
 
@@ -157,10 +143,7 @@ Generate a brief weekly insight summary.`,
       temperature: 0.6,
     });
 
-    let insight = completion.choices?.[0]?.message?.content?.trim();
-    if (insight) {
-      insight = insight.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-    }
+    const insight = completion.choices?.[0]?.message?.content?.trim();
     return insight || `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured.`;
   } catch (error) {
     console.error("[NIM AI] Error generating weekly insight:", error);

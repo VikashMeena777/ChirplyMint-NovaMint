@@ -1,21 +1,12 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-// AI Client: Uses Groq if GROQ_API_KEY is present, otherwise NVIDIA NIM
-const isGroq = Boolean(process.env.GROQ_API_KEY);
-
 const client = new OpenAI({
-  baseURL: isGroq
-    ? "https://api.groq.com/openai/v1"
-    : "https://integrate.api.nvidia.com/v1",
-  apiKey: isGroq
-    ? (process.env.GROQ_API_KEY || "")
-    : (process.env.NVIDIA_NIM_API_KEY || ""),
+  baseURL: "https://integrate.api.nvidia.com/v1",
+  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
 });
 
-const MODEL = isGroq
-  ? (process.env.GROQ_MODEL || "openai/gpt-oss-120b")
-  : (process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b");
+const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct";
 
 function getSupabase() {
   return createClient(
@@ -36,37 +27,11 @@ interface AgentConfig {
 }
 
 /**
- * Strip common AI-sounding patterns, reasoning tokens, and thoughts from replies
- * to ensure followers only see clean, human text.
+ * Strip common AI-sounding patterns from replies to make them feel more natural.
+ * Removes sycophantic openers, quote wrapping, and robotic transitions.
  */
 function humanizeReply(reply: string): string {
   let cleaned = reply;
-
-  // 1. Strip <think>...</think> and [reasoning] tags if present
-  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-  cleaned = cleaned.replace(/\[reasoning\][\s\S]*?\[\/reasoning\]/gi, "").trim();
-
-  // 2. Strip internal reasoning monologue preamble if model put thoughts before reply
-  const doubleNewlineIndex = cleaned.indexOf("\n\n");
-  if (doubleNewlineIndex !== -1) {
-    const firstPart = cleaned.slice(0, doubleNewlineIndex).trim();
-    if (
-      /^(okay,?\s+the\s+user|thinking\s+process|let\s+me\s+think|i\s+need\s+to\s+reply)/i.test(
-        firstPart
-      )
-    ) {
-      cleaned = cleaned.slice(doubleNewlineIndex + 2).trim();
-    }
-  }
-
-  // If the entire output was just internal thoughts, return empty to trigger fallback
-  if (
-    /^(okay,?\s+the\s+user|thinking\s+process|let\s+me\s+think|i\s+need\s+to\s+reply)/i.test(
-      cleaned
-    )
-  ) {
-    return "";
-  }
 
   // Remove wrapping quotes (AI sometimes wraps entire reply in quotes)
   if (
@@ -325,8 +290,7 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
   }
 
   // 10. Generate AI reply
-  const activeKey = isGroq ? process.env.GROQ_API_KEY : process.env.NVIDIA_NIM_API_KEY;
-  if (!activeKey) {
+  if (!process.env.NVIDIA_NIM_API_KEY) {
     await supabase.from("ai_conversations").insert({
       agent_id: config.id,
       user_id: params.userId,
@@ -375,14 +339,16 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
     const completion = await client.chat.completions.create({
       model: MODEL,
       messages: chatMessages,
-      max_tokens: 300,
+      max_tokens: 200,
       temperature: 0.5,
       frequency_penalty: 0.4,
       presence_penalty: 0.2,
     });
 
-    const raw = completion.choices?.[0]?.message?.content?.trim() || "";
-    let reply = humanizeReply(raw) || config.fallback_message;
+    let reply = completion.choices?.[0]?.message?.content?.trim() || config.fallback_message;
+
+    // Post-process: strip AI artifacts
+    reply = humanizeReply(reply);
 
     // Enforce max length
     if (reply.length > config.max_reply_length) {
