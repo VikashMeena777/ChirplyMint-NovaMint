@@ -13,8 +13,10 @@ import {
 import { getAudienceInsights } from "@/lib/actions/insights";
 import { FadeInSection, AnimatedBar } from "@/components/dashboard/animated-insights";
 import InsightsTrendChart from "@/components/dashboard/insights-trend-chart";
+import { getContentInsights } from "@/lib/actions/instagram-api";
 
 export default async function InsightsPage() {
+  const content = await getContentInsights();
   const insights = await getAudienceInsights();
   const maxHourCount = Math.max(...insights.peakHours.map((h) => h.count), 1);
 
@@ -35,6 +37,69 @@ export default async function InsightsPage() {
           Deep analytics about your audience, engagement patterns, and performance.
         </p>
       </div>
+
+
+      {/* Content Performance (Graph API v26 insights) */}
+      <FadeInSection delay={150} className="rounded-2xl border border-border bg-card p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+          <h2 className="text-lg font-semibold text-foreground">Content Performance</h2>
+          <span className="text-xs text-muted-foreground ml-auto">last 30 days · Instagram Insights</span>
+        </div>
+        {content.needsPermission ? (
+          <p className="text-sm text-muted-foreground">
+            Content metrics unlock once Meta approves the <code className="text-xs">instagram_business_manage_insights</code> permission
+            for this app. Reconnect Instagram in Settings to include it in your consent.
+          </p>
+        ) : Object.keys(content.accountMetrics).length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Connect an Instagram account in Settings to see content metrics.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+              {[
+                ["Views", content.accountMetrics.views],
+                ["Reach", content.accountMetrics.reach],
+                ["Likes", content.accountMetrics.likes],
+                ["Comments", content.accountMetrics.comments],
+                ["Saves", content.accountMetrics.saves],
+                ["Shares", content.accountMetrics.shares],
+                ["Reposts", content.accountMetrics.reposts],
+                ["Interactions", content.accountMetrics.total_interactions],
+              ].map(([label, value]) => (
+                <div key={label as string} className="rounded-xl border border-border p-3">
+                  <p className="text-xs text-muted-foreground">{label as string}</p>
+                  <p className="text-xl font-bold text-foreground mt-0.5">
+                    {typeof value === "number" ? value.toLocaleString() : "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {content.media.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Recent posts</p>
+                {content.media.slice(0, 5).map((m) => (
+                  <a
+                    key={m.id}
+                    href={m.permalink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border hover:bg-muted/30 transition-colors"
+                  >
+                    <span className="text-sm text-foreground truncate flex-1">
+                      {(m.caption || "(no caption)").slice(0, 70)}
+                    </span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {m.media_type} · ♥ {m.like_count ?? 0} · 💬 {m.comments_count ?? 0}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </FadeInSection>
 
       {/* Summary Stats Cards */}
       <FadeInSection delay={100} className="grid grid-cols-2 lg:grid-cols-4 gap-4">

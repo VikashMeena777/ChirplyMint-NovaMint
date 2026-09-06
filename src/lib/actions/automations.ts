@@ -141,6 +141,11 @@ export async function createAutomation(formData: FormData) {
     }
   }
 
+  // Rich template payloads (Graph API v26: multi-image album / PDF file)
+  const templateImageUrls = ((formData.get("template_image_urls") as string) || "")
+    .split(String.fromCharCode(10)).map((s: string) => s.trim()).filter(Boolean).slice(0, 10);
+  const templateFileUrl = (((formData.get("template_file_url") as string) || "").trim() || null);
+
   const { data: inserted, error } = await supabase.from("automations").insert({
     user_id: user.id,
     instagram_account_id: targetAccountId,
@@ -161,6 +166,8 @@ export async function createAutomation(formData: FormData) {
     template_subtitle: templateSubtitle,
     template_image_url: templateImageUrl,
     template_buttons: templateButtons,
+    template_image_urls: templateImageUrls,
+    template_file_url: templateFileUrl,
     trigger_type: triggerType,
   }).select("id").single();
 

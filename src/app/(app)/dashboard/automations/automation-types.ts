@@ -67,10 +67,12 @@ export interface FormData {
   comment_reply_enabled: boolean;
   comment_reply_template: string;
   require_follow: boolean;
-  template_type: "text" | "button";
+  template_type: "text" | "button" | "multi_image" | "pdf";
   template_title: string;
   template_subtitle: string;
   template_image_url: string;
+  template_image_urls: string;
+  template_file_url: string;
   template_buttons: TemplateButton[];
   trigger_type: "comment_trigger" | "story_reply" | "both";
   instagram_account_id: string;
@@ -94,6 +96,8 @@ export const INITIAL_FORM_DATA: FormData = {
   template_title: "",
   template_subtitle: "",
   template_image_url: "",
+  template_image_urls: "",
+  template_file_url: "",
   template_buttons: [],
   trigger_type: "comment_trigger",
   instagram_account_id: "",

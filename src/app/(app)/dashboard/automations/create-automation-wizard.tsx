@@ -26,6 +26,8 @@ import {
   Tag,
   Search,
   MessageCircle,
+  Images,
+  FileText,
 } from "lucide-react";
 import {
   getInstagramPosts,
@@ -258,6 +260,8 @@ export default function CreateAutomationWizard({
     fd.set("template_subtitle", formData.template_subtitle);
     fd.set("template_image_url", formData.template_image_url);
     fd.set("template_buttons", JSON.stringify(formData.template_buttons));
+    fd.set("template_image_urls", formData.template_image_urls);
+    fd.set("template_file_url", formData.template_file_url);
     fd.set("trigger_type", formData.trigger_type);
     if (formData.instagram_account_id) {
       fd.set("instagram_account_id", formData.instagram_account_id);
@@ -486,7 +490,7 @@ export default function CreateAutomationWizard({
                   <label className="text-sm font-medium text-foreground">
                     Where should this trigger?
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -788,6 +792,32 @@ export default function CreateAutomationWizard({
                     <p className="text-sm font-semibold text-foreground">Button Card</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Rich card with CTA buttons</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((f) => ({ ...f, template_type: "multi_image" }))}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      formData.template_type === "multi_image"
+                        ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <Images className={`w-5 h-5 mb-2 ${formData.template_type === "multi_image" ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"}`} />
+                    <p className="text-sm font-semibold text-foreground">Image Album</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Up to 10 images in one DM</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((f) => ({ ...f, template_type: "pdf" }))}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      formData.template_type === "pdf"
+                        ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <FileText className={`w-5 h-5 mb-2 ${formData.template_type === "pdf" ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"}`} />
+                    <p className="text-sm font-semibold text-foreground">PDF File</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Send a brochure or lead magnet</p>
+                  </button>
                 </div>
               </div>
 
@@ -815,6 +845,35 @@ export default function CreateAutomationWizard({
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Multi-Image Album Template */}
+              {formData.template_type === "multi_image" && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Image URLs (one per line, max 10)</label>
+                  <textarea
+                    value={formData.template_image_urls}
+                    onChange={(e) => setFormData((f) => ({ ...f, template_image_urls: e.target.value }))}
+                    placeholder={"https://your-cdn.com/img1.jpg  |  https://your-cdn.com/img2.jpg  |  (one per line)"}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">PNG/JPEG, max 8MB each, publicly accessible. The text template below is sent as the caption.</p>
+                </div>
+              )}
+
+              {/* PDF File Template */}
+              {formData.template_type === "pdf" && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">PDF File URL</label>
+                  <input
+                    value={formData.template_file_url}
+                    onChange={(e) => setFormData((f) => ({ ...f, template_file_url: e.target.value }))}
+                    placeholder="https://your-cdn.com/brochure.pdf"
+                    className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
+                  />
+                  <p className="text-xs text-muted-foreground">Max 25MB, publicly accessible HTTPS URL. Meta fetches it at send time.</p>
                 </div>
               )}
 

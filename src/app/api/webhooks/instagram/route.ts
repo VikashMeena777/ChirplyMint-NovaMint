@@ -9,6 +9,8 @@ import {
   sendGenericTemplateDM,
   replyToComment,
   checkIfFollower,
+  sendMultiImageDM,
+  sendFileDM,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
@@ -702,7 +704,14 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
       const autoTemplateType = (automation.template_type as string) || "text";
       let templateSendResult: { success: boolean; messageId?: string; error?: string };
 
-      if (autoTemplateType === "button" && automation.template_title) {
+      const richResult = await maybeSendRichTemplate(
+        automation, autoTemplateType, recipientId, accessToken, senderId,
+        (enrollment.recipient_username as string) || "friend"
+      );
+
+      if (richResult) {
+        templateSendResult = richResult;
+      } else if (autoTemplateType === "button" && automation.template_title) {
         const buttons = (automation.template_buttons as TemplateButton[]) || [];
         const title = ((automation.template_title as string) || "")
           .replace(/\{name\}/gi, `@${(enrollment.recipient_username as string) || "friend"}`);
@@ -937,7 +946,14 @@ async function handlePostback(event: Record<string, unknown>) {
     const autoTemplateType = (automation.template_type as string) || "text";
     let templateSendResult: { success: boolean; messageId?: string; error?: string };
 
-    if (autoTemplateType === "button" && automation.template_title) {
+    const richResult = await maybeSendRichTemplate(
+      automation, autoTemplateType, recipientId, accessToken, senderId,
+      (enrollment.recipient_username as string) || "friend"
+    );
+
+    if (richResult) {
+      templateSendResult = richResult;
+    } else if (autoTemplateType === "button" && automation.template_title) {
       const buttons = (automation.template_buttons as TemplateButton[]) || [];
       const title = ((automation.template_title as string) || "")
         .replace(/\{name\}/gi, `@${(enrollment.recipient_username as string) || "friend"}`);
@@ -1285,4 +1301,33 @@ async function handleMessageEdit(messagingEvent: Record<string, unknown>) {
       // Non-critical — edits are audit-only
     }
   }
+}
+
+/**
+ * Rich template dispatcher (Graph API v26): sends an automation's
+ * multi-image album or PDF file when template_type asks for it.
+ * Returns null when the automation isn't a rich type (caller falls through
+ * to text/button handling). Only used where a 24h window is OPEN (incoming
+ * DMs, postbacks, drip) — comment private replies stay text/button.
+ */
+async function maybeSendRichTemplate(
+  automation: Record<string, unknown>,
+  templateType: string,
+  igUserId: string,
+  accessToken: string,
+  recipientIgId: string,
+  recipientName: string
+): Promise<{ success: boolean; messageId?: string; error?: string } | null> {
+  if (templateType === "multi_image") {
+    const urls = (automation.template_image_urls as string[]) || [];
+    if (urls.length === 0) return null;
+    const caption = ((automation.dm_template as string) || "").replace(/\{name\}/gi, `@${recipientName}`);
+    return await sendMultiImageDM(igUserId, accessToken, recipientIgId, urls, caption);
+  }
+  if (templateType === "pdf") {
+    const fileUrl = (automation.template_file_url as string) || "";
+    if (!fileUrl) return null;
+    return await sendFileDM(igUserId, accessToken, recipientIgId, fileUrl);
+  }
+  return null;
 }
