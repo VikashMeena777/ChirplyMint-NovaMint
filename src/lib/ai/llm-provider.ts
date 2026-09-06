@@ -22,8 +22,8 @@ interface ProviderCandidate {
 }
 
 /**
- * Strip thinking tags and reasoning blocks from reasoning models (e.g. Nemotron, GPT-OSS).
- * Followers on Instagram should only see the final message, never internal reasoning thoughts.
+ * Strip thinking tags from reasoning models so Instagram followers
+ * only see the final human response, never internal thoughts.
  */
 function cleanReasoningOutput(text: string): string {
   let cleaned = text;
@@ -31,28 +31,24 @@ function cleanReasoningOutput(text: string): string {
   // Strip <think>...</think> blocks if present
   cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
 
-  // Strip [REASONING]...[/REASONING] blocks if present
+  // Strip [reasoning]...[/reasoning] blocks if present
   cleaned = cleaned.replace(/\[reasoning\][\s\S]*?\[\/reasoning\]/gi, "");
 
   return cleaned.trim();
 }
 
 /**
- * Build list of configured LLM providers (NVIDIA NIM and Groq).
- * All model names are dynamically read from environment variables.
+ * Build candidate list for Groq and NVIDIA NIM.
+ * Model names are read from environment variables (GROQ_MODEL and NVIDIA_NIM_MODEL).
  */
 function getCandidateProviders(): ProviderCandidate[] {
   const candidates: ProviderCandidate[] = [];
 
-  // 1. Groq (Configurable via GROQ_API_KEY & GROQ_MODEL)
+  // 1. Groq (Permanent base URL)
   if (process.env.GROQ_API_KEY) {
-    const groqBaseUrl =
-      process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
-    const groqModel =
-      process.env.GROQ_MODEL || "openai/gpt-oss-120b";
-
+    const groqModel = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
     const groqClient = new OpenAI({
-      baseURL: groqBaseUrl,
+      baseURL: "https://api.groq.com/openai/v1",
       apiKey: process.env.GROQ_API_KEY,
     });
 
@@ -63,31 +59,26 @@ function getCandidateProviders(): ProviderCandidate[] {
     });
   }
 
-  // 2. NVIDIA NIM (Configurable via NVIDIA_NIM_API_KEY/NVIDIA_API_KEY & NVIDIA_NIM_MODEL)
-  const nvidiaKey =
-    process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY;
-
-  if (nvidiaKey) {
-    const nvidiaBaseUrl =
-      process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1";
-    const nvidiaModel =
-      process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
-
+  // 2. NVIDIA NIM (Permanent base URL)
+  if (process.env.NVIDIA_NIM_API_KEY) {
+    const nvidiaModel = process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b";
     const nimClient = new OpenAI({
-      baseURL: nvidiaBaseUrl,
-      apiKey: nvidiaKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+      apiKey: process.env.NVIDIA_NIM_API_KEY,
     });
 
-    const extraBody: Record<string, unknown> = {};
-    if (process.env.NVIDIA_ENABLE_THINKING === "true") {
-      extraBody.chat_template_kwargs = { enable_thinking: true };
-    }
+    // Thinking is disabled by default for fast Instagram DM replies,
+    // but can be toggled via NVIDIA_ENABLE_THINKING=true.
+    const enableThinking = process.env.NVIDIA_ENABLE_THINKING === "true";
+    const extraBody: Record<string, unknown> = {
+      chat_template_kwargs: { enable_thinking: enableThinking },
+    };
 
     candidates.push({
       name: `NVIDIA NIM (${nvidiaModel})`,
       client: nimClient,
       model: nvidiaModel,
-      extraBody: Object.keys(extraBody).length > 0 ? extraBody : undefined,
+      extraBody,
     });
   }
 
@@ -96,7 +87,6 @@ function getCandidateProviders(): ProviderCandidate[] {
 
 /**
  * Generate a text completion using either Groq or NVIDIA NIM.
- * All models are loaded from environment variables and stripped of internal reasoning artifacts.
  */
 export async function generateLLMCompletion(
   options: CompletionOptions
@@ -105,7 +95,7 @@ export async function generateLLMCompletion(
 
   if (candidates.length === 0) {
     console.warn(
-      "[AI Engine] No AI API keys configured. Set GROQ_API_KEY or NVIDIA_NIM_API_KEY (or NVIDIA_API_KEY)."
+      "[AI Engine] No AI API keys configured. Please set GROQ_API_KEY or NVIDIA_NIM_API_KEY."
     );
     return null;
   }
