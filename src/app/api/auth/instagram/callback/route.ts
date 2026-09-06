@@ -275,7 +275,7 @@ export async function GET(request: NextRequest) {
     // Instagram Login flow requires an explicit subscription.
     try {
       const subscribeRes = await fetch(
-        `https://graph.instagram.com/v25.0/${igProfessionalId}/subscribed_apps`,
+        `https://graph.instagram.com/v26.0/${igProfessionalId}/subscribed_apps`,
         {
           method: "POST",
           headers: {

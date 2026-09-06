@@ -14,7 +14,7 @@
  */
 import { logDebug, logInfo, logWarn, logError } from "@/lib/utils/logger";
 
-const GRAPH_API_BASE = "https://graph.instagram.com/v25.0";
+const GRAPH_API_BASE = "https://graph.instagram.com/v26.0";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 2000; // 2 seconds, doubles each retry
 
@@ -568,7 +568,7 @@ export async function fetchInstagramPostByUrl(
   try {
     // Use Instagram oEmbed to get basic info and validate the URL
     const oembedRes = await fetch(
-      `https://graph.facebook.com/v25.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${accessToken}`,
+      `https://graph.facebook.com/v26.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${accessToken}`,
       { method: "GET" }
     );
     const oembedData = await oembedRes.json();

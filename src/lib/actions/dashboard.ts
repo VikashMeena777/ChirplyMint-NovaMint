@@ -164,6 +164,8 @@ export async function getNotificationPreferences() {
     weekly_report: true,
     new_lead_alerts: false,
     product_updates: true,
+    email_digest: false,
+    quiet_hours: true,
   };
 
   return {

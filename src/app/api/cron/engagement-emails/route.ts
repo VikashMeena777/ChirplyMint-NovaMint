@@ -67,6 +67,9 @@ export async function GET(request: Request) {
       // Skip if user has opted out of engagement emails
       if (prefs.product_updates === false) continue;
 
+      // Digest users get everything bundled in the morning digest instead
+      if (prefs.email_digest === true) continue;
+
       // Skip if the onboarding drip is still running for this user —
       // nudges stacking on top of onboarding emails feels like spam.
       const onboardingStep = (p.onboarding_email_step as number) ?? 3;

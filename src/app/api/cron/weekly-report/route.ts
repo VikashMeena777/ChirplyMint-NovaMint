@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     // Get all users who have weekly_report enabled
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, email, notification_preferences");
+      .select("id, full_name, email, notification_preferences, review_request_sent_at");
 
     if (!profiles || profiles.length === 0) {
       return NextResponse.json({ status: "ok", processed: 0 });
@@ -67,13 +67,30 @@ export async function GET(request: Request) {
         .eq("user_id", userId)
         .gte("captured_at", weekAgo.toISOString());
 
-      // Top automation
+      // Top automation (fallback: first active automation)
       const { data: topAuto } = await supabase
         .from("automations")
         .select("name")
         .eq("user_id", userId)
         .eq("status", "active")
         .limit(1);
+
+      // Top performer this week: leads captured per automation
+      const { data: weekLeads } = await supabase
+        .from("leads")
+        .select("automation_id, automations:automation_id(name)")
+        .eq("user_id", userId)
+        .gte("captured_at", weekAgo.toISOString());
+      const leadCounts = new Map<string, { name: string; count: number }>();
+      for (const l of (weekLeads || []) as Record<string, unknown>[]) {
+        const auto = l.automations as Record<string, string> | null;
+        const key = (l.automation_id as string) || "manual";
+        const entry = leadCounts.get(key) || { name: auto?.name || "Manual captures", count: 0 };
+        entry.count++;
+        leadCounts.set(key, entry);
+      }
+      const topPerf =
+        [...leadCounts.values()].sort((a, b) => b.count - a.count)[0] || null;
 
       const dms = dmsSent ?? 0;
       const leads = leadsCapured ?? 0;
@@ -103,6 +120,32 @@ export async function GET(request: Request) {
           period_end: now.toISOString(),
         },
       });
+
+      // Performance ping: celebrate the top-converting automation this week
+      if (topPerf && topPerf.count >= 3) {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "success",
+          title: "🚀 Top performer this week",
+          body: `"${topPerf.name}" converted ${topPerf.count} lead${topPerf.count === 1 ? "" : "s"} this week. Keep the momentum going!`,
+          metadata: { automation_name: topPerf.name, leads: topPerf.count },
+        });
+      }
+
+      // Review request — once ever, after the first genuinely active week
+      if (dms >= 10 && !profile.review_request_sent_at) {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "info",
+          title: "⭐ Enjoying ChirplyMint?",
+          body: `You sent ${dms} DMs this week! If ChirplyMint is working for you, a quick review would mean a lot — it takes 30 seconds.`,
+          metadata: { kind: "review_request", dms_this_week: dms },
+        });
+        await supabase
+          .from("profiles")
+          .update({ review_request_sent_at: now.toISOString() })
+          .eq("id", userId);
+      }
 
       // Send email report (fire-and-forget, non-blocking)
       // (weekly_report preference already checked above via `continue`)

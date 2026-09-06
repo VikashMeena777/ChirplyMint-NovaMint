@@ -53,6 +53,8 @@ export default function SettingsPage() {
     weekly_report: true,
     new_lead_alerts: false,
     product_updates: true,
+    email_digest: false,
+    quiet_hours: true,
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -333,6 +335,16 @@ export default function SettingsPage() {
                 key: "product_updates",
                 title: "Product Updates",
                 desc: "Learn about new features and improvements",
+              },
+              {
+                key: "email_digest",
+                title: "Daily Digest",
+                desc: "Bundle all updates into one morning email instead of instant pings",
+              },
+              {
+                key: "quiet_hours",
+                title: "Quiet Hours",
+                desc: "No non-critical emails between 10 PM and 8 AM IST",
               },
             ].map((item) => (
               <label

@@ -8,7 +8,7 @@ let isSentryInitialized = false;
 export function initSentry() {
   if (isSentryInitialized) return;
 
-  const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
+  const dsn = process.env.SENTRY_DSN;
   if (!dsn) {
     return;
   }
@@ -37,7 +37,7 @@ export function initSentry() {
 export function captureException(error: unknown, context?: Record<string, unknown>) {
   if (typeof window === "undefined") {
     // Server-side capture
-    const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
+    const dsn = process.env.SENTRY_DSN;
     if (dsn) {
       try {
         initSentry();
@@ -80,7 +80,7 @@ export function captureMessage(
   context?: Record<string, unknown>
 ) {
   if (typeof window === "undefined") {
-    const dsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
+    const dsn = process.env.SENTRY_DSN;
     if (dsn) {
       try {
         initSentry();

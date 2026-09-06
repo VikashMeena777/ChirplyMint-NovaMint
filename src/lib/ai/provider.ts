@@ -44,6 +44,24 @@ function buildProviders(): Provider[] {
   return providers;
 }
 
+/**
+ * Reasoning models (Nemotron, gpt-oss, DeepSeek-style) emit their chain of
+ * thought — either inline in `<think>…</think>` blocks or (on Groq) in a
+ * separate `reasoning` field. Customers must only ever see the final answer.
+ * Strips everything up to the last closing think tag; an unterminated think
+ * block means the answer never arrived, so return empty and try the next
+ * provider.
+ */
+function stripReasoning(text: string): string {
+  if (!/<think>/i.test(text)) return text.trim();
+  const closeIdx = text.lastIndexOf("</think>");
+  if (closeIdx === -1) return "";
+  return text
+    .slice(closeIdx + "</think>".length)
+    .trim()
+    .replace(/^[#*\-\s]+/, "");
+}
+
 export interface ChatParams {
   messages: { role: string; content: string }[];
   max_tokens?: number;
@@ -80,7 +98,11 @@ export async function chatCompletion(params: ChatParams): Promise<string | null>
         presence_penalty: params.presence_penalty,
       });
       const content = completion.choices?.[0]?.message?.content?.trim();
-      if (content) return content;
+      if (content) {
+        const clean = stripReasoning(content);
+        if (clean) return clean;
+        console.error(`[AI] ${provider.name} reply was entirely reasoning, trying next provider`);
+      }
       console.error(`[AI] ${provider.name} returned an empty reply, trying next provider`);
     } catch (err) {
       lastError = err;

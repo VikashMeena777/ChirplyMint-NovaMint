@@ -66,7 +66,7 @@ Schema lives in `supabase/`. ⚠️ The live database has drifted from the repo 
 
 ## Cron Jobs
 
-All `/api/cron/*` routes require `Authorization: Bearer $CRON_SECRET` and are scheduled **externally** (cron-job.org — there is deliberately no `crons` section in `vercel.json`):
+All `/api/cron/*` routes require `Authorization: Bearer $CRON_SECRET` and are scheduled **externally** (cron-job.org — there is deliberately no `crons` section in `vercel.json`). There are 11 jobs — `daily-digest` bundles notifications for users who enable it in Settings.
 
 | Job | Schedule | Purpose |
 |---|---|---|
@@ -79,6 +79,7 @@ All `/api/cron/*` routes require `Authorization: Bearer $CRON_SECRET` and are sc
 | `dm-reset` | monthly (1st) | reset free-plan DM counters |
 | `weekly-report` | Mon 08:00 | performance report email |
 | `engagement-emails` | Mon 09:00 | re-engagement campaigns |
+| `daily-digest` | daily 09:00 IST | bundled digest email for digest-mode users |
 
 ## Deployment (Vercel)
 

@@ -79,7 +79,7 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
   try {
     // Send via Instagram Graph API
     const res = await fetch(
-      `https://graph.instagram.com/v25.0/${acc.ig_user_id}/messages`,
+      `https://graph.instagram.com/v26.0/${acc.ig_user_id}/messages`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -111,6 +111,16 @@ export async function GET(request: Request) {
             completed_at: now,
           })
           .eq("id", e.id as string);
+
+        // In-app completion notification
+        await supabase.from("notifications").insert({
+          user_id: e.user_id as string,
+          type: "success",
+          title: "🎉 Drip sequence completed!",
+          body: `Everyone enrolled in a drip sequence has received every message.`,
+          metadata: { enrollment_id: e.id },
+        });
+
         completed++;
         continue;
       }
@@ -215,6 +225,16 @@ export async function GET(request: Request) {
               completed_at: now,
             })
             .eq("id", e.id as string);
+
+          // In-app completion notification
+          await supabase.from("notifications").insert({
+            user_id: e.user_id as string,
+            type: "success",
+            title: "🎉 Drip sequence completed!",
+            body: `@${recipientUsername} just finished the full drip sequence — they've received every message.`,
+            metadata: { enrollment_id: e.id, recipient: recipientUsername },
+          });
+
           completed++;
         }
 
