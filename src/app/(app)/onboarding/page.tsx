@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight, Building2, MessageCircle, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { toast } from "sonner";
 
 const steps = [
@@ -12,29 +13,21 @@ const steps = [
   { id: 3, title: "Choose Plan", icon: Zap },
 ];
 
-const plans = [
-  {
-    id: "free",
-    name: "Free",
-    price: "₹0/mo",
-    dms: "100 DMs",
-    automations: "1 automation",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "₹999/mo",
-    dms: "1,000 DMs",
-    automations: "3 automations",
-  },
-  {
-    id: "business",
-    name: "Business",
-    price: "₹2,499/mo",
-    dms: "Unlimited DMs",
-    automations: "Unlimited automations",
-  },
-];
+// Derived from PLANS (single source of truth) so onboarding pricing can
+// never drift from the checkout and plan-gating logic.
+const plans = (Object.keys(PLANS) as PlanKey[]).map((key) => ({
+  id: key,
+  name: PLANS[key].name,
+  price: PLANS[key].price === 0 ? "Free" : `₹${PLANS[key].price}/mo`,
+  dms:
+    PLANS[key].dmLimit === -1
+      ? "Unlimited DMs"
+      : `${PLANS[key].dmLimit.toLocaleString("en-IN")} DMs/mo`,
+  automations:
+    PLANS[key].automationLimit === -1
+      ? "Unlimited automations"
+      : `${PLANS[key].automationLimit} automation${PLANS[key].automationLimit > 1 ? "s" : ""}`,
+}));
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -54,12 +47,14 @@ export default function OnboardingPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Only write profile fields the DB grants allow users to set.
+      // `plan` is NEVER written here — paid plans are granted server-side
+      // after a verified Cashfree payment (see /api/payments/*).
       const { error } = await supabase
         .from("profiles")
         .update({
           business_name: businessName || null,
-          ig_handle: igHandle || null,
-          plan: selectedPlan,
+          instagram_handle: igHandle || null,
           onboarding_complete: true,
         })
         .eq("id", user.id);
@@ -67,7 +62,15 @@ export default function OnboardingPage() {
       if (error) throw error;
 
       toast.success("Welcome to ChirplyMint! 🎉");
-      router.push("/dashboard");
+      if (selectedPlan === "free") {
+        router.push("/dashboard");
+      } else {
+        const planName = PLANS[selectedPlan as PlanKey]?.name || "paid";
+        toast.info(
+          `Complete your ${planName} upgrade from the Billing tab in Settings.`
+        );
+        router.push("/dashboard/settings");
+      }
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

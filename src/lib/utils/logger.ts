@@ -9,6 +9,8 @@
 const isDev = process.env.NODE_ENV === "development";
 const logLevel = process.env.LOG_LEVEL || (isDev ? "debug" : "info");
 
+import { captureException } from "@/lib/sentry";
+
 const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
 type Level = keyof typeof LEVELS;
 
@@ -48,4 +50,8 @@ export function logError(tag: string, message: string, error?: unknown) {
     formatMessage(tag, message),
     error instanceof Error ? { message: error.message, stack: error.stack } : error
   );
+
+  // Forward to error tracking (Sentry if SENTRY_DSN is set, PostHog on client).
+  // No-op when no DSN is configured, so this is safe in all environments.
+  captureException(error ?? new Error(message), { tag, message });
 }

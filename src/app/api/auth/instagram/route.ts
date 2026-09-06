@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 /**
  * These are the Instagram App ID and Secret from the App Dashboard:
@@ -17,8 +18,13 @@ const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:300
  * - URL: instagram.com/oauth/authorize (NOT facebook.com/dialog/oauth)
  * - Scopes: instagram_business_* (NOT instagram_basic/pages_show_list)
  * - No Facebook Pages required
+ *
+ * CSRF protection: `state` is a random nonce echoed back by Instagram and
+ * stored in a short-lived httpOnly cookie. The callback verifies the pair —
+ * this prevents forged callbacks that would bind an attacker's Instagram
+ * account to a victim's ChirplyMint account.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,12 +44,21 @@ export async function GET() {
   ].join(",");
 
   // New Instagram OAuth URL (NOT facebook.com/dialog/oauth)
+  const nonce = crypto.randomBytes(24).toString("hex");
   const authUrl = new URL("https://www.instagram.com/oauth/authorize");
   authUrl.searchParams.set("client_id", META_APP_ID);
   authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("state", user.id);
+  authUrl.searchParams.set("state", nonce);
 
-  return NextResponse.redirect(authUrl.toString());
+  const response = NextResponse.redirect(authUrl.toString());
+  response.cookies.set("ig_oauth_state", nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600, // 10 minutes to complete the consent screen
+  });
+  return response;
 }

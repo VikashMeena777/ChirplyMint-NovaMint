@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
+
+function getAdminSupabase() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -58,8 +66,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store the payment order in DB
-    await supabase.from("payment_orders").insert({
+    // Store the payment order via the admin client — the INSERT policy is
+    // dropped by the hardening migration (users must not fabricate orders).
+    const admin = getAdminSupabase();
+    await admin.from("payment_orders").insert({
       user_id: user.id,
       order_id: orderId,
       plan,

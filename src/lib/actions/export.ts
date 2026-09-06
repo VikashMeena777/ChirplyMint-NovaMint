@@ -99,10 +99,17 @@ export async function exportLeadsCSV() {
 }
 
 function escapeCsv(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Neutralize spreadsheet formula injection: a value beginning with
+  // = + - @ or a tab/CR is interpreted as a formula by Excel/Sheets.
+  // Lead fields (notes, emails) contain commenter-supplied text.
+  let v = value;
+  if (/^[=+\-@\t\r]/.test(v)) {
+    v = `'${v}`;
   }
-  return value;
+  if (v.includes(",") || v.includes('"') || v.includes("\n")) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
 }
 
 // ─── Webhook Export ─────────────────────────────────────

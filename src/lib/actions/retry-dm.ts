@@ -1,9 +1,17 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canSendDM } from "@/lib/utils/plan-limits";
 import type { PlanKey } from "@/lib/utils/plan-limits";
+
+function getAdminSupabase() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * Retry a failed DM by re-sending it via Instagram API.
@@ -71,7 +79,7 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
   try {
     // Send via Instagram Graph API
     const res = await fetch(
-      `https://graph.instagram.com/v21.0/${acc.ig_user_id}/messages`,
+      `https://graph.instagram.com/v25.0/${acc.ig_user_id}/messages`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,8 +111,10 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
       updated_at: new Date().toISOString(),
     }).eq("id", dmLogId);
 
-    // Increment DM count — direct update (no RPC dependency)
-    await supabase.from("profiles").update({
+    // Increment DM count via admin client — dm_count_this_month is a
+    // server-only column (blocked from client writes by the hardening grant).
+    const admin = getAdminSupabase();
+    await admin.from("profiles").update({
       dm_count_this_month: dmCount + 1,
     }).eq("id", user.id);
 

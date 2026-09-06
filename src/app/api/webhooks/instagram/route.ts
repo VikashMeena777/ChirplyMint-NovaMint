@@ -18,8 +18,7 @@ import crypto from "crypto";
 import { checkDmMilestones } from "@/lib/email/dm-milestones";
 import { pickABVariant } from "@/lib/actions/ab-test";
 
-const VERIFY_TOKEN =
-  process.env.META_VERIFY_TOKEN || "chirplymint_verify_2026";
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "";
 // Webhook signatures use the App Secret from Settings → Basic (NOT the Instagram App Secret)
 const APP_SECRET = process.env.META_WEBHOOK_SECRET || process.env.META_APP_SECRET || "";
 
@@ -62,7 +61,9 @@ export async function GET(request: Request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+  // Fail closed: if META_VERIFY_TOKEN is not configured, never accept
+  // subscription attempts (an empty token must not match).
+  if (VERIFY_TOKEN && mode === "subscribe" && token === VERIFY_TOKEN) {
     console.log("[Meta Webhook] Verification successful");
     return new Response(challenge, { status: 200 });
   }

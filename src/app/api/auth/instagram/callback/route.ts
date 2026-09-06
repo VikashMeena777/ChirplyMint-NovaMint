@@ -43,6 +43,29 @@ export async function GET(request: NextRequest) {
     code = code.slice(0, -2);
   }
 
+  // ── Step 0: Verify session + CSRF state (required) ───────────────
+  // "state" must equal the nonce cookie set when the flow started, and
+  // the visitor must be logged in. Without this, anyone could craft a
+  // callback URL binding an arbitrary Instagram account to any user id.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const expectedState = request.cookies.get("ig_oauth_state")?.value;
+
+  if (!user) {
+    return NextResponse.redirect(
+      `${APP_URL}/login?error=instagram_session_expired`
+    );
+  }
+  if (!expectedState || state !== expectedState) {
+    console.error("[IG OAuth] State mismatch — possible forged callback");
+    return NextResponse.redirect(
+      `${APP_URL}/dashboard/settings?error=instagram_state_mismatch`
+    );
+  }
+  const userId = user.id;
+
    try {
     // ── Step 1: Exchange code for short-lived token ──────────────────
     // Official Meta docs use multipart/form-data (curl -F), NOT x-www-form-urlencoded
@@ -144,12 +167,11 @@ export async function GET(request: NextRequest) {
 
     // ── Step 4: Prevent cross-account IG linking ──────────────────────
     // Check if this IG account is already connected by ANOTHER user
-    const supabase = await createClient();
     const { data: existingAccount } = await supabase
       .from("instagram_accounts")
       .select("user_id, ig_username")
       .eq("ig_user_id", igProfessionalId)
-      .neq("user_id", state)
+      .neq("user_id", userId)
       .eq("is_active", true)
       .maybeSingle();
 
@@ -168,7 +190,7 @@ export async function GET(request: NextRequest) {
     const { data: userProfile } = await supabase
       .from("profiles")
       .select("plan")
-      .eq("id", state)
+      .eq("id", userId)
       .single();
     const userPlan = ((userProfile as Record<string, string> | null)?.plan || "free") as PlanKey;
     const planConfig = PLANS[userPlan] || PLANS.free;
@@ -176,14 +198,14 @@ export async function GET(request: NextRequest) {
     const { count: activeAccountCount } = await supabase
       .from("instagram_accounts")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", state)
+      .eq("user_id", userId)
       .eq("is_active", true);
 
     // If re-connecting an existing account (same ig_user_id), don't count it
     const { data: existingSelfAccount } = await supabase
       .from("instagram_accounts")
       .select("id")
-      .eq("user_id", state)
+      .eq("user_id", userId)
       .eq("ig_user_id", igProfessionalId)
       .eq("is_active", true)
       .maybeSingle();
@@ -193,7 +215,7 @@ export async function GET(request: NextRequest) {
 
     if (!isReconnect && (activeAccountCount ?? 0) >= planConfig.igAccountLimit) {
       console.error(
-        `[IG OAuth] ❌ User ${state} has reached IG account limit (${activeAccountCount}/${planConfig.igAccountLimit}) on ${userPlan} plan`
+        `[IG OAuth] ❌ User ${userId} has reached IG account limit (${activeAccountCount}/${planConfig.igAccountLimit}) on ${userPlan} plan`
       );
       return NextResponse.redirect(
         `${APP_URL}/dashboard/settings?error=ig_account_limit_reached&detail=${encodeURIComponent(
@@ -205,7 +227,7 @@ export async function GET(request: NextRequest) {
     // ── Step 5: Save to user_settings ────────────────────────────────
     const { error: dbError } = await supabase.from("user_settings").upsert(
       {
-        user_id: state,
+        user_id: userId,
         instagram_connected: true,
         instagram_user_id: igProfessionalId,
         instagram_username: igUsername,
@@ -228,7 +250,7 @@ export async function GET(request: NextRequest) {
       .from("instagram_accounts")
       .upsert(
         {
-          user_id: state,
+          user_id: userId,
           ig_user_id: igProfessionalId,
           ig_username: igUsername,
           ig_name: igName,
@@ -253,7 +275,7 @@ export async function GET(request: NextRequest) {
     // Instagram Login flow requires an explicit subscription.
     try {
       const subscribeRes = await fetch(
-        `https://graph.instagram.com/v22.0/${igProfessionalId}/subscribed_apps`,
+        `https://graph.instagram.com/v25.0/${igProfessionalId}/subscribed_apps`,
         {
           method: "POST",
           headers: {
@@ -280,7 +302,7 @@ export async function GET(request: NextRequest) {
     // ── Step 7: Log activity (fire-and-forget) ──────────────────────
     void Promise.resolve(
       supabase.from("activity_log").insert({
-        user_id: state,
+        user_id: userId,
         action: "instagram.connected",
         metadata: {
           username: igUsername || igUserId,
@@ -292,7 +314,7 @@ export async function GET(request: NextRequest) {
     ).catch(() => {});
 
     console.log(
-      `[IG OAuth] ✅ Complete! @${igUsername} connected for user ${state}`
+      `[IG OAuth] ✅ Complete! @${igUsername} connected for user ${userId}`
     );
 
     // ── Step 8: Send Instagram Connected celebration email ───────────
@@ -306,11 +328,11 @@ export async function GET(request: NextRequest) {
         const { data: profile } = await admin
           .from("profiles")
           .select("ig_connected_email_sent, full_name")
-          .eq("id", state)
+          .eq("id", userId)
           .single();
 
         if (!(profile as Record<string, unknown>)?.ig_connected_email_sent) {
-          const { data: authUser } = await admin.auth.admin.getUserById(state);
+          const { data: authUser } = await admin.auth.admin.getUserById(userId);
           const email = authUser?.user?.email;
           if (email) {
             await sendEmail({
@@ -321,7 +343,7 @@ export async function GET(request: NextRequest) {
                 igUsername,
               }),
             });
-            await admin.from("profiles").update({ ig_connected_email_sent: true }).eq("id", state);
+            await admin.from("profiles").update({ ig_connected_email_sent: true }).eq("id", userId);
           }
         }
       } catch (e) {
@@ -329,7 +351,7 @@ export async function GET(request: NextRequest) {
       }
     })();
 
-    trackServerEvent(state, "ig.connected", { username: igUsername });
+    trackServerEvent(userId, "ig.connected", { username: igUsername });
 
     return NextResponse.redirect(
       `${APP_URL}/dashboard/settings?success=instagram_connected`
