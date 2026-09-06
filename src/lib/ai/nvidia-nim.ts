@@ -5,7 +5,7 @@ const client = new OpenAI({
   apiKey: process.env.NVIDIA_NIM_API_KEY || "",
 });
 
-const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct";
+const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.2-11b-vision-instruct";
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
