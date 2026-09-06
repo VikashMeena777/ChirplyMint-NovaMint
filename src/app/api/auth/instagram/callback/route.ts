@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            subscribed_fields: ["comments", "messages", "messaging_postbacks"],
+            subscribed_fields: ["comments", "messages", "messaging_postbacks", "message_edit", "messaging_seen"],
           }),
         }
       );

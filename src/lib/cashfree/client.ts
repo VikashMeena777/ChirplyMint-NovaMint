@@ -13,7 +13,7 @@ function getCashfreeInstance() {
     process.env.CASHFREE_CLIENT_SECRET || ""
   );
 
-  cashfree.XApiVersion = process.env.CASHFREE_API_VERSION || "2025-01-01";
+  cashfree.XApiVersion = process.env.CASHFREE_API_VERSION || "2026-01-01";
 
   return cashfree;
 }

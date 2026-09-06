@@ -37,10 +37,13 @@ export async function GET(request: NextRequest) {
   }
 
   // New Instagram Login scopes (replaces old instagram_basic, pages_show_list, etc.)
+  // manage_insights unlocks media + account metrics (views/reach/saves/shares)
+  // for the analytics dashboard — appears in the consent screen once requested.
   const scopes = [
     "instagram_business_basic",
     "instagram_business_manage_messages",
     "instagram_business_manage_comments",
+    "instagram_business_manage_insights",
   ].join(",");
 
   // New Instagram OAuth URL (NOT facebook.com/dialog/oauth)

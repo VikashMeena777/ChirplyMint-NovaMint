@@ -169,7 +169,7 @@ export async function GET(request: Request) {
             image_url: undefined,
             buttons,
           },
-          { humanAgent: useHumanAgent }
+          { humanAgent: useHumanAgent, typing: false }
         );
       } else {
         sendResult = await sendInstagramDM(

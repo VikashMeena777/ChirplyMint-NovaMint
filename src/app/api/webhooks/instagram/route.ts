@@ -109,6 +109,10 @@ export async function POST(request: Request) {
           for (const messagingEvent of entry.messaging) {
             if (messagingEvent.postback) {
               await handlePostback(messagingEvent);
+            } else if (messagingEvent.message_edit) {
+              // User edited a sent message (v26). num_edit:0 can fire instead
+              // of the original message (known Meta bug) — never act on it.
+              await handleMessageEdit(messagingEvent);
             } else if (messagingEvent.message) {
               // Check if this is a story reply (has story reference)
               const storyRef = (messagingEvent.message as Record<string, unknown>)?.reply_to;
@@ -1142,6 +1146,12 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
   const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
   const messageText = (messagingEvent.message as Record<string, string>)?.text || "";
 
+  // v26: which link sticker the user tapped (Dec 2025) — lets automations
+  // branch on WHICH story link drove the reply.
+  const messageObj = messagingEvent.message as Record<string, unknown> | undefined;
+  const storyObj = ((messageObj?.reply_to as Record<string, unknown>)?.story ?? {}) as Record<string, unknown>;
+  const linkStickerUrl = (storyObj.link_sticker_url as string) || "";
+
   if (!senderId || !recipientId) return;
 
   console.log(`[Meta Webhook] Story reply DM from ${senderId}: "${messageText?.slice(0, 50)}"`);
@@ -1189,7 +1199,7 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
     recipient_ig_id: senderId,
     recipient_username: senderId,
     message_text: dmText,
-    comment_text: `[STORY_REPLY] ${messageText?.slice(0, 100) || ""}`,
+    comment_text: `[STORY_REPLY] ${messageText?.slice(0, 80) || ""}${linkStickerUrl ? ` [LINK:${linkStickerUrl.slice(0, 180)}]` : ""}`,
     status: sendResult.success ? "sent" : "failed",
   });
 
@@ -1222,4 +1232,57 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
   console.log(
     `[Meta Webhook] Story reply auto-DM ${sendResult.success ? "sent ✅" : "failed ❌"} to ${senderId}`
   );
+}
+
+/**
+ * Handle message_edit events (v26, added Sept 2025): a user edited a message
+ * they sent. Known Meta bug: some apps receive message_edit with num_edit:0
+ * INSTEAD of the original message event — never treat that as an edit or as
+ * a new message. For real edits (num_edit >= 1) we update the stored inbound
+ * text where we can match it, and never re-trigger automations on edited
+ * content (Meta guidance: don't act on already-executed flows).
+ */
+const processedEdits = new Map<string, number>();
+async function handleMessageEdit(messagingEvent: Record<string, unknown>) {
+  const edit = messagingEvent.message_edit as Record<string, unknown> | undefined;
+  if (!edit) return;
+
+  const mid = (edit.mid as string) || "";
+  const numEdit = (edit.num_edit as number) ?? 0;
+  const editedText = (edit.text as string) || "";
+
+  if (!mid) return;
+
+  // Dedupe by mid + num_edit (Meta retries webhooks for up to 36h)
+  const dedupeKey = `${mid}:${numEdit}`;
+  if (processedEdits.has(dedupeKey)) return;
+  processedEdits.set(dedupeKey, Date.now());
+  if (processedEdits.size > 500) {
+    const oldest = processedEdits.keys().next().value;
+    if (oldest) processedEdits.delete(oldest);
+  }
+
+  if (numEdit < 1) {
+    console.log(`[Meta Webhook] message_edit num_edit=0 for ${mid} — known Meta bug, ignoring`);
+    return;
+  }
+
+  console.log(`[Meta Webhook] message #${mid} edited (edit #${numEdit})`);
+  if (editedText) {
+    console.log(`[Meta Webhook] New text: "${editedText.slice(0, 80)}"`);
+    // Audit trail: record the edit on any dm_log that captured the original
+    // inbound message. Matching is best-effort by recipient + time proximity.
+    try {
+      const supabase = getSupabase();
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from("dm_logs")
+        .update({ comment_text: `[EDITED#${numEdit}] ${editedText.slice(0, 180)}` })
+        .gte("created_at", since)
+        .eq("recipient_ig_id" as string, (messagingEvent.sender as Record<string, string>)?.id || "")
+        .eq("trigger_type" as string, "dm");
+    } catch {
+      // Non-critical — edits are audit-only
+    }
+  }
 }

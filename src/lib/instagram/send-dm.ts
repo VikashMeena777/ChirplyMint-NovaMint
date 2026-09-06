@@ -61,8 +61,16 @@ export async function sendInstagramDM(
   accessToken: string,
   recipientIgScopedId: string,
   messageText: string,
-  options?: { humanAgent?: boolean }
+  options?: { humanAgent?: boolean; typing?: boolean }
 ): Promise<{ success: boolean; messageId?: string; error?: string; rateLimited?: boolean }> {
+  // Human feel: show "typing…" briefly so the DM lands like a real person's.
+  // Batch senders (drip engine) opt out with typing:false to stay in their
+  // function timeout budget.
+  if (options?.typing !== false) {
+    await sendSenderAction(igUserId, accessToken, recipientIgScopedId, "typing_on").catch(() => {});
+    await sleep(900);
+  }
+
   // Build request body
   const body: Record<string, unknown> = {
     recipient: { id: recipientIgScopedId },
@@ -362,8 +370,13 @@ export async function sendGenericTemplateDM(
     image_url?: string;
     buttons: TemplateButton[];
   },
-  options?: { humanAgent?: boolean }
+  options?: { humanAgent?: boolean; typing?: boolean }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  // Typing indicator before the rich card lands (opt out for batch sends)
+  if (options?.typing !== false) {
+    await sendSenderAction(igUserId, accessToken, recipientIgId, "typing_on").catch(() => {});
+    await sleep(900);
+  }
   try {
     logDebug("IG Template DM", `Sending "${template.title}"`, { recipientIgId });
 
@@ -680,4 +693,122 @@ export interface InstagramPost {
   thumbnail_url: string;
   permalink: string;
   timestamp: string;
+}
+
+/**
+ * Sender Actions (typing_on / typing_off / mark_seen) — Graph API v26.
+ * Body must contain ONLY sender_action + recipient (per Meta docs).
+ * Used to humanize automated DMs: show "typing…" briefly before a message lands.
+ */
+export async function sendSenderAction(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  action: "typing_on" | "typing_off" | "mark_seen"
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        sender_action: action,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Sender action failed" };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * Multi-image DM — up to 10 images in ONE message (GA May 2026).
+ * Accepts image URLs (8MB max each, png/jpeg). On error 2534068 (feature not
+ * available for the account), falls back to sending images one by one.
+ */
+export async function sendMultiImageDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  imageUrls: string[],
+  caption?: string
+): Promise<{ success: boolean; messageId?: string; error?: string; fellBackToSingles?: boolean }> {
+  const urls = imageUrls.slice(0, 10);
+  try {
+    const body: Record<string, unknown> = {
+      recipient: { id: recipientIgScopedId },
+      message: {
+        attachments: urls.map((url) => ({
+          type: "image",
+          payload: { url },
+        })),
+      },
+    };
+    if (caption) {
+      (body.message as Record<string, unknown>).text = caption.slice(0, 1000);
+    }
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.error) {
+      const subcode = data.error.error_subcode as number | undefined;
+      if (subcode === 2534068) {
+        // Feature not enabled for this account — send as individual images.
+        let allOk = true;
+        for (const url of urls) {
+          const single = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, url);
+          if (!single.success) allOk = false;
+          await sleep(600);
+        }
+        return { success: allOk, fellBackToSingles: true };
+      }
+      return { success: false, error: data.error.message || "Multi-image send failed" };
+    }
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * File DM — PDF brochures/lead magnets (25MB max, added Dec 2025).
+ * The URL must be publicly reachable; Meta fetches it at send time.
+ */
+export async function sendFileDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  fileUrl: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        message: {
+          attachment: { type: "file", payload: { url: fileUrl } },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "File send failed" };
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
 }
