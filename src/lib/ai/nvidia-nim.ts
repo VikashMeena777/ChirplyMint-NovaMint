@@ -1,4 +1,19 @@
-import { generateLLMCompletion } from "@/lib/ai/llm-provider";
+import OpenAI from "openai";
+
+const isGroq = Boolean(process.env.GROQ_API_KEY);
+
+const client = new OpenAI({
+  baseURL: isGroq
+    ? "https://api.groq.com/openai/v1"
+    : "https://integrate.api.nvidia.com/v1",
+  apiKey: isGroq
+    ? (process.env.GROQ_API_KEY || "")
+    : (process.env.NVIDIA_NIM_API_KEY || ""),
+});
+
+const MODEL = isGroq
+  ? (process.env.GROQ_MODEL || "openai/gpt-oss-120b")
+  : (process.env.NVIDIA_NIM_MODEL || "nvidia/nemotron-3-super-120b-a12b");
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
@@ -33,8 +48,10 @@ export async function generateDMReply(context: {
     keyword: context.keyword,
   };
 
+  const activeKey = isGroq ? process.env.GROQ_API_KEY : process.env.NVIDIA_NIM_API_KEY;
+
   // If AI is not enabled, return the static template with variables replaced
-  if (!context.aiEnabled) {
+  if (!context.aiEnabled || !activeKey) {
     return replaceTemplateVars(context.dmTemplate, templateVars);
   }
 
@@ -42,7 +59,8 @@ export async function generateDMReply(context: {
   const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
-    const generated = await generateLLMCompletion({
+    const completion = await client.chat.completions.create({
+      model: MODEL,
       messages: [
         {
           role: "system",
@@ -68,13 +86,16 @@ Template to base your DM on (rephrase naturally, don't copy): "${resolvedTemplat
 Write the DM:`,
         },
       ],
-      maxTokens: 150,
+      max_tokens: 200,
       temperature: 0.5,
-      frequencyPenalty: 0.3,
+      frequency_penalty: 0.3,
     });
 
-    let reply = generated?.trim();
+    let reply = completion.choices?.[0]?.message?.content?.trim();
     if (reply) {
+      // Strip <think> tags if any
+      reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
       // Strip wrapping quotes
       if (
         (reply.startsWith('"') && reply.endsWith('"')) ||
@@ -108,8 +129,14 @@ export async function generateWeeklyInsight(stats: {
   conversionRate: string;
   previousDmsSent: number;
 }): Promise<string> {
+  const activeKey = isGroq ? process.env.GROQ_API_KEY : process.env.NVIDIA_NIM_API_KEY;
+  if (!activeKey) {
+    return `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
+  }
+
   try {
-    const generated = await generateLLMCompletion({
+    const completion = await client.chat.completions.create({
+      model: MODEL,
       messages: [
         {
           role: "system",
@@ -126,11 +153,14 @@ export async function generateWeeklyInsight(stats: {
 Generate a brief weekly insight summary.`,
         },
       ],
-      maxTokens: 200,
+      max_tokens: 200,
       temperature: 0.6,
     });
 
-    const insight = generated?.trim();
+    let insight = completion.choices?.[0]?.message?.content?.trim();
+    if (insight) {
+      insight = insight.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    }
     return insight || `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured.`;
   } catch (error) {
     console.error("[NIM AI] Error generating weekly insight:", error);
