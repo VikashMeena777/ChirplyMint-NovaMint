@@ -105,7 +105,8 @@ export async function GET(request: Request) {
       });
 
       // Send email report (fire-and-forget, non-blocking)
-      if (userEmail && prefs.email_notifications !== false) {
+      // (weekly_report preference already checked above via `continue`)
+      if (userEmail) {
         const emailHtml = getWeeklyReportEmailHtml({
           name: userName,
           dmsSent: dms,
@@ -120,6 +121,8 @@ export async function GET(request: Request) {
         sendEmail({
           to: userEmail,
           subject: `📊 Your ChirplyMint Weekly Report — ${dms} DMs sent`,
+          userId,
+          category: "marketing",
           html: emailHtml,
         }).catch((err) =>
           console.error(`[Weekly Report] Email failed for ${userId}:`, err)

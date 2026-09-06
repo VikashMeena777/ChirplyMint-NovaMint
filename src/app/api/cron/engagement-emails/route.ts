@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     // Get all users with engagement preferences
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, notification_preferences, last_active_at, last_engagement_email_at, created_at");
+      .select("id, full_name, notification_preferences, last_active_at, last_engagement_email_at, onboarding_email_step, created_at");
 
     if (!profiles || profiles.length === 0) {
       return NextResponse.json({ status: "ok", nudges: 0, winbacks: 0, timestamp: nowIso });
@@ -66,6 +66,11 @@ export async function GET(request: Request) {
 
       // Skip if user has opted out of engagement emails
       if (prefs.product_updates === false) continue;
+
+      // Skip if the onboarding drip is still running for this user —
+      // nudges stacking on top of onboarding emails feels like spam.
+      const onboardingStep = (p.onboarding_email_step as number) ?? 3;
+      if (onboardingStep < 3) continue;
 
       const lastActive = p.last_active_at ? new Date(p.last_active_at as string) : new Date(p.created_at as string);
       const lastEngagementEmail = p.last_engagement_email_at ? new Date(p.last_engagement_email_at as string) : null;
@@ -86,6 +91,8 @@ export async function GET(request: Request) {
         await sendEmail({
           to: userEmail,
           subject: "🔙 We miss you at ChirplyMint!",
+          userId,
+          category: "marketing",
           html: getWinBackHtml({
             name: userName,
             daysSinceActive,
@@ -131,6 +138,8 @@ export async function GET(request: Request) {
         await sendEmail({
           to: userEmail,
           subject: "💤 Your automations miss you!",
+          userId,
+          category: "marketing",
           html: getInactiveNudgeHtml({
             name: userName,
             daysSinceActive,

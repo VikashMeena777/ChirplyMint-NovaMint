@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     // Find users who need the next onboarding email
     const { data: users, error } = await supabase
       .from("profiles")
-      .select("id, full_name, onboarding_email_step, onboarding_email_next_at")
+      .select("id, full_name, onboarding_email_step, onboarding_email_next_at, notification_preferences")
       .lt("onboarding_email_next_at", nowIso)
       .lt("onboarding_email_step", 3)
       .limit(50);
@@ -59,6 +59,10 @@ export async function GET(request: Request) {
       const userId = u.id as string;
       const name = (u.full_name as string) || "there";
       const step = (u.onboarding_email_step as number) || 0;
+      // Users who opted out of product emails still advance through the
+      // steps (so the sequence ends) but receive nothing.
+      const prefs = (u.notification_preferences as Record<string, boolean>) ?? {};
+      const optedOut = prefs.product_updates === false;
 
       // Get user email
       const { data: authUser } = await supabase.auth.admin.getUserById(userId);
@@ -120,17 +124,17 @@ export async function GET(request: Request) {
       // nextStep === 3 means sequence complete, no more emails
 
       // Send email if not skipped
-      if (!shouldSkip && html) {
+      if (!shouldSkip && html && !optedOut) {
         try {
-          await sendEmail({ to: email, subject, html });
+          await sendEmail({ to: email, subject, html, userId, category: "marketing" });
           sent++;
           console.log(`[Drip] ✉️ Sent step ${step} to ${email}`);
         } catch (emailErr) {
           console.error(`[Drip] Failed to send step ${step} to ${email}:`, emailErr);
         }
-      } else if (shouldSkip) {
+      } else if (shouldSkip || optedOut) {
         skipped++;
-        console.log(`[Drip] ⏭️ Skipped step ${step} for ${email} (action already done)`);
+        console.log(`[Drip] ⏭️ Skipped step ${step} for ${email} (${optedOut ? "opted out" : "action already done"})`);
       }
 
       // Advance to next step regardless

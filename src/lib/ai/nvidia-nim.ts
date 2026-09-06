@@ -1,11 +1,4 @@
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  baseURL: "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
-});
-
-const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.2-11b-vision-instruct";
+import { chatCompletion } from "@/lib/ai/provider";
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
@@ -41,7 +34,7 @@ export async function generateDMReply(context: {
   };
 
   // If AI is not enabled, return the static template with variables replaced
-  if (!context.aiEnabled || !process.env.NVIDIA_NIM_API_KEY) {
+  if (!context.aiEnabled) {
     return replaceTemplateVars(context.dmTemplate, templateVars);
   }
 
@@ -49,8 +42,7 @@ export async function generateDMReply(context: {
   const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    let reply = await chatCompletion({
       messages: [
         {
           role: "system",
@@ -81,7 +73,6 @@ Write the DM:`,
       frequency_penalty: 0.3,
     });
 
-    let reply = completion.choices?.[0]?.message?.content?.trim();
     if (reply) {
       // Strip wrapping quotes
       if (
@@ -116,13 +107,10 @@ export async function generateWeeklyInsight(stats: {
   conversionRate: string;
   previousDmsSent: number;
 }): Promise<string> {
-  if (!process.env.NVIDIA_NIM_API_KEY) {
-    return `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
-  }
+  const fallback = `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
 
   try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    const insight = await chatCompletion({
       messages: [
         {
           role: "system",
@@ -143,10 +131,9 @@ Generate a brief weekly insight summary.`,
       temperature: 0.6,
     });
 
-    const insight = completion.choices?.[0]?.message?.content?.trim();
-    return insight || `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured.`;
+    return insight || fallback;
   } catch (error) {
-    console.error("[NIM AI] Error generating weekly insight:", error);
-    return `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
+    console.error("[AI] Error generating weekly insight:", error);
+    return fallback;
   }
 }

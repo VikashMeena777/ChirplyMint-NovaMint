@@ -1,12 +1,5 @@
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-
-const client = new OpenAI({
-  baseURL: "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.NVIDIA_NIM_API_KEY || "",
-});
-
-const MODEL = process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct";
+import { chatCompletion } from "@/lib/ai/provider";
 
 function getSupabase() {
   return createClient(
@@ -336,8 +329,7 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
 
     chatMessages.push({ role: "user", content: params.incomingMessage });
 
-    const completion = await client.chat.completions.create({
-      model: MODEL,
+    const aiReply = await chatCompletion({
       messages: chatMessages,
       max_tokens: 200,
       temperature: 0.5,
@@ -345,7 +337,7 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
       presence_penalty: 0.2,
     });
 
-    let reply = completion.choices?.[0]?.message?.content?.trim() || config.fallback_message;
+    let reply = aiReply || config.fallback_message;
 
     // Post-process: strip AI artifacts
     reply = humanizeReply(reply);
