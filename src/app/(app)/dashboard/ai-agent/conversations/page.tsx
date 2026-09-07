@@ -65,9 +65,12 @@ export default function AIConversationsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">AI Conversations</h1>
+        <h1 className="text-2xl font-bold text-foreground">AI Inbox</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          See what your AI agent is saying to your followers.
+          Every conversation your AI agent handled. Tune its personality in{" "}
+          <a href="/dashboard/ai-agent" className="text-violet-400 hover:underline font-medium">
+            AI Agent settings
+          </a>.
         </p>
       </div>
 

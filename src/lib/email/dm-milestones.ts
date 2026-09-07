@@ -106,6 +106,7 @@ export async function checkDmMilestones(
 
     const userName = (p.full_name as string) || "there";
     const prefs = (p.notification_preferences as Record<string, boolean>) ?? {};
+    if (prefs.dm_milestones === false) return; // opted out of milestone celebrations
 
     // Quiet hours: defer non-critical email (flag not set → retried on a
     // later DM after 8 AM IST).

@@ -97,10 +97,13 @@ export async function sendMessageStack(params: {
     return { success: false, sentBlocks: 0, totalBlocks: 0, errors: ["empty stack"], messageIds: [] };
   }
 
-  // Enrichment: attach quick_replies to the LAST text block (Instagram only
-  // supports them on text messages). Multiple quick_replies blocks MERGE
-  // (concat + dedupe by title) rather than overwrite — a user adding two QR
-  // blocks expects all options to show together. Cap at Meta's 13 limit.
+  // Enrichment for quick replies (Instagram only supports chips on TEXT
+  // messages). Semantics that preserve the user's order and prompt:
+  //   • QR block WITH a prompt -> it becomes its own message at its exact
+  //     position: prompt text with the chips underneath (never swallowed).
+  //   • QR block WITHOUT a prompt -> chips attach to the previous text
+  //     block. Multiple promptless QR blocks MERGE (dedupe by label).
+  // Cap at Meta's 13 chips per message.
   const enriched: MessageBlock[] = [];
   for (let i = 0; i < list.length; i++) {
     const b = list[i];
@@ -109,6 +112,19 @@ export async function sendMessageStack(params: {
       b.quick_replies &&
       b.quick_replies.length > 0
     ) {
+      const hasOwnPrompt = (b.text || "").trim().length > 0;
+
+      if (hasOwnPrompt) {
+        // Own message — prompt text is the carrier, chips ride on it
+        enriched.push({
+          type: "text",
+          text: b.text,
+          quick_replies: b.quick_replies.slice(0, 13),
+        });
+        continue;
+      }
+
+      // Promptless: merge into the previous text block if one exists
       const lastTextIdx = [...enriched].reverse().findIndex((x) => x.type === "text");
       if (lastTextIdx >= 0) {
         const target = enriched[enriched.length - 1 - lastTextIdx];
@@ -124,10 +140,11 @@ export async function sendMessageStack(params: {
         target.quick_replies = merged.slice(0, 13);
         continue;
       }
-      // No text block to attach to: convert prompt into the text block
+
+      // No previous text at all: minimal carrier so the chips still show
       enriched.push({
         type: "text",
-        text: b.text || "Choose an option:",
+        text: "Choose an option:",
         quick_replies: b.quick_replies.slice(0, 13),
       });
       continue;
@@ -138,9 +155,26 @@ export async function sendMessageStack(params: {
   for (let i = 0; i < enriched.length; i++) {
     const block = enriched[i];
 
-    if (i === 0 && params.typing !== false) {
-      await sendSenderAction(igUserId, accessToken, recipientIgScopedId, "typing_on").catch(() => {});
-      await new Promise((r) => setTimeout(r, 800));
+    // Human pacing (#11): every text-bearing block gets its own typing
+    // indicator sized to its length (short tap, longer pause for
+    // paragraphs). Media-only blocks get a short settle gap. Total delay
+    // stays well under Meta's window expectations and reads as a person
+    // typing several messages one after another — never a machine dump.
+    if (params.typing !== false) {
+      const textLen =
+        (block.text || block.subtitle || "").length;
+      const isTextual =
+        block.type === "text" ||
+        block.type === "button_card" ||
+        block.type === "quick_replies" ||
+        block.type === "pdf";
+      if (isTextual) {
+        await sendSenderAction(igUserId, accessToken, recipientIgScopedId, "typing_on").catch(() => {});
+        const typeMs = Math.min(2200, 500 + textLen * 18);
+        await new Promise((r) => setTimeout(r, typeMs));
+      } else if (i > 0) {
+        await new Promise((r) => setTimeout(r, BLOCK_GAP_MS));
+      }
     } else if (i > 0) {
       await new Promise((r) => setTimeout(r, BLOCK_GAP_MS));
     }

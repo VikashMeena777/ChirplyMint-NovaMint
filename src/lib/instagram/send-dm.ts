@@ -751,12 +751,10 @@ export async function sendMultiImageDM(
   try {
     // Instagram messages carry text OR attachments, never both — putting
     // caption text alongside attachments gets it silently DROPPED (user
-    // reported: images arrived, caption missing). So the caption goes out
-    // as its own text message right before the album.
-    if (caption && caption.trim()) {
-      await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, caption.slice(0, 1000));
-      await sleep(600);
-    }
+    // reported: images arrived, caption missing). The caption goes as its
+    // own text message right AFTER the album: images land first (visual
+    // hook), then the caption reads exactly like a native Instagram caption
+    // under a post — the pattern every user's brain already knows.
     const body: Record<string, unknown> = {
       recipient: { id: recipientIgScopedId },
       message: {
@@ -786,9 +784,16 @@ export async function sendMultiImageDM(
           if (!single.success) allOk = false;
           await sleep(600);
         }
+        if (allOk && caption && caption.trim()) {
+          await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, caption.slice(0, 1000));
+        }
         return { success: allOk, fellBackToSingles: true };
       }
       return { success: false, error: data.error.message || "Multi-image send failed" };
+    }
+    if (caption && caption.trim()) {
+      await sleep(600);
+      await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, caption.slice(0, 1000));
     }
     return { success: true, messageId: data.message_id };
   } catch (err) {

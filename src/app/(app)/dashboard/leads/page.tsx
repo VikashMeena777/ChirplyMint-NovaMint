@@ -5,6 +5,7 @@ import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
   Loader2, Webhook, ExternalLink, MessageCircle, Tag, StickyNote,
   Check, X, Filter, CheckSquare, Square, Lock, ArrowUpRight,
+  Mail, Phone, Flame,
 } from "lucide-react";
 import {
   getLeads, exportLeadsCSV, deleteLead, updateLeadTags,
@@ -33,6 +34,29 @@ function getTagStyle(tag: string) {
 function getTagEmoji(tag: string) {
   const map: Record<string, string> = { hot: "🔥", warm: "🟡", cold: "🔵", customer: "✅", vip: "⭐" };
   return map[tag] || "🏷️";
+}
+
+// ─── Engagement badge ────────────────────────────────────
+function EngagementBadge({ level }: { level: string }) {
+  if (level === "interested") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30">
+        <Flame className="w-2.5 h-2.5" /> Interested
+      </span>
+    );
+  }
+  if (level === "converted") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        💰 Customer
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+      New
+    </span>
+  );
 }
 
 // ─── Tag Picker Inline ───────────────────────────────────
@@ -253,8 +277,16 @@ export default function LeadsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Leads</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {total} lead{total !== 1 ? "s" : ""} captured from your automations.
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+            <span>{total} lead{total !== 1 ? "s" : ""} captured</span>
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1 text-orange-400">
+              <Flame className="w-3 h-3" /> {leads.filter((l) => l.engagement === "interested").length} interested on this page
+            </span>
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1 text-sky-400">
+              <Mail className="w-3 h-3" /> {leads.filter((l) => (l.email as string) || (l.phone as string)).length} contacts on this page
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -396,7 +428,7 @@ export default function LeadsPage() {
                   )}
                 </button>
               </div>
-              <div className="col-span-2">Username</div>
+              <div className="col-span-3">Lead</div>
               <div className="col-span-1">Source</div>
               <div className="col-span-2">Tags</div>
               <div className="col-span-2">Notes</div>
@@ -428,22 +460,41 @@ export default function LeadsPage() {
                       </button>
                     </div>
 
-                    {/* Username + Profile link */}
-                    <div className="lg:col-span-2 flex items-center gap-2">
+                    {/* Username + engagement + contact info */}
+                    <div className="lg:col-span-3 flex items-center gap-2 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-[oklch(0.52_0.19_162)]">
                           {username[0].toUpperCase()}
                         </span>
                       </div>
-                      <a
-                        href={`https://instagram.com/${username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] transition-colors flex items-center gap-1 group"
-                      >
-                        @{username}
-                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <a
+                            href={`https://instagram.com/${username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] transition-colors flex items-center gap-1 group"
+                          >
+                            @{username}
+                            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                          <EngagementBadge level={(lead.engagement as string) || "new"} />
+                        </div>
+                        {((lead.email as string) || (lead.phone as string)) && (
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {(lead.email as string) && (
+                              <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline" title="Captured via email quick reply">
+                                <Mail className="w-3 h-3" /> {lead.email as string}
+                              </a>
+                            )}
+                            {(lead.phone as string) && (
+                              <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:underline" title="Captured via phone quick reply">
+                                <Phone className="w-3 h-3" /> {lead.phone as string}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Source */}

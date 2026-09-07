@@ -1107,9 +1107,8 @@ export default function CreateAutomationWizard({
                 </div>
               )}
 
-              {/* Auto-react toggle (stack + story automations) */}
-              {(formData.template_type === "stack" || formData.trigger_type !== "comment_trigger") && (
-                <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+              {/* Auto-react toggle */}
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
                   <div>
                     <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                       <Heart className="h-4 w-4 text-red-400" /> Auto-react ❤️ to their message
@@ -1134,7 +1133,6 @@ export default function CreateAutomationWizard({
                     />
                   </button>
                 </div>
-              )}
 
               {/* Button Template Builder */}
               {formData.template_type === "button" && (

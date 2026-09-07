@@ -170,6 +170,50 @@ export async function GET(request: Request) {
       `[Token Refresh] Done: ${refreshed} refreshed, ${failed} failed out of ${accounts.length} total`
     );
 
+    // ── DAY-45 PROACTIVE NUDGE (A21) ──
+    // Token auto-refreshes at day 50; a day-45 heads-up keeps users ahead.
+    // Silent token death is the #1 killer of automation tools.
+    const fortyFiveDaysAgo = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+    const fortySixDaysAgo = new Date(now.getTime() - 46 * 24 * 60 * 60 * 1000);
+    const { data: day45Accounts } = await supabase
+      .from("instagram_accounts")
+      .select("user_id, ig_username, updated_at")
+      .eq("is_active", true)
+      .lt("updated_at", fortyFiveDaysAgo.toISOString())
+      .gte("updated_at", fortySixDaysAgo.toISOString());
+
+    if (day45Accounts && day45Accounts.length > 0) {
+      for (const d45 of day45Accounts) {
+        const acc45 = d45 as Record<string, string>;
+        const { count: existing45 } = await supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", acc45.user_id)
+          .ilike("title", "%day-45 checkup%")
+          .gte("created_at", new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString());
+        if ((existing45 ?? 0) > 0) continue;
+
+        await supabase.from("notifications").insert({
+          user_id: acc45.user_id,
+          type: "info",
+          title: "💚 Instagram connection day-45 checkup",
+          body: "@" + acc45.ig_username + "'s access token auto-renews in ~5 days. Usually invisible - but if automations ever pause, a quick reconnect in Settings fixes it.",
+          is_read: false,
+        });
+
+        const { data: u45 } = await supabase.auth.admin.getUserById(acc45.user_id);
+        if (u45?.user?.email) {
+          const { sendEmail } = await import("@/lib/email/send");
+          void sendEmail({
+            to: u45.user.email,
+            subject: "💚 All good - your Instagram connection is healthy",
+            html: "<div style=\"font-family:sans-serif;max-width:500px;margin:0 auto;\"><h2 style=\"color:#16a34a;\">ChirplyMint</h2><p>Hey! Quick heads-up: <strong>@" + acc45.ig_username + "</strong>'s connection is healthy and its access token renews automatically in about 5 days.</p><p>No action needed. If your automations ever pause unexpectedly, a quick reconnect in Settings fixes everything.</p><a href=\"" + (process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com") + "/dashboard/settings\" style=\"display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;margin-top:8px;\">Connection Settings</a><p style=\"color:#888;font-size:12px;margin-top:24px;\">ChirplyMint - Instagram DM Automation</p></div>",
+          }).catch(() => {});
+        }
+        console.log("[Token Refresh] Day-45 nudge sent for @" + acc45.ig_username);
+      }
+    }
+
     // ── TOKEN EXPIRY WARNING (#14) ──
     // Check ALL active accounts for tokens expiring within 7 days
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

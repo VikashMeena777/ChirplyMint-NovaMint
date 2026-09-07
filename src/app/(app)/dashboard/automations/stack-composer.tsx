@@ -295,43 +295,10 @@ function BlockEditor({
               className={inputCls}
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Delivery style</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onChange(block.id, { pdf_mode: "attachment" })}
-                className={`rounded-lg border p-2.5 text-left transition ${
-                  (block.pdf_mode || "attachment") === "attachment"
-                    ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)]"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <p className="text-xs font-semibold">In-chat file</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                  PDF opens inside the chat. Instagram wraps downloads with a
-                  &quot;leaving Instagram&quot; warning screen.
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange(block.id, { pdf_mode: "link_button" })}
-                className={`rounded-lg border p-2.5 text-left transition ${
-                  block.pdf_mode === "link_button"
-                    ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)]"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                <p className="text-xs font-semibold">
-                  Clean link card <span className="text-[oklch(0.52_0.19_162)]">★</span>
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                  Elegant card with an &quot;Open PDF&quot; button. Opens directly — no
-                  warning screen. Recommended.
-                </p>
-              </button>
-            </div>
-          </div>
+          <p className="flex items-start gap-1.5 rounded-lg bg-[oklch(0.52_0.19_162/6%)] p-2 text-[11px] text-muted-foreground">
+            Opens as a clean card with an &quot;Open PDF&quot; button — no
+            &quot;leaving Instagram&quot; warning screen.
+          </p>
           <p className="text-[11px] text-muted-foreground">
             Tip: add a Text block above to act as the PDF&apos;s caption — Instagram sends
             captions and files as separate messages.
@@ -512,6 +479,12 @@ function QuickReplyEditor({
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">
           Options ({qrs.length}/{MAX_QUICK_REPLIES}) — <Heart className="inline h-3 w-3 text-[oklch(0.52_0.19_162)]" /> email &amp; phone types ask the lead natively and save to your Leads table
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          <strong>Payload ID</strong> is the secret code each button sends back when tapped —
+          it tells ChirplyMint <em>which</em> option was chosen (used for automations and tags).
+          Leave the auto-generated ones as they are, or name them something readable like
+          <code className="mx-1 rounded bg-muted px-1">pricing_yes</code>.
         </p>
         {qrs.map((qr, i) => (
           <div key={i} className="flex items-center gap-2">

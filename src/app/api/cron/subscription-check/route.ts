@@ -121,12 +121,19 @@ export async function GET(request: Request) {
           }).eq("user_id", userId);
         }
 
-        // Get user info for email
+        // Get user info for email (respect payment_emails opt-out for the
+        // daily countdown pings; hard downgrades still notify in-app)
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, notification_preferences")
           .eq("id", userId)
           .single();
+
+        const billingPrefs = ((profile as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+        if (billingPrefs.payment_emails === false) {
+          graced++;
+          continue; // opted out of billing emails
+        }
 
         const { data: authUser } = await supabase.auth.admin.getUserById(userId);
         const userEmail = authUser?.user?.email;

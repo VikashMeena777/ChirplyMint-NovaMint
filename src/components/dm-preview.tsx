@@ -133,7 +133,21 @@ export function DMPreview({ senderUsername, senderAvatar, blocks, triggerKeyword
               /* ── IMAGE ALBUM ── */
               if (block.type === "image_album") {
                 const urls = (block.image_urls || []).filter((u) => u.trim());
-                if (urls.length === 0) return null;
+                if (urls.length === 0) {
+                  return (
+                    <div key={block.id} className="flex gap-2 items-end">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 shrink-0 flex items-center justify-center">
+                        <span className="text-white text-[8px] font-bold">{initial}</span>
+                      </div>
+                      <div className="max-w-[85%]">
+                        <div className="rounded-2xl rounded-bl-md border border-dashed border-zinc-600 bg-zinc-900 p-4 flex items-center gap-2">
+                          <Images className="w-4 h-4 text-zinc-600" />
+                          <p className="text-zinc-500 text-[10px]">Album — add image URLs to preview</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={block.id} className="flex gap-2 items-end">
                     {avatar}
@@ -167,6 +181,21 @@ export function DMPreview({ senderUsername, senderAvatar, blocks, triggerKeyword
               }
 
               /* ── PDF ── */
+              if (block.type === "pdf" && !block.file_url) {
+                return (
+                  <div key={block.id} className="flex gap-2 items-end">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 shrink-0 flex items-center justify-center">
+                      <span className="text-white text-[8px] font-bold">{initial}</span>
+                    </div>
+                    <div className="max-w-[85%]">
+                      <div className="rounded-2xl rounded-bl-md border border-dashed border-zinc-600 bg-zinc-900 p-4 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-zinc-600" />
+                        <p className="text-zinc-500 text-[10px]">PDF — add the file URL to preview</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               if (block.type === "pdf" && block.file_url) {
                 const isLink = block.pdf_mode === "link_button";
                 return (

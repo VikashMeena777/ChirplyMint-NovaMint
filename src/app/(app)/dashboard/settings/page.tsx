@@ -319,8 +319,33 @@ export default function SettingsPage() {
             {[
               {
                 key: "dm_delivery_alerts",
-                title: "DM Delivery Alerts",
-                desc: "Get notified when DMs fail to send",
+                title: "DM Failure Alerts",
+                desc: "Get alerted immediately when your DMs fail to send",
+              },
+              {
+                key: "new_lead_alerts",
+                title: "New Lead Alerts",
+                desc: "Instant in-app + email ping when a new lead is captured",
+              },
+              {
+                key: "lead_contact_captured",
+                title: "Contact Captured",
+                desc: "Celebrate when a lead shares their email or phone via quick reply",
+              },
+              {
+                key: "dm_milestones",
+                title: "DM Milestones",
+                desc: "Cheer at 1, 50, 100, 500 and 1,000 DMs sent",
+              },
+              {
+                key: "drip_completed",
+                title: "Drip Completions",
+                desc: "Know when a lead finishes a full drip sequence",
+              },
+              {
+                key: "payment_emails",
+                title: "Payments & Billing",
+                desc: "Receipts, renewals, expiry warnings and plan changes",
               },
               {
                 key: "weekly_report",
@@ -328,9 +353,9 @@ export default function SettingsPage() {
                 desc: "Summary of your automation performance",
               },
               {
-                key: "new_lead_alerts",
-                title: "New Lead Alerts",
-                desc: "Notify when a new lead is captured",
+                key: "ab_test_results",
+                title: "A/B Test Results",
+                desc: "Winners found by your A/B tests (incl. auto-winner)",
               },
               {
                 key: "product_updates",

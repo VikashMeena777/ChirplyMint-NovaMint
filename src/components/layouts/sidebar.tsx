@@ -91,6 +91,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const cycleTheme = () => {
@@ -161,7 +162,10 @@ export function Sidebar() {
         {/* Logout */}
         <button
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-          onClick={() => signOut()}
+          onClick={() => {
+            setSigningOut(true);
+            setTimeout(() => { void signOut(); }, 1100);
+          }}
         >
           <LogOut className="w-5 h-5 shrink-0" />
           {!collapsed && <span>Sign Out</span>}
@@ -240,6 +244,32 @@ export function Sidebar() {
       >
         <SidebarContent />
       </aside>
+
+      {/* ── Graceful sign-out farewell ──
+          Instant logout feels jarring and creates doubt ("did my automations
+          stop?!"). A brief warm farewell reassures the automations keep
+          running — closure + trust — then hands off to login. */}
+      {signingOut && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex flex-col items-center gap-4 text-center px-6">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[oklch(0.52_0.19_162/20%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center animate-pulse">
+              <LogOut className="w-7 h-7 text-[oklch(0.52_0.19_162)]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">See you soon! 👋</h2>
+              <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
+                Signing you out — your automations keep running in the background.
+              </p>
+            </div>
+            <div className="w-40 h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full w-1/2 rounded-full bg-[oklch(0.52_0.19_162)] animate-[signout-slide_1.1s_ease-in-forwards]" />
+            </div>
+          </div>
+          <style>{`
+            @keyframes signout-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+          `}</style>
+        </div>
+      )}
     </>
   );
 }

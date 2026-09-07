@@ -140,6 +140,10 @@ export async function POST(request: Request) {
             } else if (messagingEvent.reaction) {
               // Lead reacted to / unreacted from one of our DMs (v26).
               await handleMessageReaction(messagingEvent);
+            } else if (messagingEvent.referral) {
+              // messaging_referral (v26): lead arrived from an ad / story
+              // link click-to-DM. Attribution lands on the lead row.
+              await handleMessagingReferral(messagingEvent);
             } else if (messagingEvent.message) {
               const msg = messagingEvent.message as Record<string, unknown>;
 
@@ -571,13 +575,6 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
           ? 1
           : 0;
 
-      // AUTO-LIKE: heart the comment that triggered the automation
-      if (sendResult.success && automation.auto_react === true && commentId) {
-        likeComment(commentId, accessToken).then((r) => {
-          console.log(`[Meta Webhook] ${r.success ? "❤️ Auto-liked" : "⚠️ Auto-like failed"} comment ${commentId}${r.error ? ": " + r.error : ""}`);
-        }).catch(() => {});
-      }
-
       // Enroll for delivery on tap / reply
       if (sendResult.success) {
         void (async () => {
@@ -588,7 +585,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
               instagram_account_id: (automation as Record<string, unknown>).instagram_account_id,
               recipient_ig_id: commenterId,
               recipient_username: commenterUsername,
-              pre_sent_count: 0,
+              pre_sent_count: preSentCount,
               status: "waiting",
             });
             console.log(
@@ -695,6 +692,14 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
         .update({ dm_count_this_month: ((senderProfile?.dm_count_this_month as number) || 0) + 1 })
         .eq("id", userId)
         .then(() => { });
+
+      // AUTO-LIKE the triggering comment (all template types). No extra Meta
+      // setup needed — uses the already-approved instagram_manage_comments.
+      if (automation.auto_react === true && commentId) {
+        likeComment(commentId, accessToken).then((r) => {
+          console.log(`[Meta Webhook] ${r.success ? "❤️ Auto-liked" : "⚠️ Auto-like failed"} comment ${commentId}${r.error ? ": " + r.error : ""}`);
+        }).catch(() => {});
+      }
 
       // Check DM milestones (first DM, 100 DMs) — fire-and-forget
       void checkDmMilestones(
@@ -908,6 +913,9 @@ async function deliverPendingStack(params: {
     .from("stack_pending")
     .update({ status: "delivered", delivered_at: new Date().toISOString() })
     .eq("id", stackRow.id as string);
+
+  // Lead tapped the button / replied -> they're interested
+  void markLeadEngaged(supabase, userId, senderId);
 
   console.log(
     `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
@@ -1466,6 +1474,11 @@ async function handlePostback(event: Record<string, unknown>) {
     sendResult = await sendInstagramDM(recipientId, accessToken, senderId, responseText);
   }
 
+  // Button tap = engagement signal
+  if (sendResult.success) {
+    void markLeadEngaged(supabase, userId, senderId);
+  }
+
   // Tag the lead if lead_tag is set — appends to the lead's tags array
   // (shown as colored labels on the Leads page for segmentation)
   if (flow.lead_tag && sendResult.success) {
@@ -1697,6 +1710,9 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
     { onConflict: "user_id,ig_user_id" }
   );
 
+  // Replying to a story = engaged
+  void markLeadEngaged(supabase, userId, senderId);
+
   // Log activity
   void Promise.resolve(
     supabase.from("activity_log").insert({
@@ -1787,7 +1803,18 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
 
     console.log("[Meta Webhook] Quick-reply captured " + (isEmail ? "email" : "phone") + " for " + senderId);
 
-    // Notify the owner - a captured email/phone is a hot lead
+    // Sharing contact info = strong interest signal
+    void markLeadEngaged(supabase, userId, senderId);
+
+    // Notify the owner if they want contact-capture pings
+    const { data: cprof } = await supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("id", userId)
+      .single();
+    const cprefs = ((cprof as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+    if (cprefs.lead_contact_captured === false) return;
+
     await supabase.from("notifications").insert({
       user_id: userId,
       type: "new_lead",
@@ -1902,6 +1929,9 @@ async function handleMessageReaction(messagingEvent: Record<string, unknown>) {
 
   const emoji = (reaction.emoji as string) || "";
   const removed = reaction.reaction === false || reaction.action === "unreact";
+  if (!removed) {
+    void markLeadEngaged(supabase, igAccount.user_id as string, senderId);
+  }
 
   void Promise.resolve(
     supabase.from("activity_log").insert({
@@ -1916,6 +1946,75 @@ async function handleMessageReaction(messagingEvent: Record<string, unknown>) {
   ).catch(() => {});
 
   console.log("[Meta Webhook] " + (removed ? "Unreact" : "Reaction") + " " + emoji + " from " + senderId);
+}
+
+/**
+ * Mark a lead as engaged (interested). Idempotent, never downgrades —
+ * called on button taps, stack delivery, replies, reactions, and
+ * email/phone capture.
+ */
+async function markLeadEngaged(
+  supabase: ReturnType<typeof getSupabase>,
+  userId: string,
+  leadIgId: string
+): Promise<void> {
+  try {
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("id, engagement")
+      .eq("user_id", userId)
+      .eq("ig_user_id", leadIgId)
+      .limit(1)
+      .maybeSingle();
+    const row = lead as Record<string, unknown> | null;
+    if (!row) return;
+    if (row.engagement === "interested" || row.engagement === "converted") return;
+    await supabase.from("leads").update({ engagement: "interested" }).eq("id", row.id as string);
+  } catch {
+    // engagement tracking must never break the main flow
+  }
+}
+
+/**
+ * messaging_referral (v26): the lead clicked an ad / story link that opened
+ * a DM. The referral object carries source/type + the ad id. We stamp the
+ * lead's source as "ad" so growth channels are attributable.
+ */
+async function handleMessagingReferral(messagingEvent: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+  const referral = messagingEvent.referral as Record<string, unknown> | undefined;
+  if (!senderId || !recipientId || !referral) return;
+
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+  if (!igAccount) return;
+  const userId = igAccount.user_id as string;
+
+  const source = (referral.source as string) || "unspecified";
+  const adId = (referral.ad_id as string) || "";
+
+  await supabase.from("leads").upsert(
+    {
+      user_id: userId,
+      ig_user_id: senderId,
+      ig_username: senderId,
+      source: "ad",
+      notes: "Arrived via " + source + (adId ? " (ad " + adId.slice(0, 20) + ")" : ""),
+    },
+    { onConflict: "user_id,ig_user_id" }
+  );
+
+  // Clicking an ad to DM you = strong interest
+  void markLeadEngaged(supabase, userId, senderId);
+
+  console.log("[Meta Webhook] Referral lead " + senderId + " via " + source);
 }
 
 /**

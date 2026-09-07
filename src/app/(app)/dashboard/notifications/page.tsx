@@ -62,6 +62,8 @@ function groupByDate(notifications: Notification[]) {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>("");
 
   useEffect(() => {
     loadNotifications();
@@ -96,7 +98,13 @@ export default function NotificationsPage() {
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
-  const grouped = groupByDate(notifications);
+  const availableTypes = Array.from(new Set(notifications.map((n) => (n.type as string) || "other")));
+  const filtered = notifications.filter(
+    (n) =>
+      (!unreadOnly || !n.is_read) &&
+      (!typeFilter || (n.type as string) === typeFilter)
+  );
+  const grouped = groupByDate(filtered);
 
   if (loading) {
     return <NotificationsSkeleton />;
@@ -123,6 +131,43 @@ export default function NotificationsPage() {
           </button>
         )}
       </div>
+
+      {/* Filters (C8) */}
+      {(notifications.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setUnreadOnly(!unreadOnly)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              unreadOnly
+                ? "bg-[oklch(0.52_0.19_162)] text-white border-[oklch(0.52_0.19_162)]"
+                : "bg-card text-muted-foreground border-border hover:bg-muted/30"
+            }`}
+          >
+            Unread only{unreadCount > 0 ? ` (${unreadCount})` : ""}
+          </button>
+          {availableTypes.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(typeFilter === t ? "" : t)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                typeFilter === t
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted/30"
+              }`}
+            >
+              {t.replace(/_/g, " ")}
+            </button>
+          ))}
+          {(unreadOnly || typeFilter) && (
+            <button
+              onClick={() => { setUnreadOnly(false); setTypeFilter(""); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {notifications.length === 0 ? (
         <div className="rounded-2xl bg-card border border-border shadow-sm p-12 text-center">

@@ -112,14 +112,22 @@ export async function GET(request: Request) {
           })
           .eq("id", e.id as string);
 
-        // In-app completion notification
-        await supabase.from("notifications").insert({
-          user_id: e.user_id as string,
-          type: "success",
-          title: "🎉 Drip sequence completed!",
-          body: `Everyone enrolled in a drip sequence has received every message.`,
-          metadata: { enrollment_id: e.id },
-        });
+        // In-app completion notification (respect drip_completed pref)
+        const { data: dprof } = await supabase
+          .from("profiles")
+          .select("notification_preferences")
+          .eq("id", e.user_id as string)
+          .single();
+        const dprefs = ((dprof as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+        if (dprefs.drip_completed !== false) {
+          await supabase.from("notifications").insert({
+            user_id: e.user_id as string,
+            type: "success",
+            title: "🎉 Drip sequence completed!",
+            body: `Everyone enrolled in a drip sequence has received every message.`,
+            metadata: { enrollment_id: e.id },
+          });
+        }
 
         completed++;
         continue;

@@ -22,6 +22,7 @@ import {
   Globe,
   Layout,
   X,
+  MessagesSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -339,10 +340,19 @@ export default function AIAgentPage() {
             AI Agent
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Configure your AI-powered DM assistant
+            Configure how your AI replies to DMs — then watch it work in the{" "}
+            <a href="/dashboard/ai-agent/conversations" className="text-violet-400 hover:underline font-medium">
+              AI Inbox
+            </a>
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <a
+            href="/dashboard/ai-agent/conversations"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-violet-500/10 text-violet-500 hover:bg-violet-500/20 border border-violet-500/30 transition-all"
+          >
+            <MessagesSquare className="w-4 h-4" /> Open Inbox
+          </a>
           <button
             onClick={handleToggleActive}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${

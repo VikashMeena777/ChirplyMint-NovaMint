@@ -260,13 +260,22 @@ export async function pickABVariant(
                 })
                 .eq("id", automationId);
 
-              await supabase.from("notifications").insert({
-                user_id: userId,
-                type: "info",
-                title: "🏆 A/B test auto-completed",
+              // Respect ab_test_results pref
+              const { data: aprof } = await supabase
+                .from("profiles")
+                .select("notification_preferences")
+                .eq("id", userId)
+                .single();
+              const aprefs = ((aprof as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+              if (aprefs.ab_test_results !== false) {
+                await supabase.from("notifications").insert({
+                  user_id: userId,
+                  type: "info",
+                  title: "🏆 A/B test auto-completed",
                 body: `"${leader.variant_name}" won your A/B test (${leaderRate * 100 >= 1 ? leaderRate.toFixed(2) : (leaderRate * 100).toFixed(0) + "%"} reply rate, ${(runnerRate * 100).toFixed(0)}% runner-up) and is now your live template.`,
-                metadata: { automation_id: automationId, winner: leader.variant_name },
-              });
+                  metadata: { automation_id: automationId, winner: leader.variant_name },
+                });
+              }
 
               console.log(`[A/B Test] 🏆 Auto-winner "${leader.variant_name}" promoted for automation ${automationId}`);
             } catch (err) {
