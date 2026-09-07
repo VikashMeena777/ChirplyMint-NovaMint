@@ -39,11 +39,17 @@ export async function GET(request: NextRequest) {
   // New Instagram Login scopes (replaces old instagram_basic, pages_show_list, etc.)
   // manage_insights unlocks media + account metrics (views/reach/saves/shares)
   // for the analytics dashboard — appears in the consent screen once requested.
+  // instagram_manage_engagement (Like Media and Comments API, Apr 2026) powers
+  // auto-like. Live apps REJECT logins containing unapproved scopes, so the
+  // first attempt includes it and the callback retries WITHOUT it on any
+  // scope error — once Meta approves it in review, the same code picks it up
+  // automatically. ?retry=1 forces the safe scope set.
   const scopes = [
     "instagram_business_basic",
     "instagram_business_manage_messages",
     "instagram_business_manage_comments",
     "instagram_business_manage_insights",
+    ...(new URL(request.url).searchParams.get("retry") ? [] : ["instagram_manage_engagement"]),
   ].join(",");
 
   // New Instagram OAuth URL (NOT facebook.com/dialog/oauth)

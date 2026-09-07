@@ -34,6 +34,16 @@ export async function GET(request: NextRequest) {
 
   if (error || !code || !state) {
     console.error("[IG OAuth] Denied:", error, errorDescription);
+
+    // Scope negotiation: the first attempt requests instagram_manage_engagement
+    // (auto-like). Live apps reject logins with unapproved scopes — if this
+    // was such an attempt, silently retry with the safe scope set. The retry
+    // param guarantees a single loop.
+    if (error && !searchParams.get("retry")) {
+      console.warn("[IG OAuth] Retrying without instagram_manage_engagement scope");
+      return NextResponse.redirect(`${APP_URL}/api/auth/instagram?retry=1`);
+    }
+
     return NextResponse.redirect(
       `${APP_URL}/dashboard/settings?error=instagram_denied&detail=${encodeURIComponent(errorDescription)}`
     );
