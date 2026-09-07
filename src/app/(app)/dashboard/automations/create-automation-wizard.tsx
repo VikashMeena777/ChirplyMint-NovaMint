@@ -302,7 +302,12 @@ export default function CreateAutomationWizard({
               case "image_album": return (b.image_urls || []).some((u) => u.trim().length > 0);
               case "pdf": return (b.file_url || "").trim().length > 0;
               case "button_card": return (b.text || "").trim().length > 0;
-              case "quick_replies": return (b.quick_replies || []).length > 0;
+              case "quick_replies": {
+                const qrs = b.quick_replies || [];
+                if (qrs.length === 0) return false;
+                const titles = qrs.map((q) => (q.title || "").trim().toLowerCase()).filter(Boolean);
+                return new Set(titles).size === titles.length;
+              }
               case "carousel": return (b.elements || []).length > 0;
               case "media_share": return (b.media_id || "").trim().length > 0;
               default: return false;

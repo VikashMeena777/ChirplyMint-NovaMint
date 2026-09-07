@@ -461,6 +461,11 @@ function QuickReplyEditor({
   const qrs = block.quick_replies || [];
   const emailCount = qrs.filter((q) => q.content_type === "user_email").length;
   const phoneCount = qrs.filter((q) => q.content_type === "user_phone_number").length;
+  const dupeLabels = qrs
+    .map((q) => (q.title || "").trim().toLowerCase())
+    .filter((t) => t)
+    .filter((t, i, arr) => arr.indexOf(t) !== i);
+  const hasDupes = dupeLabels.length > 0;
 
   return (
     <div className="space-y-3">
@@ -538,22 +543,34 @@ function QuickReplyEditor({
             </button>
           </div>
         ))}
+        {hasDupes && (
+          <p className="text-xs font-medium text-red-500">
+            Two options have the same label — make each one unique (duplicates would be
+            impossible to tell apart when tapped).
+          </p>
+        )}
         {qrs.length < MAX_QUICK_REPLIES && (
           <button
             type="button"
+            disabled={hasDupes}
             onClick={() =>
               onChange(block.id, {
                 quick_replies: [
                   ...qrs,
-                  { title: "", payload: `qr_${Date.now()}`, content_type: "text" },
+                  { title: "", payload: `qr_${Date.now()}_${qrs.length}`, content_type: "text" },
                 ],
               })
             }
-            className="flex items-center gap-1 text-xs font-medium text-[oklch(0.52_0.19_162)] hover:underline"
+            className="flex items-center gap-1 text-xs font-medium text-[oklch(0.52_0.19_162)] hover:underline disabled:opacity-40 disabled:no-underline"
           >
             <Plus className="h-3.5 w-3.5" /> Add option
           </button>
         )}
+        <p className="text-[11px] text-muted-foreground">
+          📱 The 📧 ask-email and 📱 ask-phone chips are drawn by Instagram itself and appear
+          on the <strong>Instagram mobile app</strong> (desktop web shows only text chips) —
+          test there.
+        </p>
       </div>
     </div>
   );

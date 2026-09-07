@@ -1076,13 +1076,22 @@ export async function hideComment(
  * already-liked comment returns success.
  */
 export async function likeComment(
+  igUserId: string,
   commentId: string,
   accessToken: string
-): Promise<{ success: boolean; duplicate?: boolean; error?: string }> {
+): Promise<{ success: boolean; duplicate?: boolean; error?: string; needsPermission?: boolean }> {
   try {
-    const res = await fetch(`${GRAPH_API_BASE}/${commentId}/likes`, {
+    // Like Media and Comments API (Meta changelog, Apr 2026): likes live on
+    // the IG User edge with a comment_id/media_id param — the old
+    // /{comment-id}/likes edge never existed and 404s with "Unsupported
+    // post request". Requires instagram_manage_engagement.
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/likes`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ comment_id: commentId }),
     });
     const data = (await res.json()) as { error?: { message?: string; code?: number; error_subcode?: number } };
     if (data.error) {
@@ -1090,7 +1099,15 @@ export async function likeComment(
       if (/already/i.test(data.error.message || "")) {
         return { success: true, duplicate: true };
       }
-      return { success: false, error: data.error.message };
+      const msg = data.error.message || "";
+      if (/permission|engage/i.test(msg)) {
+        return {
+          success: false,
+          needsPermission: true,
+          error: "Needs the instagram_manage_engagement permission (Meta app review)",
+        };
+      }
+      return { success: false, error: msg };
     }
     return { success: true };
   } catch (err) {

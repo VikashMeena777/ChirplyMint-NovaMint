@@ -201,7 +201,7 @@ export function DMPreview({ senderUsername, senderAvatar, blocks, triggerKeyword
                 return (
                   <div key={block.id} className="flex gap-2 items-end">
                     {avatar}
-                    <div className="max-w-[85%]">
+                    <div className="w-[85%]">
                       {isLink ? (
                         <div className="rounded-2xl rounded-bl-md overflow-hidden border border-zinc-700 bg-zinc-800">
                           <div className="p-2.5 flex items-center gap-2">
@@ -243,9 +243,9 @@ export function DMPreview({ senderUsername, senderAvatar, blocks, triggerKeyword
                 return (
                   <div key={block.id} className="flex gap-2 items-end">
                     {avatar}
-                    <div className="max-w-[85%]">
-                      <div className="rounded-2xl rounded-bl-md overflow-hidden border border-zinc-700 bg-zinc-800">
-                        {block.image_url && (
+                    <div className="w-[85%]">
+                      <div className="w-full rounded-2xl rounded-bl-md overflow-hidden border border-zinc-700 bg-zinc-800">
+                        {block.image_url ? (
                           <div className="h-24 bg-zinc-700">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -255,19 +255,29 @@ export function DMPreview({ senderUsername, senderAvatar, blocks, triggerKeyword
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                             />
                           </div>
+                        ) : (
+                          <div className="h-1.5 bg-gradient-to-r from-purple-500/60 via-pink-500/60 to-orange-500/60" />
                         )}
-                        <div className="p-3">
-                          <p className="text-white text-xs font-semibold">{fillVars(block.text) || "Card title"}</p>
-                          {block.subtitle && <p className="text-zinc-400 text-[10px] mt-0.5">{fillVars(block.subtitle)}</p>}
+                        <div className="p-3 min-h-[44px]">
+                          <p className="text-white text-xs font-semibold leading-snug">
+                            {fillVars(block.text) || "Your card headline appears here"}
+                          </p>
+                          <p className="text-zinc-400 text-[10px] mt-0.5">
+                            {fillVars(block.subtitle) || "Optional supporting line"}
+                          </p>
                         </div>
-                        {(block.buttons || []).length > 0 && (
+                        {(block.buttons || []).length > 0 ? (
                           <div className="border-t border-zinc-700">
                             {block.buttons!.map((btn, i) => (
-                              <div key={i} className="flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-blue-400 border-b border-zinc-700 last:border-b-0">
+                              <div key={i} className="flex items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold text-blue-400 border-b border-zinc-700 last:border-b-0 bg-zinc-900/40">
                                 <MousePointerClick className="w-3 h-3" />
-                                {btn.title || "Button"}
+                                {btn.title || "Button label"}
                               </div>
                             ))}
+                          </div>
+                        ) : (
+                          <div className="border-t border-zinc-700 py-2.5 text-center text-[11px] font-semibold text-zinc-500 bg-zinc-900/40">
+                            Add a button →
                           </div>
                         )}
                       </div>

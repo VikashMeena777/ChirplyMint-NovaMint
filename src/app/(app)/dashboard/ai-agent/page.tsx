@@ -33,7 +33,6 @@ import {
   addFAQ,
   updateFAQ,
   deleteFAQ,
-  getRecentConversations,
   getConversationThread,
   getAgentStats,
   type AIAgent,
@@ -124,7 +123,7 @@ export default function AIAgentPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"persona" | "faqs" | "conversations">(
+  const [tab, setTab] = useState<"persona" | "faqs">(
     "persona"
   );
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
@@ -155,13 +154,11 @@ export default function AIAgentPage() {
       setFallbackMessage(data.fallback_message);
       setMaxReplyLength(data.max_reply_length);
 
-      const [faqResult, convResult, statsResult] = await Promise.all([
+      const [faqResult, statsResult] = await Promise.all([
         getAgentFAQs(data.id),
-        getRecentConversations(data.id),
         getAgentStats(),
       ]);
       setFaqs(faqResult.data);
-      setConversations(convResult.data);
       setStats(statsResult);
     }
     setLoading(false);
@@ -425,11 +422,7 @@ export default function AIAgentPage() {
           [
             { key: "persona", label: "Persona & Settings", icon: Bot },
             { key: "faqs", label: "FAQ Knowledge", icon: HelpCircle },
-            {
-              key: "conversations",
-              label: "Conversations",
-              icon: MessageSquare,
-            },
+            
           ] as const
         ).map((t) => (
           <button
@@ -763,114 +756,6 @@ export default function AIAgentPage() {
         </div>
       )}
 
-      {/* ── CONVERSATIONS TAB ── */}
-      {tab === "conversations" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Thread List */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden md:col-span-1">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">
-                Recent Threads
-              </h3>
-            </div>
-            {conversations.length === 0 ? (
-              <div className="p-8 text-center">
-                <MessageSquare className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No conversations yet
-                </p>
-                <p className="text-xs text-muted-foreground/60 mt-1">
-                  They&apos;ll appear here when people DM you
-                </p>
-              </div>
-            ) : (
-              <div className="max-h-[500px] overflow-y-auto">
-                {conversations.map((conv) => (
-                  <button
-                    key={conv.sender_ig_id}
-                    onClick={() => handleViewThread(conv.sender_ig_id)}
-                    className={`w-full text-left px-4 py-3 border-b border-border/50 hover:bg-muted/40 transition-all ${
-                      selectedSender === conv.sender_ig_id
-                        ? "bg-violet-500/5"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-foreground truncate">
-                        @{conv.sender_username || conv.sender_ig_id.slice(0, 8)}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {conv.last_message.slice(0, 50)}...
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(conv.last_at).toLocaleDateString()}
-                      </span>
-                      <span className="text-[10px] text-violet-500 font-medium">
-                        {conv.message_count} msgs
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Thread Detail */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden md:col-span-2">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">
-                {selectedSender
-                  ? `Conversation with @${selectedSender.slice(0, 12)}...`
-                  : "Select a conversation"}
-              </h3>
-            </div>
-            {selectedThread.length === 0 ? (
-              <div className="p-12 text-center">
-                <Bot className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {selectedSender
-                    ? "Loading..."
-                    : "Click a thread to view the conversation"}
-                </p>
-              </div>
-            ) : (
-              <div className="max-h-[500px] overflow-y-auto p-4 space-y-3">
-                {selectedThread.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.role === "assistant" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
-                        msg.role === "assistant"
-                          ? "bg-gradient-to-r from-violet-500 to-indigo-600 text-white"
-                          : "bg-muted text-foreground"
-                      }`}
-                    >
-                      <p>{msg.content}</p>
-                      <p
-                        className={`text-[10px] mt-1 ${
-                          msg.role === "assistant"
-                            ? "text-white/60"
-                            : "text-muted-foreground/60"
-                        }`}
-                      >
-                        {new Date(msg.created_at).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

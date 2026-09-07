@@ -38,6 +38,13 @@ function getTagEmoji(tag: string) {
 
 // ─── Engagement badge ────────────────────────────────────
 function EngagementBadge({ level }: { level: string }) {
+  if (level === "active") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+        👀 Active
+      </span>
+    );
+  }
   if (level === "interested") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30">
@@ -166,6 +173,7 @@ export default function LeadsPage() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const limit = 10;
 
   const loadLeads = useCallback(async () => {
@@ -461,7 +469,13 @@ export default function LeadsPage() {
                     </div>
 
                     {/* Username + engagement + contact info */}
-                    <div className="lg:col-span-3 flex items-center gap-2 min-w-0">
+                    <div
+                      className="lg:col-span-3 flex items-center gap-2 min-w-0 cursor-pointer"
+                      onClick={() =>
+                        setExpandedId(expandedId === lead.id ? null : (lead.id as string))
+                      }
+                      title="Click to see full lead details"
+                    >
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
                         <span className="text-xs font-bold text-[oklch(0.52_0.19_162)]">
                           {username[0].toUpperCase()}
@@ -560,6 +574,93 @@ export default function LeadsPage() {
                         <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-red-500" />
                       </button>
                     </div>
+
+                    {/* ── Expanded detail: full timeline + every field ── */}
+                    {expandedId === lead.id && (
+                      <div className="col-span-full mt-1 rounded-xl bg-muted/30 border border-border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-foreground uppercase tracking-wider">
+                            Lead details
+                          </p>
+                          <button
+                            onClick={() => setExpandedId(null)}
+                            className="p-1 rounded hover:bg-muted/40"
+                          >
+                            <X className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+
+                        {/* All fields grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Source</p>
+                            <p className="font-medium text-foreground capitalize">{(lead.source as string) || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Engagement</p>
+                            <div className="mt-0.5"><EngagementBadge level={(lead.engagement as string) || "new"} /></div>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Instagram ID</p>
+                            <p className="font-mono text-[11px] text-foreground truncate">{(lead.ig_user_id as string) || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Captured</p>
+                            <p className="font-medium text-foreground">
+                              {lead.captured_at ? new Date(lead.captured_at as string).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                            </p>
+                          </div>
+                          {(lead.email as string) && (
+                            <div>
+                              <p className="text-muted-foreground">Email (quick reply)</p>
+                              <a href={`mailto:${lead.email}`} className="font-medium text-sky-400 hover:underline">{lead.email as string}</a>
+                            </div>
+                          )}
+                          {(lead.phone as string) && (
+                            <div>
+                              <p className="text-muted-foreground">Phone (quick reply)</p>
+                              <a href={`tel:${lead.phone}`} className="font-medium text-emerald-400 hover:underline">{lead.phone as string}</a>
+                            </div>
+                          )}
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground">Trigger notes</p>
+                            <p className="font-medium text-foreground">{(lead.notes as string) || "—"}</p>
+                          </div>
+                        </div>
+
+                        {/* Interaction timeline (payload-level truth) */}
+                        <div>
+                          <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">
+                            What they tapped
+                          </p>
+                          {Array.isArray(lead.interactions) && (lead.interactions as Record<string, unknown>[]).length > 0 ? (
+                            <div className="space-y-1.5">
+                              {(lead.interactions as Record<string, unknown>[]).slice().reverse().map((it, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs bg-background rounded-lg px-3 py-2 border border-border/60">
+                                  <span className="shrink-0">
+                                    {it.type === "quick_reply" ? "⚡" : it.type === "button_tap" ? "🔘" : "🎯"}
+                                  </span>
+                                  <span className="font-medium text-foreground capitalize">{String(it.type || "").replace(/_/g, " ")}</span>
+                                  <span className="text-muted-foreground">— {(it.label as string) || "(no label)"}</span>
+                                  {it.payload ? (
+                                    <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[180px]" title={String(it.payload)}>
+                                      {String(it.payload)}
+                                    </code>
+                                  ) : null}
+                                  <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                                    {it.at ? new Date(it.at as string).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              No button or quick-reply taps recorded yet — only comment/DM activity.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

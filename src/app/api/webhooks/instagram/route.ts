@@ -696,8 +696,14 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       // AUTO-LIKE the triggering comment (all template types). No extra Meta
       // setup needed — uses the already-approved instagram_manage_comments.
       if (automation.auto_react === true && commentId) {
-        likeComment(commentId, accessToken).then((r) => {
-          console.log(`[Meta Webhook] ${r.success ? "❤️ Auto-liked" : "⚠️ Auto-like failed"} comment ${commentId}${r.error ? ": " + r.error : ""}`);
+        likeComment(igUserId, commentId, accessToken).then((r) => {
+          if (r.success) {
+            console.log(`[Meta Webhook] ❤️ Auto-liked comment ${commentId}`);
+          } else if (r.needsPermission) {
+            console.warn(`[Meta Webhook] Auto-like skipped: instagram_manage_engagement permission missing — request it in your Meta app (App Review) to enable comment likes.`);
+          } else {
+            console.warn(`[Meta Webhook] Auto-like failed comment ${commentId}: ${r.error}`);
+          }
         }).catch(() => {});
       }
 
@@ -914,8 +920,9 @@ async function deliverPendingStack(params: {
     .update({ status: "delivered", delivered_at: new Date().toISOString() })
     .eq("id", stackRow.id as string);
 
-  // Lead tapped the button / replied -> they're interested
-  void markLeadEngaged(supabase, userId, senderId);
+  // Typed a real reply = intent ("interested"); a pure button tap = curiosity ("active")
+  const isTypedReply = triggerText && !triggerText.startsWith("[POSTBACK]");
+  void markLeadEngaged(supabase, userId, senderId, isTypedReply ? "interested" : "active");
 
   console.log(
     `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
@@ -1242,6 +1249,12 @@ async function handlePostback(event: Record<string, unknown>) {
       }
     }
 
+    void appendLeadInteraction(supabase, userId, senderId, {
+      type: "cta_tap",
+      label: "Content button",
+      payload: payload,
+    });
+
     const delivered = await deliverPendingStack({
       supabase,
       userId,
@@ -1421,6 +1434,12 @@ async function handlePostback(event: Record<string, unknown>) {
   const automation = flow.automations as Record<string, unknown>;
   const responseType = (flow.response_type as string) || "text";
 
+  void appendLeadInteraction(supabase, userId, senderId, {
+    type: "button_tap",
+    label: postbackData?.title || payload,
+    payload: payload,
+  });
+
   let sendResult: { success: boolean; messageId?: string; error?: string };
 
   if (responseType === "button" && flow.response_template_title) {
@@ -1474,9 +1493,9 @@ async function handlePostback(event: Record<string, unknown>) {
     sendResult = await sendInstagramDM(recipientId, accessToken, senderId, responseText);
   }
 
-  // Button tap = engagement signal
+  // Button tap = curiosity signal (active, not interested — #8)
   if (sendResult.success) {
-    void markLeadEngaged(supabase, userId, senderId);
+    void markLeadEngaged(supabase, userId, senderId, "active");
   }
 
   // Tag the lead if lead_tag is set — appends to the lead's tags array
@@ -1769,6 +1788,13 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
   if (!igAccount) return;
   const userId = igAccount.user_id as string;
 
+  // Record what they tapped (payload + label) on the lead timeline
+  void appendLeadInteraction(supabase, userId, senderId, {
+    type: "quick_reply",
+    label: (quickReply as { title?: string }).title || contentType,
+    payload: quickReply.payload,
+  });
+
   // Match postback_flows by payload - quick replies use the same flow
   // responses as buttons, so a flow configured for a button payload also
   // answers its quick-reply twin.
@@ -1804,7 +1830,7 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
     console.log("[Meta Webhook] Quick-reply captured " + (isEmail ? "email" : "phone") + " for " + senderId);
 
     // Sharing contact info = strong interest signal
-    void markLeadEngaged(supabase, userId, senderId);
+    void markLeadEngaged(supabase, userId, senderId, "interested");
 
     // Notify the owner if they want contact-capture pings
     const { data: cprof } = await supabase
@@ -1930,7 +1956,7 @@ async function handleMessageReaction(messagingEvent: Record<string, unknown>) {
   const emoji = (reaction.emoji as string) || "";
   const removed = reaction.reaction === false || reaction.action === "unreact";
   if (!removed) {
-    void markLeadEngaged(supabase, igAccount.user_id as string, senderId);
+    void markLeadEngaged(supabase, igAccount.user_id as string, senderId, "active");
   }
 
   void Promise.resolve(
@@ -1956,8 +1982,13 @@ async function handleMessageReaction(messagingEvent: Record<string, unknown>) {
 async function markLeadEngaged(
   supabase: ReturnType<typeof getSupabase>,
   userId: string,
-  leadIgId: string
+  leadIgId: string,
+  level: "active" | "interested" = "active"
 ): Promise<void> {
+  // Psychology-correct ladder (#8): a button tap or reaction shows
+  // curiosity, not intent -> "active". Typing a real message or sharing
+  // contact info shows intent -> "interested". Never downgrade.
+  const rank: Record<string, number> = { new: 0, active: 1, interested: 2, converted: 3 };
   try {
     const { data: lead } = await supabase
       .from("leads")
@@ -1968,8 +1999,9 @@ async function markLeadEngaged(
       .maybeSingle();
     const row = lead as Record<string, unknown> | null;
     if (!row) return;
-    if (row.engagement === "interested" || row.engagement === "converted") return;
-    await supabase.from("leads").update({ engagement: "interested" }).eq("id", row.id as string);
+    const current = rank[(row.engagement as string) || "new"] ?? 0;
+    if (rank[level] <= current) return;
+    await supabase.from("leads").update({ engagement: level }).eq("id", row.id as string);
   } catch {
     // engagement tracking must never break the main flow
   }
@@ -2012,9 +2044,62 @@ async function handleMessagingReferral(messagingEvent: Record<string, unknown>) 
   );
 
   // Clicking an ad to DM you = strong interest
-  void markLeadEngaged(supabase, userId, senderId);
+  void markLeadEngaged(supabase, userId, senderId, "interested");
 
   console.log("[Meta Webhook] Referral lead " + senderId + " via " + source);
+}
+
+/**
+ * Append an interaction entry to the lead's timeline (quick-reply taps,
+ * button taps with their payloads). Powers the Leads page activity view.
+ */
+async function appendLeadInteraction(
+  supabase: ReturnType<typeof getSupabase>,
+  userId: string,
+  leadIgId: string,
+  entry: { type: string; label: string; payload?: string }
+): Promise<void> {
+  try {
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("ig_user_id", leadIgId)
+      .limit(1)
+      .maybeSingle();
+    const row = lead as Record<string, unknown> | null;
+
+    const item = { ...entry, at: new Date().toISOString() };
+    if (row) {
+      const { data: full } = await supabase
+        .from("leads")
+        .select("interactions")
+        .eq("id", row.id as string)
+        .single();
+      const current = Array.isArray((full as Record<string, unknown> | null)?.interactions)
+        ? ((full as Record<string, unknown>).interactions as unknown[])
+        : [];
+      // Keep the last 30 interactions per lead
+      await supabase
+        .from("leads")
+        .update({ interactions: [...current, item].slice(-30) })
+        .eq("id", row.id as string);
+    } else {
+      // Lead row doesn't exist yet — create it with the interaction
+      await supabase.from("leads").upsert(
+        {
+          user_id: userId,
+          ig_user_id: leadIgId,
+          ig_username: leadIgId,
+          source: "dm",
+          interactions: [item],
+        },
+        { onConflict: "user_id,ig_user_id" }
+      );
+    }
+  } catch {
+    // interaction logging must never break the main flow
+  }
 }
 
 /**

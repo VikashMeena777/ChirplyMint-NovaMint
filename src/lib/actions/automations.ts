@@ -183,10 +183,16 @@ export async function createAutomation(formData: FormData) {
       const qrs = (b.quick_replies as { title?: string; content_type?: string }[]) || [];
       if (qrs.length === 0) return { error: "Quick replies block needs at least 1 option" };
       if (qrs.length > 13) return { error: "Quick replies allow at most 13 options" };
+      const seenTitles = new Set<string>();
       for (const qr of qrs) {
         if ((qr.title || "").length > 20) {
           return { error: `Quick reply "${(qr.title || "").slice(0, 25)}" is over 20 characters` };
         }
+        const key = (qr.title || "").trim().toLowerCase();
+        if (key && seenTitles.has(key)) {
+          return { error: `Two quick reply options have the same label "${qr.title}" — each must be unique` };
+        }
+        if (key) seenTitles.add(key);
       }
     }
   }
@@ -436,10 +442,16 @@ export async function updateAutomation(
       const qrs = (b.quick_replies as { title?: string }[]) || [];
       if (qrs.length === 0) return { error: "Quick replies block needs at least 1 option" };
       if (qrs.length > 13) return { error: "Quick replies allow at most 13 options" };
+      const seenTitles = new Set<string>();
       for (const qr of qrs) {
         if ((qr.title || "").length > 20) {
           return { error: `Quick reply "${(qr.title || "").slice(0, 25)}" is over 20 characters` };
         }
+        const key = (qr.title || "").trim().toLowerCase();
+        if (key && seenTitles.has(key)) {
+          return { error: `Two quick reply options have the same label "${qr.title}" — each must be unique` };
+        }
+        if (key) seenTitles.add(key);
       }
     }
   }
