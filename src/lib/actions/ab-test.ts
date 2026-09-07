@@ -202,6 +202,82 @@ export async function pickABVariant(
     .eq("id", (picked as Record<string, unknown>).id)
     .then(() => {});
 
+  // ── AUTO-WINNER (ab_auto_winner) ─────────────────────────────
+  // Runs in the background after each send: once every running variant has
+  // ≥ 30 sends, if the leader's reply rate beats the runner-up by ≥ 2x,
+  // promote it automatically — copy its template onto the automation, mark
+  // the test completed, and notify the owner. The owner can also declare a
+  // winner manually at any time.
+  const all = variants as Record<string, unknown>[];
+  const autoWinnerEnabled: Record<string, unknown> | null = await supabase
+    .from("automations")
+    .select("ab_auto_winner, user_id")
+    .eq("id", automationId)
+    .single()
+    .then((res: { data: Record<string, unknown> | null }) => res.data)
+    .catch((): null => null);
+
+  if (autoWinnerEnabled?.ab_auto_winner === true && all.length >= 2) {
+    const MIN_SENDS = 30;
+    const everyoneTested = all.every((v) => ((v.sends as number) || 0) >= MIN_SENDS);
+    if (everyoneTested) {
+      const rate = (v: Record<string, unknown>) =>
+        ((v.replies as number) || 0) / Math.max(1, ((v.sends as number) || 0));
+      const sorted = [...all].sort((a, b) => rate(b) - rate(a));
+      const leader = sorted[0];
+      const runnerUp = sorted[1];
+      const leaderRate = rate(leader);
+      const runnerRate = rate(runnerUp);
+
+      if (leaderRate > 0 && leaderRate >= runnerRate * 2) {
+        // Double-fire guard: only promote if still running
+        if ((leader.is_winner as boolean) !== true) {
+          const winnerId = leader.id as string;
+          const userId = autoWinnerEnabled.user_id as string;
+
+          void (async () => {
+            try {
+              // Mark all completed, crown the winner
+              await supabase
+                .from("ab_test_variants")
+                .update({ is_winner: false, status: "completed" })
+                .eq("automation_id", automationId);
+              await supabase
+                .from("ab_test_variants")
+                .update({ is_winner: true, status: "winner" })
+                .eq("id", winnerId);
+
+              // Apply the winner's template to the automation
+              await supabase
+                .from("automations")
+                .update({
+                  dm_template: leader.dm_template,
+                  template_type: leader.template_type,
+                  template_title: leader.template_title,
+                  template_subtitle: leader.template_subtitle,
+                  template_image_url: leader.template_image_url,
+                  template_buttons: leader.template_buttons,
+                })
+                .eq("id", automationId);
+
+              await supabase.from("notifications").insert({
+                user_id: userId,
+                type: "info",
+                title: "🏆 A/B test auto-completed",
+                body: `"${leader.variant_name}" won your A/B test (${leaderRate * 100 >= 1 ? leaderRate.toFixed(2) : (leaderRate * 100).toFixed(0) + "%"} reply rate, ${(runnerRate * 100).toFixed(0)}% runner-up) and is now your live template.`,
+                metadata: { automation_id: automationId, winner: leader.variant_name },
+              });
+
+              console.log(`[A/B Test] 🏆 Auto-winner "${leader.variant_name}" promoted for automation ${automationId}`);
+            } catch (err) {
+              console.error("[A/B Test] Auto-winner promotion failed:", err);
+            }
+          })();
+        }
+      }
+    }
+  }
+
   return picked as unknown as ABVariant;
 }
 

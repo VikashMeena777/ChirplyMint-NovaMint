@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PLANS } from "@/lib/utils/plan-limits";
+import { createRenewalPaymentLink } from "@/lib/cashfree/client";
 import { sendEmail } from "@/lib/email/send";
 
 function getAdminSupabase() {
@@ -144,9 +145,38 @@ export async function GET(request: Request) {
           metadata: { days_left: daysLeft },
         });
 
+        // ── DUNNING: one-click renewal payment link (Cashfree Payment Links) ──
+        // On the FIRST grace day, create a payment link with
+        // link_auto_reminders=true — Cashfree then emails/SMSes the customer
+        // automatically until they pay or the link expires. We keep the
+        // email button simple: dashboard if we have no link, link if we do.
+        let renewalLinkUrl: string | null = null;
+        try {
+          const linkId = `renewal_${userId.slice(0, 18)}_${(s.current_period_end as string).slice(0, 10)}`.replace(/-/g, "_");
+          const linkResult = await createRenewalPaymentLink({
+            linkId,
+            amount: PLANS[(s.plan as keyof typeof PLANS) || "pro"]?.price ?? 499,
+            customerName: userName,
+            customerEmail: userEmail || "",
+            customerPhone: "9999999999",
+            planName: PLANS[s.plan as keyof typeof PLANS]?.name || "Pro",
+            expiryHours: 24 * (GRACE_PERIOD_DAYS + 1),
+          });
+          if (linkResult.success && linkResult.linkUrl) {
+            renewalLinkUrl = linkResult.linkUrl;
+            console.log(`[Sub Check] 🔗 Renewal link created for ${userId}`);
+          } else {
+            console.error("[Sub Check] Renewal link failed:", linkResult.error);
+          }
+        } catch (linkErr) {
+          // Dunning must never break the grace flow
+          console.error("[Sub Check] Renewal link error:", linkErr);
+        }
+
         // Daily countdown email
         if (userEmail) {
           const urgencyColor = daysLeft <= 1 ? "#dc2626" : "#f59e0b";
+          const ctaUrl = renewalLinkUrl || `${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"}/dashboard/settings`;
           sendEmail({
             to: userEmail,
             subject: daysLeft === 0
@@ -161,10 +191,11 @@ export async function GET(request: Request) {
                   <p style="margin: 4px 0 0 0;">Your subscription has expired. ${daysLeft === 0 ? "Your account will be downgraded to the free plan tomorrow." : `You have <strong>${daysLeft} day${daysLeft > 1 ? "s" : ""}</strong> left before your account is downgraded.`}</p>
                 </div>
                 <p>Renew now to keep your DM limits, AI agent, and all Pro features.</p>
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"}/dashboard/settings" 
+                <a href="${ctaUrl}" 
                    style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 12px;">
-                  Renew Now
+                  ${renewalLinkUrl ? "Pay & Renew Instantly →" : "Renew Now"}
                 </a>
+                ${renewalLinkUrl ? '<p style="color: #888; font-size: 12px; margin-top: 8px;">This secure Cashfree payment link is valid through your grace period. You can also renew from your dashboard anytime.</p>' : ""}
                 <p style="color: #888; font-size: 12px; margin-top: 24px;">ChirplyMint — Instagram DM Automation</p>
               </div>
             `,

@@ -28,6 +28,8 @@ import {
   MessageCircle,
   Images,
   FileText,
+  Layers,
+  Heart,
 } from "lucide-react";
 import {
   getInstagramPosts,
@@ -49,6 +51,7 @@ import {
   INITIAL_FORM_DATA,
   PRESET_TEMPLATES,
 } from "./automation-types";
+import { StackComposer } from "./stack-composer";
 
 interface CreateAutomationWizardProps {
   userPlan: PlanKey;
@@ -223,6 +226,23 @@ export default function CreateAutomationWizard({
       );
     }
     if (step === 2) {
+      if (formData.template_type === "stack") {
+        return (
+          formData.template_blocks.length > 0 &&
+          formData.template_blocks.some((b) => {
+            switch (b.type) {
+              case "text": return (b.text || "").trim().length > 0;
+              case "image_album": return (b.image_urls || []).some((u) => u.trim().length > 0);
+              case "pdf": return (b.file_url || "").trim().length > 0;
+              case "button_card": return (b.text || "").trim().length > 0;
+              case "quick_replies": return (b.quick_replies || []).length > 0;
+              case "carousel": return (b.elements || []).length > 0;
+              case "media_share": return (b.media_id || "").trim().length > 0;
+              default: return false;
+            }
+          })
+        );
+      }
       if (formData.template_type === "button") {
         return (
           formData.template_title.trim().length > 0 &&
@@ -262,6 +282,29 @@ export default function CreateAutomationWizard({
     fd.set("template_buttons", JSON.stringify(formData.template_buttons));
     fd.set("template_image_urls", formData.template_image_urls);
     fd.set("template_file_url", formData.template_file_url);
+    fd.set("template_blocks", JSON.stringify(
+      formData.template_blocks.map((b) => {
+        const { id, ...rest } = b;
+        // image_album: strip empty trailing URL rows
+        if (rest.type === "image_album") {
+          return { ...rest, image_urls: (rest.image_urls || []).filter((u) => u.trim()) };
+        }
+        return rest;
+      }).filter((b) => {
+        switch (b.type) {
+          case "text": return (b.text || "").trim().length > 0;
+          case "image_album": return (b.image_urls || []).length > 0;
+          case "pdf": return (b.file_url || "").trim().length > 0;
+          case "button_card": return (b.text || "").trim().length > 0;
+          case "quick_replies": return (b.quick_replies || []).length > 0;
+          case "carousel": return (b.elements || []).length > 0;
+          case "media_share": return (b.media_id || "").trim().length > 0;
+          default: return false;
+        }
+      })
+    ));
+    fd.set("auto_react", formData.auto_react ? "true" : "false");
+    fd.set("story_link_branches", JSON.stringify(formData.story_link_branches));
     fd.set("trigger_type", formData.trigger_type);
     if (formData.instagram_account_id) {
       fd.set("instagram_account_id", formData.instagram_account_id);
@@ -607,6 +650,85 @@ export default function CreateAutomationWizard({
                   <p className="text-xs text-muted-foreground">
                     💡 Selecting a story is optional — leaving none selected means this automation triggers on <strong>all</strong> story replies.
                   </p>
+
+                  {/* ── Story-Link Branching (Graph API v26 link_sticker_url) ── */}
+                  <details className="group rounded-xl border border-border bg-muted/20">
+                    <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-foreground">
+                      <Link2 className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+                      Story-Link Branching
+                      <span className="ml-auto text-[10px] font-medium text-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/10%)] px-2 py-0.5 rounded-full">
+                        {formData.story_link_branches.length} branch{formData.story_link_branches.length === 1 ? "" : "es"}
+                      </span>
+                    </summary>
+                    <div className="space-y-3 border-t px-4 py-3">
+                      <p className="text-xs text-muted-foreground">
+                        Instagram tells us <em>which link sticker</em> the lead tapped on your story. Add a branch
+                        per link so each sticker gets its own follow-up messages. If nothing matches, your default
+                        message above is sent.
+                      </p>
+
+                      {formData.story_link_branches.map((branch, bi) => (
+                        <div key={bi} className="space-y-2 rounded-lg border border-border bg-background p-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={branch.match}
+                              onChange={(e) =>
+                                setFormData((f) => ({
+                                  ...f,
+                                  story_link_branches: f.story_link_branches.map((b, j) =>
+                                    j === bi ? { ...b, match: e.target.value } : b
+                                  ),
+                                }))
+                              }
+                              placeholder="Match text from the sticker URL or reply (e.g. /pricing)"
+                              className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData((f) => ({
+                                  ...f,
+                                  story_link_branches: f.story_link_branches.filter((_, j) => j !== bi),
+                                }))
+                              }
+                              className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Remove branch"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <StackComposer
+                            blocks={branch.blocks}
+                            onChange={(blocks) =>
+                              setFormData((f) => ({
+                                ...f,
+                                story_link_branches: f.story_link_branches.map((b, j) =>
+                                  j === bi ? { ...b, blocks } : b
+                                ),
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        disabled={formData.story_link_branches.length >= 5}
+                        onClick={() =>
+                          setFormData((f) => ({
+                            ...f,
+                            story_link_branches: [
+                              ...f.story_link_branches,
+                              { match: "", blocks: [] },
+                            ],
+                          }))
+                        }
+                        className="flex items-center gap-1 text-xs font-medium text-[oklch(0.52_0.19_162)] hover:underline disabled:opacity-40"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add branch (max 5)
+                      </button>
+                    </div>
+                  </details>
                 </div>
               )}
 
@@ -818,6 +940,19 @@ export default function CreateAutomationWizard({
                     <p className="text-sm font-semibold text-foreground">PDF File</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Send a brochure or lead magnet</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((f) => ({ ...f, template_type: "stack" }))}
+                    className={`p-4 rounded-xl border-2 text-left transition-all col-span-2 sm:col-span-1 ${
+                      formData.template_type === "stack"
+                        ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"
+                        : "border-border hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <Layers className={`w-5 h-5 mb-2 ${formData.template_type === "stack" ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"}`} />
+                    <p className="text-sm font-semibold text-foreground">Message Stack ⭐</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Any combo: text + PDF + buttons + quick replies</p>
+                  </button>
                 </div>
               </div>
 
@@ -874,6 +1009,51 @@ export default function CreateAutomationWizard({
                     className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
                   />
                   <p className="text-xs text-muted-foreground">Max 25MB, publicly accessible HTTPS URL. Meta fetches it at send time.</p>
+                </div>
+              )}
+
+              {/* Message Stack Composer */}
+              {formData.template_type === "stack" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Compose Your Message Stack</label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Blocks are delivered one after another in the DM — combine captions, files, buttons and quick replies freely.
+                    </p>
+                  </div>
+                  <StackComposer
+                    blocks={formData.template_blocks}
+                    onChange={(blocks) => setFormData((f) => ({ ...f, template_blocks: blocks }))}
+                  />
+                </div>
+              )}
+
+              {/* Auto-react toggle (stack + story automations) */}
+              {(formData.template_type === "stack" || formData.trigger_type !== "comment_trigger") && (
+                <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                      <Heart className="h-4 w-4 text-red-400" /> Auto-react ❤️ to their message
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      When your automation replies to a story reply (or drip opener), instantly react with a heart on the lead&apos;s message.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.auto_react}
+                    onClick={() => setFormData((f) => ({ ...f, auto_react: !f.auto_react }))}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      formData.auto_react ? "bg-[oklch(0.52_0.19_162)]" : "bg-muted-foreground/30"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                        formData.auto_react ? "left-[22px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
                 </div>
               )}
 
@@ -1454,9 +1634,43 @@ export default function CreateAutomationWizard({
                     <MessageCircle className="w-4 h-4 text-[oklch(0.52_0.19_162)] mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {formData.template_type === "button" ? "Button Template" : "DM Message"}
+                        {formData.template_type === "stack"
+                          ? `Message Stack (${formData.template_blocks.length} block${formData.template_blocks.length === 1 ? "" : "s"})`
+                          : formData.template_type === "button"
+                          ? "Button Template"
+                          : formData.template_type === "multi_image"
+                          ? "Image Album"
+                          : formData.template_type === "pdf"
+                          ? "PDF File"
+                          : "DM Message"}
                       </p>
-                      {formData.template_type === "button" ? (
+                      {formData.template_type === "stack" ? (
+                        <div className="mt-1 space-y-1.5">
+                          {formData.template_blocks.map((b, i) => (
+                            <div key={b.id} className="flex items-center gap-2">
+                              <span className="inline-flex w-5 h-5 items-center justify-center rounded-md bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-[10px] font-bold shrink-0">
+                                {i + 1}
+                              </span>
+                              <span className="text-xs font-medium text-foreground shrink-0">{b.type.replace("_", " ")}</span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {b.type === "text" || b.type === "button_card"
+                                  ? (b.text || "").slice(0, 50)
+                                  : b.type === "image_album"
+                                  ? `${(b.image_urls || []).filter((u) => u.trim()).length} image(s)`
+                                  : b.type === "pdf"
+                                  ? (b.file_url || "").slice(0, 50)
+                                  : b.type === "quick_replies"
+                                  ? `${(b.quick_replies || []).length} option(s)`
+                                  : b.type === "carousel"
+                                  ? `${(b.elements || []).length} card(s)`
+                                  : b.type === "media_share"
+                                  ? `post ${b.media_id || "?"}`
+                                  : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : formData.template_type === "button" ? (
                         <div className="mt-1">
                           <p className="text-sm font-medium text-foreground">{formData.template_title}</p>
                           {formData.template_subtitle && <p className="text-xs text-muted-foreground">{formData.template_subtitle}</p>}
@@ -1501,7 +1715,13 @@ export default function CreateAutomationWizard({
                             Comment Reply
                           </span>
                         )}
-                        {!formData.require_follow && !formData.comment_reply_enabled && (
+                        {formData.auto_react && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs font-medium">
+                            <Heart className="w-3 h-3" />
+                            Auto-react ❤️
+                          </span>
+                        )}
+                        {!formData.require_follow && !formData.comment_reply_enabled && !formData.auto_react && (
                           <span className="text-xs text-muted-foreground">No extra features enabled</span>
                         )}
                       </div>

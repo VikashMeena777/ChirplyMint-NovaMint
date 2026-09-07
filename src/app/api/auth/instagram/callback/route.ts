@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { setupWelcomeFlow } from "@/lib/instagram/welcome-flow";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { NextRequest, NextResponse } from "next/server";
@@ -297,6 +298,35 @@ export async function GET(request: NextRequest) {
     } catch (subErr) {
       // Non-fatal — don't block the OAuth flow
       console.error("[IG OAuth] Webhook subscription error:", subErr);
+    }
+
+    // ── Step 6.5: Provision the Welcome Flow (ice breakers + menu) ──
+    // Only on FIRST connect (welcome_flow_setup=false); a returning account
+    // may have customized its flow, so never overwrite silently.
+    try {
+      const { data: existingAcc } = await supabase
+        .from("instagram_accounts")
+        .select("welcome_flow_setup")
+        .eq("user_id", userId)
+        .eq("ig_user_id", igProfessionalId)
+        .single();
+
+      if (!existingAcc?.welcome_flow_setup) {
+        const wf = await setupWelcomeFlow(igProfessionalId, accessToken);
+        if (wf.success) {
+          await supabase
+            .from("instagram_accounts")
+            .update({ welcome_flow_setup: true })
+            .eq("user_id", userId)
+            .eq("ig_user_id", igProfessionalId);
+          console.log(`[IG OAuth] ✅ Welcome flow provisioned for @${igUsername}`);
+        } else {
+          console.error("[IG OAuth] Welcome flow setup failed:", wf.error);
+        }
+      }
+    } catch (wfErr) {
+      // Non-fatal — don't block the OAuth flow
+      console.error("[IG OAuth] Welcome flow error:", wfErr);
     }
 
     // ── Step 7: Log activity (fire-and-forget) ──────────────────────

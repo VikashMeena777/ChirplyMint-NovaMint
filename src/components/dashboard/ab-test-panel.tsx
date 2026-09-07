@@ -19,6 +19,7 @@ import {
   TrendingUp,
   LayoutTemplate,
   CheckCircle2,
+  Zap,
 } from "lucide-react";
 import {
   getABVariants,
@@ -53,6 +54,8 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateSubtitle, setTemplateSubtitle] = useState("");
   const [templateImageUrl, setTemplateImageUrl] = useState("");
+  const [autoWinner, setAutoWinner] = useState(false);
+  const [togglingAuto, setTogglingAuto] = useState(false);
   const [buttons, setButtons] = useState<TemplateButtonInput[]>([
     { title: "Learn More", url: "https://" },
   ]);
@@ -219,6 +222,37 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
   const maxSends = Math.max(...variants.map((v) => v.sends), 1);
   const bestVariant = [...variants].sort((a, b) => getReplyRate(b) - getReplyRate(a))[0];
 
+  // ─── Auto-winner setting for this automation ────────
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { getAutomations } = await import("@/lib/actions/automations");
+      const { data } = await getAutomations();
+      const auto = (data as Record<string, unknown>[] | null)?.find(
+        (a) => a.id === automationId
+      );
+      if (mounted) setAutoWinner(auto?.ab_auto_winner === true);
+    })().catch(() => {});
+    return () => { mounted = false; };
+  }, [automationId]);
+
+  const handleToggleAutoWinner = async () => {
+    setTogglingAuto(true);
+    const { toggleAutoWinner } = await import("@/lib/actions/automations");
+    const result = await toggleAutoWinner(automationId, !autoWinner);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      setAutoWinner(!autoWinner);
+      toast.success(
+        !autoWinner
+          ? "🏆 Auto-winner ON — we'll promote the best variant automatically once data is significant (≥30 sends each)."
+          : "Auto-winner OFF — you'll pick the winner manually."
+      );
+    }
+    setTogglingAuto(false);
+  };
+
   // ─── Loading ────────────────────────────────────────
   if (loading) {
     return (
@@ -239,6 +273,22 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
             {variants.length}/3 Variants
           </span>
         </div>
+        <div className="flex items-center gap-3">
+        {variants.length >= 2 && (
+          <button
+            onClick={handleToggleAutoWinner}
+            disabled={togglingAuto}
+            title="When enabled, the winning variant is promoted automatically once every variant has ≥30 sends and a clear leader (≥2x reply rate) emerges."
+            className={`px-3 py-1.5 text-xs rounded-xl font-medium flex items-center gap-1.5 transition-colors ${
+              autoWinner
+                ? "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400"
+                : "bg-muted text-muted-foreground hover:bg-muted/60"
+            }`}
+          >
+            <Zap className={`w-3.5 h-3.5 ${autoWinner ? "text-amber-500" : ""}`} />
+            {togglingAuto ? "Saving…" : autoWinner ? "Auto-Winner ON" : "Auto-Winner OFF"}
+          </button>
+        )}
         {variants.length < 3 && (
           <button
             onClick={() => setShowAdd(!showAdd)}
@@ -248,6 +298,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
             {showAdd ? "Cancel" : "Add Variant"}
           </button>
         )}
+        </div>
       </div>
 
       {/* Add Variant Form */}

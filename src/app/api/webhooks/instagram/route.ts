@@ -11,6 +11,8 @@ import {
   checkIfFollower,
   sendMultiImageDM,
   sendFileDM,
+  reactToMessage,
+  hideComment,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
@@ -19,10 +21,17 @@ import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
 import { checkDmMilestones } from "@/lib/email/dm-milestones";
 import { pickABVariant } from "@/lib/actions/ab-test";
+import { sendMessageStack, type MessageBlock } from "@/lib/instagram/message-stack";
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "";
-// Webhook signatures use the App Secret from Settings → Basic (NOT the Instagram App Secret)
-const APP_SECRET = process.env.META_WEBHOOK_SECRET || process.env.META_APP_SECRET || "";
+// Signature secrets: this is an "Instagram API with Instagram Login" app, and
+// production traffic proves payloads are signed with the Instagram product
+// secret. META_WEBHOOK_SECRET holds it; META_APP_SECRET (Settings → Basic) is
+// the fallback. verifySignature tries both so a mis-paste can't break the app.
+const SIGNING_SECRETS: string[] = [
+  process.env.META_WEBHOOK_SECRET,
+  process.env.META_APP_SECRET,
+].filter((s): s is string => Boolean(s));
 
 function getSupabase() {
   return createClient(
@@ -35,23 +44,24 @@ function getSupabase() {
  * Verify Meta webhook signature (HMAC SHA-256)
  */
 function verifySignature(payload: string, signature: string | null): boolean {
-  if (!APP_SECRET) {
+  if (SIGNING_SECRETS.length === 0) {
     console.error(
-      "[Meta Webhook] CRITICAL: META_APP_SECRET / META_WEBHOOK_SECRET not set — rejecting payload (fail-closed)"
+      "[Meta Webhook] CRITICAL: META_WEBHOOK_SECRET / META_APP_SECRET not set — rejecting payload (fail-closed)"
     );
     return false;
   }
   if (!signature) return false;
 
-  const expectedSignature =
-    "sha256=" +
-    crypto.createHmac("sha256", APP_SECRET).update(payload).digest("hex");
-
   const sigBuf = Buffer.from(signature);
-  const expectedBuf = Buffer.from(expectedSignature);
-  if (sigBuf.length !== expectedBuf.length) return false;
-
-  return crypto.timingSafeEqual(sigBuf, expectedBuf);
+  for (const secret of SIGNING_SECRETS) {
+    const expectedSignature =
+      "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    const expectedBuf = Buffer.from(expectedSignature);
+    if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -115,9 +125,24 @@ export async function POST(request: Request) {
               // User edited a sent message (v26). num_edit:0 can fire instead
               // of the original message (known Meta bug) — never act on it.
               await handleMessageEdit(messagingEvent);
+            } else if (messagingEvent.read) {
+              // Lead read our DM (messaging_seen / read receipts) — stamp
+              // the outbound dm_logs rows for the conversation.
+              await handleMessagingRead(messagingEvent);
+            } else if (messagingEvent.reaction) {
+              // Lead reacted to / unreacted from one of our DMs (v26).
+              await handleMessageReaction(messagingEvent);
             } else if (messagingEvent.message) {
+              const msg = messagingEvent.message as Record<string, unknown>;
+
+              // Quick-reply tap: message with quick_reply payload, optionally
+              // carrying structured lead data (user_email / user_phone_number).
+              if (msg.quick_reply) {
+                await handleQuickReply(messagingEvent);
+              }
+
               // Check if this is a story reply (has story reference)
-              const storyRef = (messagingEvent.message as Record<string, unknown>)?.reply_to;
+              const storyRef = msg.reply_to;
               if (storyRef && (storyRef as Record<string, unknown>)?.story) {
                 await handleStoryReplyDM(messagingEvent);
               } else {
@@ -191,6 +216,62 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
   // Without this filter, automations from ALL users would fire on every comment,
   // causing cross-account data leakage (DM logs showing in wrong accounts).
   // ═══════════════════════════════════════════════
+  // ═══════════════════════════════════════════════
+  // AUTO-MODERATION (v26 hide comment): if the receiving account has
+  // auto-hide keywords configured and the comment contains one, hide it from
+  // the public feed and stop. Hidden comments never trigger automations
+  // (spam bots don't get free DMs) and the commenter still sees their text,
+  // so they don't retry. Runs BEFORE automation matching so it also covers
+  // comments that match no automation.
+  // ═══════════════════════════════════════════════
+  if (receivingIgId && commentId) {
+    try {
+      const { data: modAccounts } = await supabase
+        .from("instagram_accounts")
+        .select("user_id, id, auto_hide_keywords, page_access_token, access_token")
+        .eq("ig_user_id", receivingIgId)
+        .eq("is_active", true)
+        .limit(1);
+
+      const modAcc = (modAccounts || [])[0] as Record<string, unknown> | undefined;
+      const kws = ((modAcc?.auto_hide_keywords as string[]) || []).filter((k) => k && k.trim());
+
+      if (modAcc && kws.length > 0) {
+        const commentLower = commentText.toLowerCase();
+        const hitKeyword = kws.find((k) => commentLower.includes(k.trim().toLowerCase()));
+
+        if (hitKeyword) {
+          const hideResult = await hideComment(
+            commentId,
+            (modAcc.page_access_token as string) || (modAcc.access_token as string) || ""
+          );
+          console.log(
+            `[Meta Webhook] 🚫 Auto-moderation hid comment ${commentId} from @${commenterUsername} (matched "${hitKeyword}") ${hideResult.success ? "✅" : "❌ " + hideResult.error}`
+          );
+
+          // Audit trail for the account owner
+          void Promise.resolve(
+            supabase.from("activity_log").insert({
+              user_id: modAcc.user_id,
+              action: "moderation.comment_hidden",
+              metadata: {
+                commenter: commenterUsername,
+                keyword: hitKeyword,
+                comment_text: commentText.slice(0, 120),
+                api_ok: hideResult.success,
+              },
+            })
+          ).catch(() => {});
+
+          return; // Hidden - never feed spam into automations
+        }
+      }
+    } catch (modErr) {
+      // Moderation must never break the main flow
+      console.error("[Meta Webhook] Moderation error:", modErr);
+    }
+  }
+
   let query = supabase
     .from("automations")
     .select("*, instagram_accounts!inner(user_id, ig_user_id, ig_username, access_token, page_access_token)")
@@ -770,6 +851,14 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
         console.log(
           `[Meta Webhook] Drip activated for ${senderId} → template sent, next step in ${firstStep ? (firstStep as Record<string, number>).delay_hours + "h" : "N/A"}`
         );
+
+        // AUTO-REACT: heart the lead's message that opened the window
+        if ((automation as Record<string, unknown>).auto_react === true) {
+          const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
+          if (reactMid) {
+            reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
+          }
+        }
       }
     }
 
@@ -1012,6 +1101,14 @@ async function handlePostback(event: Record<string, unknown>) {
       console.log(
         `[Meta Webhook] Drip activated via postback for ${senderId} → template sent, next step in ${firstStep ? (firstStep as Record<string, number>).delay_hours + "h" : "N/A"}`
       );
+
+      // AUTO-REACT: heart the lead's message that opened the window
+      if ((automation as Record<string, unknown>).auto_react === true) {
+        const reactMid = ((event.message as Record<string, unknown>)?.mid as string) || "";
+        if (reactMid) {
+          reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
+        }
+      }
     }
 
     return; // Handled — skip normal postback flow
@@ -1196,25 +1293,87 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
 
   if (!automations || automations.length === 0) return;
 
-  const automation = automations[0];
-  const dmTemplate = (automation.dm_template as string) || "Thanks for replying to my story! 💜";
+  // ══════════════════════════════════════════════════════════════════
+  // STORY-LINK BRANCHING (v26 link_sticker_url): automations can define
+  // branches per story link. [{ match, blocks }] - if the tapped sticker
+  // URL (or the reply text) contains `match`, play THAT branch's message
+  // stack instead of the default template. First matching branch wins.
+  // ══════════════════════════════════════════════════════════════════
+  interface StoryBranch {
+    match?: string;
+    blocks?: MessageBlock[];
+  }
 
-  // Replace variables
-  const dmText = dmTemplate
-    .replace(/\{name\}/gi, senderId)
-    .replace(/\{story_reply\}/gi, messageText || "");
+  let matchedAutomation: Record<string, unknown> = automations[0];
+  let matchedBranch: StoryBranch | null = null;
 
-  // Send the auto-DM
-  const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
+  for (const auto of automations as Record<string, unknown>[]) {
+    const branches = (auto.story_link_branches as StoryBranch[]) || [];
+    if (!Array.isArray(branches) || branches.length === 0) continue;
+    const haystack = (linkStickerUrl + " " + (messageText || "")).toLowerCase();
+    const branch = branches.find(
+      (b) => b && typeof b.match === "string" && b.match.trim() !== "" && haystack.includes(b.match.toLowerCase())
+    );
+    if (branch && Array.isArray(branch.blocks) && branch.blocks.length > 0) {
+      matchedAutomation = auto;
+      matchedBranch = branch;
+      console.log(`[Meta Webhook] Story branch "${branch.match}" matched for automation ${auto.name}`);
+      break;
+    }
+  }
+
+  let sendResult: { success: boolean; messageId?: string; error?: string };
+  let logText: string;
+
+  if (matchedBranch) {
+    // Play the branch's stack (window is open - they just messaged us)
+    const stackResult = await sendMessageStack({
+      igUserId: recipientId,
+      accessToken,
+      recipientIgScopedId: senderId,
+      blocks: (matchedBranch.blocks as MessageBlock[]) || [],
+      templateVars: { name: senderId, keyword: messageText },
+    });
+    sendResult = {
+      success: stackResult.success,
+      messageId: stackResult.messageIds[0],
+      error: stackResult.errors.length > 0 ? stackResult.errors.join("; ") : undefined,
+    };
+    logText = `[STORY BRANCH: ${matchedBranch.match}]`;
+  } else {
+    const richResult = await maybeSendRichTemplate(
+      matchedAutomation, (matchedAutomation.template_type as string) || "text",
+      recipientId, accessToken, senderId, senderId
+    );
+    if (richResult) {
+      sendResult = richResult;
+    } else {
+      const dmTemplate = (matchedAutomation.dm_template as string) || "Thanks for replying to my story! 💜";
+      const dmText = dmTemplate
+        .replace(/\{name\}/gi, senderId)
+        .replace(/\{story_reply\}/gi, messageText || "");
+      sendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
+    }
+    logText = "";
+  }
+
+  // AUTO-REACT (v26 sender_action react): option to drop a ❤️ on the
+  // lead's story-reply message the moment the automation answers.
+  if (sendResult.success && matchedAutomation.auto_react === true) {
+    const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
+    if (reactMid) {
+      reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
+    }
+  }
 
   // Log the DM
   await supabase.from("dm_logs").insert({
     user_id: userId,
-    automation_id: automation.id,
+    automation_id: matchedAutomation.id,
     instagram_account_id: igAccount.id,
     recipient_ig_id: senderId,
     recipient_username: senderId,
-    message_text: dmText,
+    message_text: (logText + `[STORY_REPLY] ` + (messageText?.slice(0, 80) || "")).slice(0, 200),
     comment_text: `[STORY_REPLY] ${messageText?.slice(0, 80) || ""}${linkStickerUrl ? ` [LINK:${linkStickerUrl.slice(0, 180)}]` : ""}`,
     status: sendResult.success ? "sent" : "failed",
   });
@@ -1238,7 +1397,7 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
       action: sendResult.success ? "dm.story_reply_sent" : "dm.story_reply_failed",
       metadata: {
         sender: senderId,
-        automation: automation.name,
+        automation: matchedAutomation.name,
         trigger: "story_reply",
         error: sendResult.error || null,
       },
@@ -1258,6 +1417,215 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
  * text where we can match it, and never re-trigger automations on edited
  * content (Meta guidance: don't act on already-executed flows).
  */
+/**
+ * Handle a quick-reply tap (v26). Quick replies are message events whose
+ * message carries a quick_reply payload. The killer feature: content_type
+ * user_email / user_phone_number quick replies make Instagram ASK the user
+ * for their email/phone via the native keyboard - the captured value arrives
+ * as message.text. We store it on the lead automatically.
+ */
+async function handleQuickReply(messagingEvent: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+  const msg = messagingEvent.message as Record<string, unknown>;
+  const quickReply = msg.quick_reply as Record<string, string> | undefined;
+  if (!senderId || !recipientId || !quickReply?.payload) return;
+
+  const capturedText = (msg.text as string) || "";
+  const contentType = quickReply.content_type || "text";
+
+  // Resolve the IG account (recipient of the tap = our account)
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+  if (!igAccount) return;
+  const userId = igAccount.user_id as string;
+
+  // Match postback_flows by payload - quick replies use the same flow
+  // responses as buttons, so a flow configured for a button payload also
+  // answers its quick-reply twin.
+  const { data: flows } = await supabase
+    .from("postback_flows")
+    .select("*, automations!inner(id, name, status, instagram_account_id)")
+    .eq("payload", quickReply.payload)
+    .eq("is_active", true)
+    .eq("automations.status", "active")
+    .eq("automations.instagram_account_id", igAccount.id);
+
+  const accessToken = await getAccountToken(recipientId);
+  if (!accessToken) return;
+
+  // Structured lead capture: email / phone quick replies write straight
+  // onto the lead row.
+  if (contentType === "user_email" || contentType === "user_phone_number") {
+    const isEmail = contentType === "user_email";
+    const value = isEmail ? capturedText.trim().toLowerCase() : capturedText.trim();
+
+    await supabase.from("leads").upsert(
+      {
+        user_id: userId,
+        ig_user_id: senderId,
+        ig_username: senderId,
+        [isEmail ? "email" : "phone"]: value,
+        source: "quick_reply",
+        notes: "Captured via " + (isEmail ? "email" : "phone") + " quick reply",
+      },
+      { onConflict: "user_id,ig_user_id" }
+    );
+
+    console.log("[Meta Webhook] Quick-reply captured " + (isEmail ? "email" : "phone") + " for " + senderId);
+
+    // Notify the owner - a captured email/phone is a hot lead
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      type: "new_lead",
+      title: isEmail ? "📧 Email captured via quick reply" : "📱 Phone captured via quick reply",
+      body: "A lead shared their " + (isEmail ? "email" : "phone number") + " via your DM quick reply.",
+      metadata: { lead_ig_id: senderId, capture_type: contentType },
+    });
+
+    // Send a confirmation so the user knows it worked (window is open)
+    const confirmText = isEmail
+      ? "Got it - thanks! 📩 We'll reach out at this email."
+      : "Got it - thanks! 📲 We'll reach out on this number.";
+    await sendInstagramDM(recipientId, accessToken, senderId, confirmText).catch(() => {});
+  }
+
+  // Flow response (if configured) - reuse the postback flow machinery
+  if (flows && flows.length > 0) {
+    const flow = flows[0] as Record<string, unknown>;
+    const responseType = (flow.response_type as string) || "text";
+    const responseText = ((flow.response_text as string) || "")
+      .replace(/\{name\}/gi, senderId);
+
+    if (responseType === "text" && responseText) {
+      await sendInstagramDM(recipientId, accessToken, senderId, responseText).catch(() => {});
+    } else if (responseType === "button" && flow.response_template_title) {
+      const buttons = (flow.response_template_buttons as { type: string; title: string; url?: string }[]) || [];
+      await fetch("https://graph.instagram.com/v26.0/" + recipientId + "/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + accessToken,
+        },
+        body: JSON.stringify({
+          recipient: { id: senderId },
+          message: {
+            attachment: {
+              type: "template",
+              payload: {
+                template_type: "generic",
+                elements: [{
+                  title: (flow.response_template_title as string).slice(0, 80),
+                  ...(flow.response_template_subtitle ? { subtitle: flow.response_template_subtitle as string } : {}),
+                  ...(flow.response_template_image_url ? { image_url: flow.response_template_image_url as string } : {}),
+                  ...(buttons.length > 0 ? { buttons: buttons.map((b) => ({
+                    type: "web_url" as const,
+                    title: b.title.slice(0, 20),
+                    url: b.url,
+                  })) } : {}),
+                }],
+              },
+            },
+          },
+        }),
+      }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Handle read / messaging_seen events: the lead read our DMs. Stamps
+ * seen_at on the outbound dm_logs rows of that conversation so the
+ * Messages UI can show a read receipt.
+ */
+async function handleMessagingRead(messagingEvent: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+  if (!senderId || !recipientId) return;
+
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+  if (!igAccount) return;
+
+  const seenAt = new Date().toISOString();
+  // "sent" rows for THIS lead that haven't been marked seen yet
+  await supabase
+    .from("dm_logs")
+    .update({ seen_at: seenAt })
+    .eq("user_id", igAccount.user_id)
+    .eq("recipient_ig_id", senderId)
+    .eq("status", "sent")
+    .is("seen_at", null)
+    .lt("created_at", new Date(Date.now() - 2000).toISOString());
+
+  console.log("[Meta Webhook] Read receipt: " + senderId + " saw our DMs");
+}
+
+/**
+ * Handle reaction events (v26): a lead reacted with an emoji to one of our
+ * messages, or removed a reaction. Logged for analytics.
+ */
+async function handleMessageReaction(messagingEvent: Record<string, unknown>) {
+  const supabase = getSupabase();
+
+  const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+  const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+  const reaction = messagingEvent.reaction as Record<string, unknown> | undefined;
+  if (!senderId || !recipientId || !reaction) return;
+
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("user_id, id")
+    .eq("ig_user_id", recipientId)
+    .eq("is_active", true)
+    .single();
+  if (!igAccount) return;
+
+  const emoji = (reaction.emoji as string) || "";
+  const removed = reaction.reaction === false || reaction.action === "unreact";
+
+  void Promise.resolve(
+    supabase.from("activity_log").insert({
+      user_id: igAccount.user_id,
+      action: removed ? "dm.reaction_removed" : "dm.reaction",
+      metadata: {
+        lead_ig_id: senderId,
+        emoji: emoji,
+        message_mid: reaction.mid || reaction.target_mid || null,
+      },
+    })
+  ).catch(() => {});
+
+  console.log("[Meta Webhook] " + (removed ? "Unreact" : "Reaction") + " " + emoji + " from " + senderId);
+}
+
+/**
+ * Resolve a fresh access token for one of our IG accounts by its ig_user_id.
+ */
+async function getAccountToken(igUserId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from("instagram_accounts")
+    .select("page_access_token, access_token")
+    .eq("ig_user_id", igUserId)
+    .eq("is_active", true)
+    .limit(1);
+  const acc = (data || [])[0] as Record<string, string> | undefined;
+  return acc ? (acc.page_access_token || acc.access_token) : null;
+}
+
 const processedEdits = new Map<string, number>();
 async function handleMessageEdit(messagingEvent: Record<string, unknown>) {
   const edit = messagingEvent.message_edit as Record<string, unknown> | undefined;
@@ -1304,8 +1672,14 @@ async function handleMessageEdit(messagingEvent: Record<string, unknown>) {
 }
 
 /**
- * Rich template dispatcher (Graph API v26): sends an automation's
- * multi-image album or PDF file when template_type asks for it.
+ * Rich template dispatcher (Graph API v26).
+ *
+ * Priority: if the automation has a composed Message Stack (template_blocks),
+ * play the whole stack sequentially — text + album + PDF + buttons + quick
+ * replies + carousel + media share in any combination, with fail-isolation
+ * and pacing per block. Legacy single-format automations (multi_image / pdf
+ * template_type from before stacks existed) fall back to the direct send.
+ *
  * Returns null when the automation isn't a rich type (caller falls through
  * to text/button handling). Only used where a 24h window is OPEN (incoming
  * DMs, postbacks, drip) — comment private replies stay text/button.
@@ -1318,6 +1692,22 @@ async function maybeSendRichTemplate(
   recipientIgId: string,
   recipientName: string
 ): Promise<{ success: boolean; messageId?: string; error?: string } | null> {
+  const rawBlocks = (automation.template_blocks as MessageBlock[] | null) || [];
+  if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
+    const stackResult = await sendMessageStack({
+      igUserId,
+      accessToken,
+      recipientIgScopedId: recipientIgId,
+      blocks: rawBlocks,
+      templateVars: { name: recipientName, keyword: automation.keyword as string },
+    });
+    return {
+      success: stackResult.success,
+      messageId: stackResult.messageIds[0],
+      error: stackResult.errors.length > 0 ? stackResult.errors.join("; ") : undefined,
+    };
+  }
+
   if (templateType === "multi_image") {
     const urls = (automation.template_image_urls as string[]) || [];
     if (urls.length === 0) return null;

@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Send,
   RotateCcw,
-} from "lucide-react";
+ CheckCheck,} from "lucide-react";
 import { getMessages, getMessageStats } from "@/lib/actions/messages";
 import { retryFailedDM } from "@/lib/actions/retry-dm";
 import { toast } from "sonner";
@@ -200,11 +200,21 @@ export default function MessagesPage() {
                       </p>
                     </div>
                     <div className="text-right shrink-0 space-y-1">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
-                      >
-                        {msg.status as string}
-                      </span>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
+                        >
+                          {msg.status as string}
+                        </span>
+                        {msg.status === "sent" && (msg.seen_at as string | null) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400"
+                            title={`Read ${new Date(msg.seen_at as string).toLocaleString()}`}
+                          >
+                            <CheckCheck className="w-3 h-3" /> Seen
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {new Date(msg.sent_at as string).toLocaleDateString("en-IN", {
                           day: "numeric",

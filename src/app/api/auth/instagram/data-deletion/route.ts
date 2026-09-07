@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-const APP_SECRET = process.env.META_APP_SECRET || "";
+const SIGNING_SECRETS: string[] = [process.env.META_WEBHOOK_SECRET, process.env.META_APP_SECRET].filter((s): s is string => Boolean(s));
 
 /**
  * Parse Meta's signed request.
@@ -12,12 +12,15 @@ function parseSignedRequest(signedRequest: string): Record<string, unknown> | nu
     const [encodedSig, encodedPayload] = signedRequest.split(".");
     if (!encodedSig || !encodedPayload) return null;
 
-    const expectedSig = crypto
-      .createHmac("sha256", APP_SECRET)
-      .update(encodedPayload)
-      .digest("base64url");
-
-    if (encodedSig !== expectedSig) {
+    // Try every configured secret (Instagram product secret and/or Basic secret)
+    const sigMatches = SIGNING_SECRETS.some((secret) => {
+      const expectedSig = crypto
+        .createHmac("sha256", secret)
+        .update(encodedPayload)
+        .digest("base64url");
+      return encodedSig === expectedSig;
+    });
+    if (!sigMatches) {
       console.error("[IG Data Deletion] Signature mismatch");
       return null;
     }

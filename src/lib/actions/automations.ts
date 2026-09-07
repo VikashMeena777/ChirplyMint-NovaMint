@@ -146,6 +146,65 @@ export async function createAutomation(formData: FormData) {
     .split(String.fromCharCode(10)).map((s: string) => s.trim()).filter(Boolean).slice(0, 10);
   const templateFileUrl = (((formData.get("template_file_url") as string) || "").trim() || null);
 
+  // ── MESSAGE STACK (Graph API v26) ──
+  // The wizard composes blocks (text / image_album / pdf / button_card /
+  // quick_replies / carousel / media_share); we persist them as JSON.
+  // Validation: enforce Instagram's limits here so bad data never reaches
+  // the send path.
+  let templateBlocks: unknown[] = [];
+  const blocksRaw = formData.get("template_blocks") as string;
+  if (blocksRaw) {
+    try {
+      const parsed = JSON.parse(blocksRaw) as { type: string }[];
+      templateBlocks = parsed
+        .filter((b) => b && typeof b.type === "string")
+        .slice(0, 6); // sane cap: 6 blocks per stack
+    } catch {
+      // Ignore parse errors - fall back to single-format fields
+    }
+  }
+
+  // Validate stack contents against Meta limits
+  for (const b of templateBlocks as Record<string, unknown>[]) {
+    if (b.type === "image_album") {
+      const urls = (b.image_urls as string[]) || [];
+      if (urls.length === 0) return { error: "Image album block needs at least 1 image URL" };
+      if (urls.length > 10) return { error: "Image albums allow at most 10 images" };
+    }
+    if (b.type === "pdf" && !(b.file_url as string)?.trim()) {
+      return { error: "PDF block needs a file URL" };
+    }
+    if (b.type === "carousel") {
+      const els = (b.elements as unknown[]) || [];
+      if (els.length === 0) return { error: "Carousel block needs at least 1 card" };
+      if (els.length > 10) return { error: "Carousels allow at most 10 cards" };
+    }
+    if (b.type === "quick_replies") {
+      const qrs = (b.quick_replies as { title?: string; content_type?: string }[]) || [];
+      if (qrs.length === 0) return { error: "Quick replies block needs at least 1 option" };
+      if (qrs.length > 13) return { error: "Quick replies allow at most 13 options" };
+      for (const qr of qrs) {
+        if ((qr.title || "").length > 20) {
+          return { error: `Quick reply "${(qr.title || "").slice(0, 25)}" is over 20 characters` };
+        }
+      }
+    }
+  }
+
+  // Auto-react toggle: heart the lead's triggering message
+  const autoReact = formData.get("auto_react") === "true";
+
+  // Story-link branches (v26 link_sticker_url): [{ match, blocks }]
+  let storyLinkBranches: unknown[] = [];
+  const branchesRaw = formData.get("story_link_branches") as string;
+  if (branchesRaw) {
+    try {
+      storyLinkBranches = JSON.parse(branchesRaw);
+    } catch {
+      // ignore
+    }
+  }
+
   const { data: inserted, error } = await supabase.from("automations").insert({
     user_id: user.id,
     instagram_account_id: targetAccountId,
@@ -168,6 +227,9 @@ export async function createAutomation(formData: FormData) {
     template_buttons: templateButtons,
     template_image_urls: templateImageUrls,
     template_file_url: templateFileUrl,
+    template_blocks: templateBlocks,
+    auto_react: autoReact,
+    story_link_branches: storyLinkBranches,
     trigger_type: triggerType,
   }).select("id").single();
 
@@ -232,6 +294,32 @@ export async function deleteAutomation(id: string) {
     () => {}
   );
   trackServerEvent(user.id, "automation.deleted", { automation_id: id });
+
+  revalidatePath("/dashboard/automations");
+  return { success: true };
+}
+
+export async function toggleAutoWinner(
+  id: string,
+  enabled: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("automations")
+    .update({ ab_auto_winner: enabled })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+
+  logActivity(user.id, enabled ? "automation.auto_winner_on" : "automation.auto_winner_off", {
+    automation_id: id,
+  }).catch(() => {});
 
   revalidatePath("/dashboard/automations");
   return { success: true };

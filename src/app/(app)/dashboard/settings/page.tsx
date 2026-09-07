@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Trash2,
   Clock,
+  ShieldBan,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
@@ -396,6 +397,7 @@ function InstagramConnectionTab() {
       ig_profile_pic: string | null;
       is_active: boolean;
       updated_at: string;
+      auto_hide_keywords: string[] | null;
     }[]
   >([]);
   const [limit, setLimit] = useState(1);
@@ -404,6 +406,7 @@ function InstagramConnectionTab() {
   const [loading, setLoading] = useState(true);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
+  const [savingModerationId, setSavingModerationId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { getIGAccounts } = await import("@/lib/actions/ig-accounts");
@@ -465,6 +468,20 @@ function InstagramConnectionTab() {
       toast.error(result.error || "Failed to set primary.");
     }
     setSettingPrimaryId(null);
+  };
+
+  const handleSaveModeration = async (accountId: string, text: string) => {
+    setSavingModerationId(accountId);
+    const { saveModerationKeywords } = await import("@/lib/actions/ig-accounts");
+    const keywords = text.split(",").map((k) => k.trim()).filter(Boolean);
+    const result = await saveModerationKeywords(accountId, keywords);
+    if (result.success) {
+      toast.success(`Moderation saved — ${keywords.length} keyword${keywords.length === 1 ? "" : "s"}.`);
+      load();
+    } else {
+      toast.error(result.error || "Failed to save.");
+    }
+    setSavingModerationId(null);
   };
 
   if (loading) {
@@ -626,6 +643,44 @@ function InstagramConnectionTab() {
                     </p>
                   </div>
                 )}
+
+                {/* Comment auto-moderation */}
+                <details className="mt-3 pt-3 border-t border-border">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-foreground">
+                    <ShieldBan className="w-3.5 h-3.5 text-muted-foreground" />
+                    Comment auto-moderation
+                    <span className="ml-auto text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {(acc.auto_hide_keywords || []).length} keyword{(acc.auto_hide_keywords || []).length === 1 ? "" : "s"}
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Comments containing these words are hidden from your public feed and never trigger automations.
+                      The commenter still sees their comment, so they don&apos;t retry. Comma-separated, max 50.
+                    </p>
+                    <input
+                      type="text"
+                      defaultValue={(acc.auto_hide_keywords || []).join(", ")}
+                      placeholder="e.g. scam, promo code, free followers, dm me"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleSaveModeration(acc.id, (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const current = (acc.auto_hide_keywords || []).join(", ");
+                        if (e.target.value !== current) {
+                          handleSaveModeration(acc.id, e.target.value);
+                        }
+                      }}
+                      disabled={savingModerationId === acc.id}
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] disabled:opacity-60"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Tip: press Enter or click away to save. Empty = moderation off.
+                    </p>
+                  </div>
+                </details>
               </div>
             );
           })}

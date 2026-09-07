@@ -812,3 +812,209 @@ export async function sendFileDM(
     return { success: false, error: err instanceof Error ? err.message : "Network error" };
   }
 }
+export interface QuickReply {
+  content_type?: "text" | "user_email" | "user_phone_number";
+  title: string; // max 20 chars
+  payload: string;
+}
+
+/**
+ * Quick Replies DM — up to 13 tappable options under a text prompt.
+ * user_email / user_phone_number types open the keyboard pre-filled for
+ * one-tap lead capture. Taps arrive on the messages webhook as
+ * message.quick_reply.payload with the typed value as message.text.
+ */
+export async function sendQuickRepliesDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  promptText: string,
+  quickReplies: QuickReply[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        message: {
+          text: promptText.slice(0, 1000),
+          quick_replies: quickReplies.slice(0, 13).map((q) => ({
+            content_type: q.content_type || "text",
+            title: q.title.slice(0, 20),
+            payload: q.payload,
+          })),
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Quick replies send failed" };
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+export interface CarouselElement {
+  title: string; // max 80 chars
+  subtitle?: string; // max 80 chars
+  image_url?: string;
+  default_url?: string;
+  buttons: TemplateButton[];
+}
+
+/**
+ * Carousel DM (generic template) — up to 10 cards, 3 buttons each.
+ * Mobile-only rendering (Instagram limitation); sent as a horizontally
+ * scrollable product showcase.
+ */
+export async function sendCarouselDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  elements: CarouselElement[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "generic",
+              elements: elements.slice(0, 10).map((el) => ({
+                title: el.title.slice(0, 80),
+                ...(el.subtitle ? { subtitle: el.subtitle.slice(0, 80) } : {}),
+                ...(el.image_url ? { image_url: el.image_url } : {}),
+                ...(el.default_url ? { default_action: { type: "web_url", url: el.default_url } } : {}),
+                buttons: (el.buttons || []).slice(0, 3).map((btn) =>
+                  btn.type === "web_url"
+                    ? { type: "web_url", url: btn.url, title: btn.title.slice(0, 20) }
+                    : { type: "postback", title: btn.title.slice(0, 20), payload: btn.payload || btn.title }
+                ),
+              })),
+            },
+          },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Carousel send failed" };
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * Media Share DM — send one of YOUR OWN published posts into the
+ * conversation ("here's the post you commented on"). Media must be owned
+ * by the connected account.
+ */
+export async function sendMediaShareDM(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  mediaId: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        message: { attachment: { type: "MEDIA_SHARE", payload: { id: mediaId } } },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Media share failed" };
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * React to an inbound message with an emoji (sender_action react).
+ * Used for the auto-heart delight feature on first-time commenters.
+ */
+export async function reactToMessage(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  messageId: string,
+  emoji = "❤️"
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        sender_action: "react",
+        message_id: messageId,
+        reaction: emoji,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "React failed" };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * Upload a reusable attachment once, get an attachment_id, reuse it across
+ * every recipient (solves large-image timeouts on slow servers).
+ */
+export async function uploadReusableAttachment(
+  igUserId: string,
+  accessToken: string,
+  type: "image" | "video" | "audio" | "file",
+  mediaUrl: string
+): Promise<{ success: boolean; attachmentId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/message_attachments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        message: {
+          attachment: { type, payload: { url: mediaUrl, is_reusable: true } },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Attachment upload failed" };
+    return { success: true, attachmentId: data.attachment_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * Hide a comment from the public feed (Graph API v26, instagram_manage_comments).
+ * Hidden comments stay visible to the commenter - they don't know it was hidden -
+ * but they never trigger automations. Used by account-level auto-moderation.
+ */
+export async function hideComment(
+  commentId: string,
+  accessToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`https://graph.instagram.com/v26.0/${commentId}?hide=true`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = (await res.json()) as { error?: { message?: string } };
+    if (!res.ok || data.error) {
+      return { success: false, error: data.error?.message || `HTTP ${res.status}` };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "network error" };
+  }
+}

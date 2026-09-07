@@ -41,6 +41,43 @@ export interface TemplateButton {
   payload?: string;
 }
 
+// ── Message Stack (Graph API v26) ──
+// A stack is an ordered sequence of blocks sent as separate DMs. This is
+// what lets PDFs carry captions (Meta has no caption+attachment combo: the
+// text block right before a pdf/album block IS the caption) and what lets
+// quick replies ride on any text message.
+export interface QuickReplyOption {
+  title: string;               // max 20 chars
+  payload: string;
+  content_type?: "text" | "user_email" | "user_phone_number";
+}
+
+export interface CarouselCard {
+  title: string;               // max 80 chars
+  subtitle?: string;
+  image_url?: string;
+  buttons: TemplateButton[];   // max 3
+}
+
+export interface MessageBlockForm {
+  id: string; // client-side React key
+  type: "text" | "image_album" | "pdf" | "button_card" | "quick_replies" | "carousel" | "media_share";
+  text?: string;
+  image_urls?: string[];
+  file_url?: string;
+  subtitle?: string;
+  image_url?: string;
+  buttons?: TemplateButton[];
+  quick_replies?: QuickReplyOption[];
+  elements?: CarouselCard[];
+  media_id?: string;
+}
+
+export interface StoryLinkBranchForm {
+  match: string;
+  blocks: MessageBlockForm[];
+}
+
 export interface PostbackFlowForm {
   payload: string;
   label: string;
@@ -67,13 +104,16 @@ export interface FormData {
   comment_reply_enabled: boolean;
   comment_reply_template: string;
   require_follow: boolean;
-  template_type: "text" | "button" | "multi_image" | "pdf";
+  template_type: "text" | "button" | "multi_image" | "pdf" | "stack";
   template_title: string;
   template_subtitle: string;
   template_image_url: string;
   template_image_urls: string;
   template_file_url: string;
   template_buttons: TemplateButton[];
+  template_blocks: MessageBlockForm[];
+  auto_react: boolean;
+  story_link_branches: StoryLinkBranchForm[];
   trigger_type: "comment_trigger" | "story_reply" | "both";
   instagram_account_id: string;
 }
@@ -99,6 +139,9 @@ export const INITIAL_FORM_DATA: FormData = {
   template_image_urls: "",
   template_file_url: "",
   template_buttons: [],
+  template_blocks: [],
+  auto_react: false,
+  story_link_branches: [],
   trigger_type: "comment_trigger",
   instagram_account_id: "",
 };

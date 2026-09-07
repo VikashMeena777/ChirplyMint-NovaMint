@@ -16,6 +16,7 @@ export interface IGAccount {
   ig_profile_pic: string | null;
   is_active: boolean;
   updated_at: string;
+  auto_hide_keywords: string[] | null;
 }
 
 // ─── List all connected IG accounts ──────────────────────
@@ -44,7 +45,7 @@ export async function getIGAccounts(): Promise<{
   // Get all active accounts
   const { data: accounts } = await supabase
     .from("instagram_accounts")
-    .select("id, ig_user_id, ig_username, ig_name, ig_profile_pic, is_active, updated_at")
+    .select("id, ig_user_id, ig_username, ig_name, ig_profile_pic, is_active, updated_at, auto_hide_keywords")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
@@ -216,3 +217,50 @@ export async function setActiveAccount(accountId: string): Promise<{
   return { success: true };
 }
 
+
+// ─── Comment auto-moderation keywords ──────────
+
+export async function saveModerationKeywords(
+  accountId: string,
+  keywords: string[]
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated" };
+
+  // Verify ownership
+  const { data: account } = await supabase
+    .from("instagram_accounts")
+    .select("id, ig_username")
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .single();
+  if (!account) return { success: false, error: "Account not found" };
+
+  // Normalize: lowercase, trim, dedupe, cap at 50 keywords
+  const cleaned = Array.from(
+    new Set(
+      keywords
+        .map((k) => k.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  ).slice(0, 50);
+
+  const { error } = await supabase
+    .from("instagram_accounts")
+    .update({ auto_hide_keywords: cleaned })
+    .eq("id", accountId)
+    .eq("user_id", user.id);
+
+  if (error) return { success: false, error: error.message };
+
+  logActivity(user.id, "settings.moderation_keywords_saved", {
+    account_id: accountId,
+    count: cleaned.length,
+  }).catch(() => {});
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}
