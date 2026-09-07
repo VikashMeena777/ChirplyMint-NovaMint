@@ -78,6 +78,40 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
     load();
   }, [load]);
 
+  // ─── Auto-winner setting for this automation ────────
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { getAutomations } = await import("@/lib/actions/automations");
+      const { data } = await getAutomations();
+      const auto = (data as Record<string, unknown>[] | null)?.find(
+        (a) => a.id === automationId
+      );
+      if (mounted) setAutoWinner(auto?.ab_auto_winner === true);
+    })().catch(() => {});
+    return () => { mounted = false; };
+  }, [automationId]);
+
+  const handleToggleAutoWinner = async () => {
+    setTogglingAuto(true);
+    const { toggleAutoWinner } = await import("@/lib/actions/automations");
+    const result = await toggleAutoWinner(automationId, !autoWinner);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      setAutoWinner(!autoWinner);
+      toast.success(
+        !autoWinner
+          ? "🏆 Auto-winner ON — we'll promote the best variant automatically once data is significant (≥30 sends each)."
+          : "Auto-winner OFF — you'll pick the winner manually."
+      );
+    }
+    setTogglingAuto(false);
+  };
+
+  // NOTE: hooks above run unconditionally on every render (React requires
+  // a stable hook count — placing them after the plan-gate early return
+  // throws 'Rendered more hooks than during the previous render' #310).
   // ─── Plan Gate ───────────────────────────────────────
   if (!isPro) {
     return (
@@ -221,37 +255,6 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
 
   const maxSends = Math.max(...variants.map((v) => v.sends), 1);
   const bestVariant = [...variants].sort((a, b) => getReplyRate(b) - getReplyRate(a))[0];
-
-  // ─── Auto-winner setting for this automation ────────
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { getAutomations } = await import("@/lib/actions/automations");
-      const { data } = await getAutomations();
-      const auto = (data as Record<string, unknown>[] | null)?.find(
-        (a) => a.id === automationId
-      );
-      if (mounted) setAutoWinner(auto?.ab_auto_winner === true);
-    })().catch(() => {});
-    return () => { mounted = false; };
-  }, [automationId]);
-
-  const handleToggleAutoWinner = async () => {
-    setTogglingAuto(true);
-    const { toggleAutoWinner } = await import("@/lib/actions/automations");
-    const result = await toggleAutoWinner(automationId, !autoWinner);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      setAutoWinner(!autoWinner);
-      toast.success(
-        !autoWinner
-          ? "🏆 Auto-winner ON — we'll promote the best variant automatically once data is significant (≥30 sends each)."
-          : "Auto-winner OFF — you'll pick the winner manually."
-      );
-    }
-    setTogglingAuto(false);
-  };
 
   // ─── Loading ────────────────────────────────────────
   if (loading) {

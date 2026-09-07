@@ -497,6 +497,66 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
         sendResult = await sendPrivateReply(igUserId, accessToken, commentId, dmText);
       }
+    } else if (
+      templateType === "stack" &&
+      Array.isArray(automation.template_blocks) &&
+      (automation.template_blocks as MessageBlock[]).length > 0
+    ) {
+      // ── MESSAGE STACK, PHASE 1 (comment trigger) ──
+      // Meta only allows text/button templates as a comment private reply,
+      // so the FIRST text/button block becomes the private reply and the
+      // lead is enrolled in stack_pending. The remaining blocks (PDF, album,
+      // carousel, quick replies...) play automatically the moment they
+      // reply — that reply opens the 24h messaging window.
+      const blocks = automation.template_blocks as MessageBlock[];
+      const first = blocks[0];
+      let preSentCount = 0;
+
+      if (first.type === "text" && (first.text || "").trim()) {
+        const phase1Text = first.text!
+          .replace(/\{name\}/gi, `@${commenterUsername}`)
+          .replace(/\{keyword\}/gi, commentText);
+        sendResult = await sendPrivateReply(igUserId, accessToken, commentId, phase1Text);
+        preSentCount = 1;
+      } else if (first.type === "button_card" && (first.text || "").trim()) {
+        sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
+          title: first.text!.replace(/\{name\}/gi, `@${commenterUsername}`).slice(0, 80),
+          subtitle: first.subtitle || undefined,
+          image_url: first.image_url || undefined,
+          buttons: (first.buttons || []).slice(0, 3),
+        });
+        preSentCount = 1;
+      } else {
+        // First block is rich (PDF/album/carousel/...) — can't private-reply it.
+        // Prompt the lead to reply; their reply unlocks the full stack.
+        const prompt =
+          ((automation.dm_template as string) || "").trim() ||
+          `Hey @${commenterUsername}! 👋 Thanks for commenting! Reply to this message to receive the full pack 📩`;
+        sendResult = await sendPrivateReply(igUserId, accessToken, commentId, prompt);
+      }
+
+      // Enroll for phase 2 only if there's something left to deliver
+      if (sendResult.success && blocks.length > preSentCount) {
+        void (async () => {
+          try {
+            await supabase.from("stack_pending").insert({
+              user_id: userId,
+              automation_id: automation.id,
+              instagram_account_id: (automation as Record<string, unknown>).instagram_account_id,
+              recipient_ig_id: commenterId,
+              recipient_username: commenterUsername,
+              pre_sent_count: preSentCount,
+              status: "waiting",
+            });
+            console.log(
+              `[Meta Webhook] 📦 Stack phase 1 sent to @${commenterUsername} — ${blocks.length - preSentCount} block(s) pending their reply`
+            );
+          } catch (err) {
+            console.error("[Meta Webhook] stack_pending insert error:", err);
+          }
+        })();
+      }
+
     } else if (templateType === "button" && automation.template_title) {
       // ── NO DRIP: BUTTON TEMPLATE DM ──
       const buttons = (automation.template_buttons as TemplateButton[]) || [];
@@ -752,6 +812,86 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     (igAccount.access_token as string);
 
   // ═══════════════════════════════════════════════
+  // MESSAGE STACK, PHASE 2: this lead just replied after our phase-1
+  // private reply. Their reply opened the 24h window -> play the remaining
+  // stack blocks (PDF / album / carousel / quick replies / media share).
+  {
+    const { data: pendingStack } = await supabase
+      .from("stack_pending")
+      .select("id, automation_id, pre_sent_count, recipient_username")
+      .eq("user_id", userId)
+      .eq("recipient_ig_id", senderId)
+      .eq("status", "waiting")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const stackRow = pendingStack as Record<string, unknown> | null;
+    if (stackRow) {
+      const { data: stackAutomation } = await supabase
+        .from("automations")
+        .select("*")
+        .eq("id", stackRow.automation_id as string)
+        .single();
+      const stackAuto = stackAutomation as Record<string, unknown> | null;
+
+      const allBlocks = (stackAuto?.template_blocks as MessageBlock[] | null) || [];
+      const skipCount = (stackRow.pre_sent_count as number) || 0;
+      const remaining = allBlocks.slice(skipCount);
+
+      if (remaining.length > 0) {
+        // Quick replies only ride on TEXT messages - the engine attaches a
+        // trailing quick_replies block to the last text block automatically.
+        const stackResult = await sendMessageStack({
+          igUserId: recipientId,
+          accessToken,
+          recipientIgScopedId: senderId,
+          blocks: remaining,
+          templateVars: {
+            name: (stackRow.recipient_username as string) || senderId,
+            keyword: stackAuto?.keyword as string,
+          },
+        });
+
+        await supabase.from("dm_logs").insert({
+          user_id: userId,
+          automation_id: stackRow.automation_id as string,
+          instagram_account_id: igAccount.id,
+          recipient_ig_id: senderId,
+          recipient_username: (stackRow.recipient_username as string) || senderId,
+          message_text: `[STACK PHASE 2] ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks sent${stackResult.errors.length ? " - errors: " + stackResult.errors.join("; ").slice(0, 150) : ""}`,
+          comment_text: messageText,
+          status: stackResult.success ? "sent" : "failed",
+        });
+
+        // Mark delivered either way - never re-send a half-played stack
+        await supabase
+          .from("stack_pending")
+          .update({ status: "delivered", delivered_at: new Date().toISOString() })
+          .eq("id", stackRow.id as string);
+
+        console.log(
+          `[Meta Webhook] Stack phase 2 -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
+        );
+
+        if (stackAuto?.auto_react === true) {
+          const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
+          if (reactMid) {
+            reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
+          }
+        }
+
+        return; // Stack delivered - this reply is fully handled
+      } else {
+        // Nothing left (phase 1 covered it all) - clean up and fall through
+        await supabase
+          .from("stack_pending")
+          .update({ status: "delivered", delivered_at: new Date().toISOString() })
+          .eq("id", stackRow.id as string);
+      }
+    }
+  }
+
   // DRIP WINDOW OPENER: Check if this user has a 'waiting_reply' enrollment
   // If so, they just replied to the window opener → send the actual template
   // and activate the drip sequence
