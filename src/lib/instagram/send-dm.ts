@@ -149,7 +149,7 @@ export async function sendPrivateReply(
   accessToken: string,
   commentId: string,
   messageText: string
-): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string; rateLimited?: boolean }> {
+): Promise<{ success: boolean; messageId?: string; recipientId?: string; error?: string; rateLimited?: boolean; duplicate?: boolean }> {
   logDebug("IG Private Reply", `Sending via /${igUserId}/messages`, { commentId });
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -180,6 +180,15 @@ export async function sendPrivateReply(
         if (isRateLimitError(data.error)) {
           logWarn("IG Private Reply", "Rate limit — all retries exhausted, queuing for later", { commentId });
           return { success: false, error: data.error.message, rateLimited: true };
+        }
+
+        // Meta re-delivers comment webhooks 2-5x. A second private reply to
+        // the same comment returns subcode 2534023 ("already has a reply") —
+        // treat it as success: the lead DID get the message, and marking it
+        // failed caused false "failed" rows + failure-alert spam.
+        if (data.error.error_subcode === 2534023 || /already has a reply/i.test(data.error.message || "")) {
+          logInfo("IG Private Reply", "Duplicate private reply (already sent) — treating as success", { commentId });
+          return { success: true, duplicate: true };
         }
 
         logError("IG Private Reply", "API Error", data.error);
@@ -740,6 +749,14 @@ export async function sendMultiImageDM(
 ): Promise<{ success: boolean; messageId?: string; error?: string; fellBackToSingles?: boolean }> {
   const urls = imageUrls.slice(0, 10);
   try {
+    // Instagram messages carry text OR attachments, never both — putting
+    // caption text alongside attachments gets it silently DROPPED (user
+    // reported: images arrived, caption missing). So the caption goes out
+    // as its own text message right before the album.
+    if (caption && caption.trim()) {
+      await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, caption.slice(0, 1000));
+      await sleep(600);
+    }
     const body: Record<string, unknown> = {
       recipient: { id: recipientIgScopedId },
       message: {
@@ -749,9 +766,6 @@ export async function sendMultiImageDM(
         })),
       },
     };
-    if (caption) {
-      (body.message as Record<string, unknown>).text = caption.slice(0, 1000);
-    }
     const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
       method: "POST",
       headers: {
@@ -764,10 +778,11 @@ export async function sendMultiImageDM(
     if (data.error) {
       const subcode = data.error.error_subcode as number | undefined;
       if (subcode === 2534068) {
-        // Feature not enabled for this account — send as individual images.
+        // Feature not enabled for this account — send as individual images
+        // (real image attachments, NOT the URL as text).
         let allOk = true;
         for (const url of urls) {
-          const single = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, url);
+          const single = await sendImageDMByUrl(igUserId, accessToken, recipientIgScopedId, url);
           if (!single.success) allOk = false;
           await sleep(600);
         }
@@ -775,6 +790,37 @@ export async function sendMultiImageDM(
       }
       return { success: false, error: data.error.message || "Multi-image send failed" };
     }
+    return { success: true, messageId: data.message_id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
+/**
+ * Single image attachment DM (used by the multi-image fallback).
+ */
+export async function sendImageDMByUrl(
+  igUserId: string,
+  accessToken: string,
+  recipientIgScopedId: string,
+  imageUrl: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientIgScopedId },
+        message: {
+          attachment: { type: "image", payload: { url: imageUrl } },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.error) return { success: false, error: data.error.message || "Image send failed" };
     return { success: true, messageId: data.message_id };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Network error" };
@@ -1016,5 +1062,33 @@ export async function hideComment(
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "network error" };
+  }
+}
+
+/**
+ * Like a comment (auto-like / engagement, Graph API v26).
+ * Requires instagram_manage_comments. Idempotent per comment — liking an
+ * already-liked comment returns success.
+ */
+export async function likeComment(
+  commentId: string,
+  accessToken: string
+): Promise<{ success: boolean; duplicate?: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${commentId}/likes`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = (await res.json()) as { error?: { message?: string; code?: number; error_subcode?: number } };
+    if (data.error) {
+      // Already liked → success (idempotent)
+      if (/already/i.test(data.error.message || "")) {
+        return { success: true, duplicate: true };
+      }
+      return { success: false, error: data.error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error" };
   }
 }

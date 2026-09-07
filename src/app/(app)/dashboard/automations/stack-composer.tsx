@@ -66,7 +66,7 @@ export function makeBlock(type: MessageBlockForm["type"]): MessageBlockForm {
     case "image_album":
       return { ...base, image_urls: [""], text: "" };
     case "pdf":
-      return { ...base, file_url: "" };
+      return { ...base, file_url: "", pdf_mode: "link_button" };
     case "button_card":
       return { ...base, text: "", subtitle: "", buttons: [] };
     case "quick_replies":
@@ -282,18 +282,57 @@ function BlockEditor({
 
     case "pdf":
       return (
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            PDF URL (publicly accessible, max 25MB)
-          </label>
-          <input
-            type="url"
-            value={block.file_url || ""}
-            onChange={(e) => onChange(block.id, { file_url: e.target.value })}
-            placeholder="https://your-cdn.com/brochure.pdf"
-            className={inputCls}
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              PDF URL (publicly accessible, max 25MB)
+            </label>
+            <input
+              type="url"
+              value={block.file_url || ""}
+              onChange={(e) => onChange(block.id, { file_url: e.target.value })}
+              placeholder="https://your-cdn.com/brochure.pdf"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Delivery style</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onChange(block.id, { pdf_mode: "attachment" })}
+                className={`rounded-lg border p-2.5 text-left transition ${
+                  (block.pdf_mode || "attachment") === "attachment"
+                    ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)]"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <p className="text-xs font-semibold">In-chat file</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                  PDF opens inside the chat. Instagram wraps downloads with a
+                  &quot;leaving Instagram&quot; warning screen.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange(block.id, { pdf_mode: "link_button" })}
+                className={`rounded-lg border p-2.5 text-left transition ${
+                  block.pdf_mode === "link_button"
+                    ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)]"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <p className="text-xs font-semibold">
+                  Clean link card <span className="text-[oklch(0.52_0.19_162)]">★</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                  Elegant card with an &quot;Open PDF&quot; button. Opens directly — no
+                  warning screen. Recommended.
+                </p>
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
             Tip: add a Text block above to act as the PDF&apos;s caption — Instagram sends
             captions and files as separate messages.
           </p>

@@ -13,6 +13,7 @@ export interface Automation {
   dms_sent: number;
   leads_captured: number;
   ai_enabled: boolean;
+  ai_persona?: string | null;
   comment_reply_enabled: boolean;
   comment_reply_template: string | null;
   require_follow: boolean;
@@ -21,6 +22,13 @@ export interface Automation {
   template_subtitle: string | null;
   template_image_url: string | null;
   template_buttons: TemplateButton[];
+  template_image_urls?: string[];
+  template_file_url?: string | null;
+  template_blocks?: MessageBlockForm[];
+  auto_react?: boolean;
+  story_link_branches?: StoryLinkBranchForm[];
+  trigger_type?: string;
+  instagram_account_id?: string;
   created_at: string;
 }
 
@@ -65,6 +73,7 @@ export interface MessageBlockForm {
   text?: string;
   image_urls?: string[];
   file_url?: string;
+  pdf_mode?: "attachment" | "link_button";
   subtitle?: string;
   image_url?: string;
   buttons?: TemplateButton[];

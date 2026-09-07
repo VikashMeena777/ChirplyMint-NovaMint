@@ -38,6 +38,10 @@ export interface MessageBlock {
   image_urls?: string[];
   // pdf
   file_url?: string;
+  // pdf delivery style: "attachment" = in-chat file (Meta wraps downloads in
+  // an external-link warning); "link_button" = rich card with a direct link
+  // button — opens clean, no Facebook interstitial. Default: attachment.
+  pdf_mode?: "attachment" | "link_button";
   // button_card
   subtitle?: string;
   image_url?: string;
@@ -94,28 +98,37 @@ export async function sendMessageStack(params: {
   }
 
   // Enrichment: attach quick_replies to the LAST text block (Instagram only
-  // supports them on text messages), so the composer can specify them as a
-  // separate trailing block for UX while we merge for correctness.
+  // supports them on text messages). Multiple quick_replies blocks MERGE
+  // (concat + dedupe by title) rather than overwrite — a user adding two QR
+  // blocks expects all options to show together. Cap at Meta's 13 limit.
   const enriched: MessageBlock[] = [];
   for (let i = 0; i < list.length; i++) {
     const b = list[i];
     if (
       b.type === "quick_replies" &&
       b.quick_replies &&
-      enriched.length > 0
+      b.quick_replies.length > 0
     ) {
       const lastTextIdx = [...enriched].reverse().findIndex((x) => x.type === "text");
       if (lastTextIdx >= 0) {
         const target = enriched[enriched.length - 1 - lastTextIdx];
-        // Only text messages can carry quick replies
-        target.quick_replies = b.quick_replies;
+        const existing = target.quick_replies || [];
+        const seen = new Set(existing.map((q) => (q.title || "").toLowerCase()));
+        const merged = [...existing];
+        for (const qr of b.quick_replies) {
+          const key = (qr.title || "").toLowerCase();
+          if (key && seen.has(key)) continue;
+          seen.add(key);
+          merged.push(qr);
+        }
+        target.quick_replies = merged.slice(0, 13);
         continue;
       }
       // No text block to attach to: convert prompt into the text block
       enriched.push({
         type: "text",
         text: b.text || "Choose an option:",
-        quick_replies: b.quick_replies,
+        quick_replies: b.quick_replies.slice(0, 13),
       });
       continue;
     }
@@ -161,7 +174,18 @@ export async function sendMessageStack(params: {
         }
         case "pdf": {
           if (!block.file_url) break;
-          result = await sendFileDM(igUserId, accessToken, recipientIgScopedId, block.file_url);
+          if (block.pdf_mode === "link_button") {
+            // Clean link delivery: a rich card with a direct button — no
+            // Meta attachment fetch, no facebook.com/flx external-link
+            // warning interstitial when the lead opens it.
+            result = await sendGenericTemplateDM(igUserId, accessToken, recipientIgScopedId, {
+              title: (applyTemplateVars(block.text, templateVars) || "Your file is ready").slice(0, 80),
+              subtitle: "Tap below to open it instantly",
+              buttons: [{ type: "web_url", title: "Open PDF", url: block.file_url }],
+            });
+          } else {
+            result = await sendFileDM(igUserId, accessToken, recipientIgScopedId, block.file_url);
+          }
           break;
         }
         case "button_card": {

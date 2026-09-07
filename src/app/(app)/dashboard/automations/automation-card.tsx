@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Pause,
   Play,
+  Pencil,
   Trash2,
   Users,
   Sparkles,
@@ -130,6 +131,7 @@ interface AutomationCardProps {
   userPlan: string;
   onToggle: (id: string, status: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (automation: Automation) => void;
 }
 
 export default function AutomationCard({
@@ -137,6 +139,7 @@ export default function AutomationCard({
   userPlan,
   onToggle,
   onDelete,
+  onEdit,
 }: AutomationCardProps) {
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all group overflow-hidden">
@@ -164,6 +167,13 @@ export default function AutomationCard({
         </span>
         {/* Actions */}
         <div className="flex items-center gap-1.5 ml-2">
+          <button
+            onClick={() => onEdit(a)}
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Edit automation"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => onToggle(a.id, a.status)}
             className={`p-1.5 rounded-lg border transition-colors ${

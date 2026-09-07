@@ -36,7 +36,7 @@ import {
   getInstagramPostByUrl,
   getInstagramStories,
 } from "@/lib/actions/instagram-api";
-import { createAutomation } from "@/lib/actions/automations";
+import { createAutomation, updateAutomation } from "@/lib/actions/automations";
 import {
   savePostbackFlows,
 } from "@/lib/actions/postback-flows";
@@ -48,6 +48,9 @@ import {
   type TemplateButton,
   type PostbackFlowForm,
   type FormData,
+  type Automation,
+  type MessageBlockForm,
+  type StoryLinkBranchForm,
   INITIAL_FORM_DATA,
   PRESET_TEMPLATES,
 } from "./automation-types";
@@ -58,6 +61,64 @@ interface CreateAutomationWizardProps {
   igAccounts: { id: string; ig_username: string; ig_profile_pic: string | null }[];
   onClose: () => void;
   onCreated: () => void;
+  /** When set, the wizard opens in EDIT mode prefilled from this automation */
+  editAutomation?: Automation | null;
+}
+
+function buildEditFormData(a: Automation): FormData {
+  const base: FormData = { ...INITIAL_FORM_DATA };
+  let blocks: MessageBlockForm[] = [];
+  try {
+    const parsed = a.template_blocks as MessageBlockForm[] | null;
+    if (Array.isArray(parsed)) {
+      blocks = parsed.map((b, i) => ({ ...b, id: `edit_${i}_${Date.now()}` }));
+    }
+  } catch {
+    blocks = [];
+  }
+  let branches: StoryLinkBranchForm[] = [];
+  try {
+    const parsedB = a.story_link_branches as StoryLinkBranchForm[] | null;
+    if (Array.isArray(parsedB)) {
+      branches = parsedB.map((br) => ({
+        match: br.match || "",
+        blocks: Array.isArray(br.blocks)
+          ? br.blocks.map((b, i) => ({ ...b, id: `editbr_${i}_${Date.now()}` }))
+          : [],
+      }));
+    }
+  } catch {
+    branches = [];
+  }
+  return {
+    ...base,
+    name: a.name || "",
+    keyword: a.keyword || "",
+    dm_template: a.dm_template || "",
+    scope_type: (a.scope_type as FormData["scope_type"]) || "account",
+    content_type: (a.content_type as FormData["content_type"]) || "all",
+    media_id: a.media_id || "",
+    post_url: a.post_url || "",
+    ai_enabled: !!a.ai_enabled,
+    ai_persona: a.ai_persona || "",
+    comment_reply_enabled: !!a.comment_reply_enabled,
+    comment_reply_template: a.comment_reply_template || "",
+    require_follow: !!a.require_follow,
+    template_type: (a.template_type as FormData["template_type"]) || "text",
+    template_title: a.template_title || "",
+    template_subtitle: a.template_subtitle || "",
+    template_image_url: a.template_image_url || "",
+    template_image_urls: Array.isArray(a.template_image_urls)
+      ? (a.template_image_urls as unknown as string[]).join(String.fromCharCode(10))
+      : "",
+    template_file_url: a.template_file_url || "",
+    template_buttons: Array.isArray(a.template_buttons) ? (a.template_buttons as unknown as TemplateButton[]) : [],
+    template_blocks: blocks,
+    auto_react: !!a.auto_react,
+    story_link_branches: branches,
+    trigger_type: (a.trigger_type as FormData["trigger_type"]) || "comment_trigger",
+    instagram_account_id: a.instagram_account_id || "",
+  };
 }
 
 export default function CreateAutomationWizard({
@@ -65,8 +126,10 @@ export default function CreateAutomationWizard({
   igAccounts,
   onClose,
   onCreated,
+  editAutomation = null,
 }: CreateAutomationWizardProps) {
   const canToggleFollow = canConfigureFollowCheck(userPlan);
+  const isEditMode = !!editAutomation;
 
   // Wizard step
   const [step, setStep] = useState(1);
@@ -85,11 +148,15 @@ export default function CreateAutomationWizard({
   const [loadingUrlPost, setLoadingUrlPost] = useState(false);
 
   // Form data
-  const [formData, setFormData] = useState<FormData>({
-    ...INITIAL_FORM_DATA,
-    require_follow: !canToggleFollow ? true : false,
-    instagram_account_id: igAccounts.length > 0 ? igAccounts[0].id : "",
-  });
+  const [formData, setFormData] = useState<FormData>(
+    editAutomation
+      ? buildEditFormData(editAutomation)
+      : {
+          ...INITIAL_FORM_DATA,
+          require_follow: !canToggleFollow ? true : false,
+          instagram_account_id: igAccounts.length > 0 ? igAccounts[0].id : "",
+        }
+  );
   const [postbackFlows, setPostbackFlows] = useState<PostbackFlowForm[]>([]);
 
   // ── Load posts & stories on mount ──
@@ -263,6 +330,7 @@ export default function CreateAutomationWizard({
   async function handleCreate() {
     setCreating(true);
     const fd = new FormData();
+    if (editAutomation) fd.set("automation_id", editAutomation.id);
     fd.set("name", formData.name);
     fd.set("keyword", formData.keyword);
     fd.set("dm_template", formData.dm_template);
@@ -310,10 +378,19 @@ export default function CreateAutomationWizard({
       fd.set("instagram_account_id", formData.instagram_account_id);
     }
 
-    const result = await createAutomation(fd);
+    const result = editAutomation
+      ? await updateAutomation(editAutomation.id, fd)
+      : await createAutomation(fd);
     if (result.error) {
       toast.error(result.error);
     } else {
+      if (editAutomation) {
+        toast.success("Automation updated! ✅");
+        onClose();
+        onCreated();
+        setCreating(false);
+        return;
+      }
       const postbackButtons = formData.template_buttons.filter((b) => b.type === "postback" && b.payload);
       if (postbackButtons.length > 0 && postbackFlows.length > 0 && result.id) {
         const flowsToSave = postbackFlows
@@ -358,10 +435,12 @@ export default function CreateAutomationWizard({
         {/* Wizard Header */}
         <div className="p-6 pb-0">
           <h2 className="text-xl font-bold text-foreground">
-            Create Automation
+            {isEditMode ? "Edit Automation" : "Create Automation"}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Set up a keyword-triggered DM automation in 3 easy steps.
+            {isEditMode
+              ? `Update "${editAutomation?.name}" — your stats and history are preserved.`
+              : "Set up a keyword-triggered DM automation in 3 easy steps."}
           </p>
 
           {/* Step Indicators */}
@@ -1404,15 +1483,48 @@ export default function CreateAutomationWizard({
                 )}
               </div>
 
-              {/* iPhone DM Preview */}
+              {/* Live DM Preview — renders every type incl. stacks */}
               <DMPreview
                 senderUsername={formData.name || "your_brand"}
-                templateType={formData.template_type as "text" | "button"}
-                messageText={formData.dm_template}
-                templateTitle={formData.template_title}
-                templateSubtitle={formData.template_subtitle}
-                templateImageUrl={formData.template_image_url}
-                templateButtons={formData.template_buttons}
+                triggerKeyword={formData.keyword.split(",")[0]?.trim() || "INFO"}
+                blocks={(() => {
+                  // Stack type: preview the composed blocks directly.
+                  // Legacy types: convert to the equivalent single block.
+                  switch (formData.template_type) {
+                    case "stack":
+                      return formData.template_blocks;
+                    case "text":
+                      return formData.dm_template.trim()
+                        ? [{ id: "pv-text", type: "text" as const, text: formData.dm_template }]
+                        : [];
+                    case "button":
+                      return formData.template_title.trim()
+                        ? [{
+                            id: "pv-btn",
+                            type: "button_card" as const,
+                            text: formData.template_title,
+                            subtitle: formData.template_subtitle,
+                            image_url: formData.template_image_url,
+                            buttons: formData.template_buttons,
+                          }]
+                        : [];
+                    case "multi_image":
+                      return formData.template_image_urls.trim()
+                        ? [{
+                            id: "pv-album",
+                            type: "image_album" as const,
+                            image_urls: formData.template_image_urls.split(String.fromCharCode(10)).map((u) => u.trim()).filter(Boolean),
+                            text: formData.dm_template,
+                          }]
+                        : [];
+                    case "pdf":
+                      return formData.template_file_url.trim()
+                        ? [{ id: "pv-pdf", type: "pdf" as const, file_url: formData.template_file_url, text: formData.dm_template }]
+                        : [];
+                    default:
+                      return [];
+                  }
+                })()}
               />
 
               {/* Postback Flows Builder */}
@@ -1768,7 +1880,7 @@ export default function CreateAutomationWizard({
               ) : (
                 <Zap className="w-4 h-4" />
               )}
-              {creating ? "Creating..." : "Create Automation"}
+              {creating ? "Saving..." : isEditMode ? "Save Changes" : "Create Automation"}
             </button>
           )}
         </div>

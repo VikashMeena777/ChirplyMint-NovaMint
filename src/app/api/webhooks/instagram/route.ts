@@ -13,6 +13,7 @@ import {
   sendFileDM,
   reactToMessage,
   hideComment,
+  likeComment,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
@@ -101,13 +102,20 @@ export async function POST(request: Request) {
 
     const body = JSON.parse(rawBody);
 
+    // Vercel serverless wall-clock budget: Meta batches several events into
+    // one POST, and AI/follower checks add up. Past ~45s we stop starting
+    // NEW automations so the function returns before the 60s kill — a timed
+    // out function makes Meta retry the whole batch (duplicate sends).
+    const WEBHOOK_DEADLINE_MS = Date.now() + 45_000;
+    const timeBudgetLeft = () => WEBHOOK_DEADLINE_MS - Date.now();
+
     if (body.object === "instagram") {
       for (const entry of body.entry || []) {
         // Handle comment mentions and keyword triggers
         if (entry.changes) {
           for (const change of entry.changes) {
             if (change.field === "comments") {
-              await handleComment(change.value, entry.id as string);
+              await handleComment(change.value, entry.id as string, timeBudgetLeft);
             }
             // Handle story mentions/replies
             if (change.field === "story_insights" || change.field === "mentions") {
@@ -182,7 +190,7 @@ function isCommentAlreadyProcessed(commentId: string): boolean {
 /**
  * Handle a comment on a post — match keywords → send DM + optional comment reply
  */
-async function handleComment(commentData: Record<string, unknown>, receivingIgId?: string) {
+async function handleComment(commentData: Record<string, unknown>, receivingIgId?: string, timeBudgetLeft?: () => number) {
   const supabase = getSupabase();
 
   const commentText = (commentData.text as string) || "";
@@ -287,6 +295,12 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
   if (!automations || automations.length === 0) return;
 
   for (const automation of automations) {
+    // Time budget: skip starting new sends when the function is nearly out
+    // of wall clock — Meta retries the remaining events cleanly.
+    if (timeBudgetLeft && timeBudgetLeft() < 8_000) {
+      console.log("[Meta Webhook] Time budget nearly exhausted — deferring remaining automations to Meta retry");
+      break;
+    }
     // Match keywords (support comma-separated keywords)
     // Special: "*" is a catch-all wildcard that matches EVERY comment
     const keywords = (automation.keyword as string)
@@ -503,40 +517,69 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       (automation.template_blocks as MessageBlock[]).length > 0
     ) {
       // ── MESSAGE STACK, PHASE 1 (comment trigger) ──
-      // Meta only allows text/button templates as a comment private reply,
-      // so the FIRST text/button block becomes the private reply and the
-      // lead is enrolled in stack_pending. The remaining blocks (PDF, album,
-      // carousel, quick replies...) play automatically the moment they
-      // reply — that reply opens the 24h messaging window.
+      // Meta only allows text/button templates as a comment private reply.
+      // Users rarely type a reply, so phase 1 is ALWAYS a one-tap button:
+      //   • No follow gate → card with "Send it to me 📩" postback button
+      //   • Follow gate ON → "Yes, I follow ✅" + "Not yet — follow first"
+      //     (opens profile). Tapping Yes re-verifies server-side.
+      // The tap arrives as a messaging_postback → STACK_DELIVER flow plays
+      // the remaining blocks. A typed reply also works (stack phase 2).
       const blocks = automation.template_blocks as MessageBlock[];
+      const hasFollowGate = automation.require_follow === true;
+      const stackDeliverPayload = `STACK_DELIVER:${automation.id}`;
+      const igUsernameOwn = (igAccount as Record<string, string>).ig_username || "";
       const first = blocks[0];
       let preSentCount = 0;
 
+      // Phase-1 caption: the first text block (or button card title) so the
+      // message reads like the content the user composed.
+      let phase1Caption = "";
+      let captionConsumed = false;
       if (first.type === "text" && (first.text || "").trim()) {
-        const phase1Text = first.text!
-          .replace(/\{name\}/gi, `@${commenterUsername}`)
-          .replace(/\{keyword\}/gi, commentText);
-        sendResult = await sendPrivateReply(igUserId, accessToken, commentId, phase1Text);
-        preSentCount = 1;
+        phase1Caption = first.text!.replace(/\{name\}/gi, `@${commenterUsername}`).replace(/\{keyword\}/gi, commentText);
+        captionConsumed = true;
       } else if (first.type === "button_card" && (first.text || "").trim()) {
-        sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
-          title: first.text!.replace(/\{name\}/gi, `@${commenterUsername}`).slice(0, 80),
-          subtitle: first.subtitle || undefined,
-          image_url: first.image_url || undefined,
-          buttons: (first.buttons || []).slice(0, 3),
-        });
-        preSentCount = 1;
+        phase1Caption = first.text!.replace(/\{name\}/gi, `@${commenterUsername}`);
+        captionConsumed = true;
+      } else if ((automation.dm_template as string || "").trim()) {
+        phase1Caption = (automation.dm_template as string).replace(/\{name\}/gi, `@${commenterUsername}`);
       } else {
-        // First block is rich (PDF/album/carousel/...) — can't private-reply it.
-        // Prompt the lead to reply; their reply unlocks the full stack.
-        const prompt =
-          ((automation.dm_template as string) || "").trim() ||
-          `Hey @${commenterUsername}! 👋 Thanks for commenting! Reply to this message to receive the full pack 📩`;
-        sendResult = await sendPrivateReply(igUserId, accessToken, commentId, prompt);
+        phase1Caption = `Hey @${commenterUsername}! 👋 Thanks for commenting!`;
+      }
+      phase1Caption = phase1Caption.slice(0, 80); // template title limit
+
+      const deliverButtons: TemplateButton[] = hasFollowGate
+        ? [
+            { type: "postback", title: "Yes, I follow ✅", payload: stackDeliverPayload },
+            { type: "web_url", title: "Not yet — follow", url: `https://instagram.com/${igUsernameOwn}` },
+          ]
+        : [
+            { type: "postback", title: "Send it to me 📩", payload: stackDeliverPayload },
+          ];
+
+      sendResult = await sendGenericTemplate(igUserId, accessToken, commentId, {
+        title: phase1Caption,
+        subtitle: hasFollowGate ? "Tap Yes and your content is on its way" : "Tap the button below to receive it instantly",
+        image_url: first.type === "button_card" ? first.image_url || undefined : undefined,
+        buttons: deliverButtons,
+      });
+      // If the first block's text became the card title in full (fits the
+      // 80-char limit), don't repeat it on delivery — the remaining blocks
+      // start after it. Longer texts play in full on tap instead.
+      preSentCount =
+        captionConsumed && phase1Caption.length <= 80 && blocks.length > 1
+          ? 1
+          : 0;
+
+      // AUTO-LIKE: heart the comment that triggered the automation
+      if (sendResult.success && automation.auto_react === true && commentId) {
+        likeComment(commentId, accessToken).then((r) => {
+          console.log(`[Meta Webhook] ${r.success ? "❤️ Auto-liked" : "⚠️ Auto-like failed"} comment ${commentId}${r.error ? ": " + r.error : ""}`);
+        }).catch(() => {});
       }
 
-      // Enroll for phase 2 only if there's something left to deliver
-      if (sendResult.success && blocks.length > preSentCount) {
+      // Enroll for delivery on tap / reply
+      if (sendResult.success) {
         void (async () => {
           try {
             await supabase.from("stack_pending").insert({
@@ -545,11 +588,11 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
               instagram_account_id: (automation as Record<string, unknown>).instagram_account_id,
               recipient_ig_id: commenterId,
               recipient_username: commenterUsername,
-              pre_sent_count: preSentCount,
+              pre_sent_count: 0,
               status: "waiting",
             });
             console.log(
-              `[Meta Webhook] 📦 Stack phase 1 sent to @${commenterUsername} — ${blocks.length - preSentCount} block(s) pending their reply`
+              `[Meta Webhook] 📦 Stack armed for @${commenterUsername} — ${blocks.length} block(s) on tap/reply${hasFollowGate ? " (follow gate)" : ""}`
             );
           } catch (err) {
             console.error("[Meta Webhook] stack_pending insert error:", err);
@@ -590,6 +633,8 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     // Build display text for logging
     const logMessageText = hasDrip
       ? `[WINDOW OPENER] ${((activeDripSeq as Record<string, string>).window_opener_text || "").slice(0, 100)}`
+      : templateType === "stack"
+      ? `[STACK PHASE 1] button card armed (${Array.isArray(automation.template_blocks) ? (automation.template_blocks as unknown[]).length : 0} blocks pending)`
       : abVariant
       ? `[VARIANT: ${abVariant.variant_name}] ${abVariant.template_type === "button" ? abVariant.template_title : abVariant.dm_template}`
       : templateType === "button"
@@ -784,6 +829,97 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
  * Handle an incoming DM — try AI Agent first (persona-based),
  * then fall back to automation-based AI reply.
  */
+/**
+ * Deliver a pending Message Stack (phase 2) - shared by the typed-reply
+ * path (handleIncomingDM) and the button-tap path (STACK_DELIVER postback).
+ * Plays the remaining blocks, logs, marks delivered exactly once.
+ * Returns "delivered" | "empty" | "none" (none = no pending stack).
+ */
+async function deliverPendingStack(params: {
+  supabase: ReturnType<typeof getSupabase>;
+  userId: string;
+  igAccountId: string;
+  recipientId: string; // our IG account id (sender of the DM)
+  accessToken: string;
+  senderId: string; // the lead
+  triggerText: string; // what they said/tapped (for logs)
+  messageMid?: string; // mid for auto-react
+}): Promise<"delivered" | "empty" | "none"> {
+  const { supabase, userId, igAccountId, recipientId, accessToken, senderId, triggerText, messageMid } = params;
+
+  const { data: pendingStack } = await supabase
+    .from("stack_pending")
+    .select("id, automation_id, pre_sent_count, recipient_username")
+    .eq("user_id", userId)
+    .eq("recipient_ig_id", senderId)
+    .eq("status", "waiting")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const stackRow = pendingStack as Record<string, unknown> | null;
+  if (!stackRow) return "none";
+
+  const { data: stackAutomation } = await supabase
+    .from("automations")
+    .select("*")
+    .eq("id", stackRow.automation_id as string)
+    .single();
+  const stackAuto = stackAutomation as Record<string, unknown> | null;
+
+  const allBlocks = (stackAuto?.template_blocks as MessageBlock[] | null) || [];
+  const skipCount = (stackRow.pre_sent_count as number) || 0;
+  const remaining = allBlocks.slice(skipCount);
+
+  if (remaining.length === 0) {
+    // Nothing left - clean up and let other flows handle the message
+    await supabase
+      .from("stack_pending")
+      .update({ status: "delivered", delivered_at: new Date().toISOString() })
+      .eq("id", stackRow.id as string);
+    return "empty";
+  }
+
+  const stackResult = await sendMessageStack({
+    igUserId: recipientId,
+    accessToken,
+    recipientIgScopedId: senderId,
+    blocks: remaining,
+    templateVars: {
+      name: (stackRow.recipient_username as string) || senderId,
+      keyword: stackAuto?.keyword as string,
+    },
+  });
+
+  await supabase.from("dm_logs").insert({
+    user_id: userId,
+    automation_id: stackRow.automation_id as string,
+    instagram_account_id: igAccountId,
+    recipient_ig_id: senderId,
+    recipient_username: (stackRow.recipient_username as string) || senderId,
+    message_text: `[STACK DELIVERED] ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks${stackResult.errors.length ? " - errors: " + stackResult.errors.join("; ").slice(0, 150) : ""}`,
+    comment_text: triggerText,
+    status: stackResult.success ? "sent" : "failed",
+  });
+
+  // Mark delivered BEFORE anything else - duplicate taps/replays can't
+  // double-send a half-played stack.
+  await supabase
+    .from("stack_pending")
+    .update({ status: "delivered", delivered_at: new Date().toISOString() })
+    .eq("id", stackRow.id as string);
+
+  console.log(
+    `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
+  );
+
+  if (stackAuto?.auto_react === true && messageMid) {
+    reactToMessage(recipientId, accessToken, senderId, messageMid, "❤️").catch(() => {});
+  }
+
+  return "delivered";
+}
+
 async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   const supabase = getSupabase();
 
@@ -812,83 +948,22 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     (igAccount.access_token as string);
 
   // ═══════════════════════════════════════════════
+
   // MESSAGE STACK, PHASE 2: this lead just replied after our phase-1
-  // private reply. Their reply opened the 24h window -> play the remaining
-  // stack blocks (PDF / album / carousel / quick replies / media share).
+  // button card. Their action opened the 24h window -> play the stack.
   {
-    const { data: pendingStack } = await supabase
-      .from("stack_pending")
-      .select("id, automation_id, pre_sent_count, recipient_username")
-      .eq("user_id", userId)
-      .eq("recipient_ig_id", senderId)
-      .eq("status", "waiting")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const stackRow = pendingStack as Record<string, unknown> | null;
-    if (stackRow) {
-      const { data: stackAutomation } = await supabase
-        .from("automations")
-        .select("*")
-        .eq("id", stackRow.automation_id as string)
-        .single();
-      const stackAuto = stackAutomation as Record<string, unknown> | null;
-
-      const allBlocks = (stackAuto?.template_blocks as MessageBlock[] | null) || [];
-      const skipCount = (stackRow.pre_sent_count as number) || 0;
-      const remaining = allBlocks.slice(skipCount);
-
-      if (remaining.length > 0) {
-        // Quick replies only ride on TEXT messages - the engine attaches a
-        // trailing quick_replies block to the last text block automatically.
-        const stackResult = await sendMessageStack({
-          igUserId: recipientId,
-          accessToken,
-          recipientIgScopedId: senderId,
-          blocks: remaining,
-          templateVars: {
-            name: (stackRow.recipient_username as string) || senderId,
-            keyword: stackAuto?.keyword as string,
-          },
-        });
-
-        await supabase.from("dm_logs").insert({
-          user_id: userId,
-          automation_id: stackRow.automation_id as string,
-          instagram_account_id: igAccount.id,
-          recipient_ig_id: senderId,
-          recipient_username: (stackRow.recipient_username as string) || senderId,
-          message_text: `[STACK PHASE 2] ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks sent${stackResult.errors.length ? " - errors: " + stackResult.errors.join("; ").slice(0, 150) : ""}`,
-          comment_text: messageText,
-          status: stackResult.success ? "sent" : "failed",
-        });
-
-        // Mark delivered either way - never re-send a half-played stack
-        await supabase
-          .from("stack_pending")
-          .update({ status: "delivered", delivered_at: new Date().toISOString() })
-          .eq("id", stackRow.id as string);
-
-        console.log(
-          `[Meta Webhook] Stack phase 2 -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
-        );
-
-        if (stackAuto?.auto_react === true) {
-          const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
-          if (reactMid) {
-            reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
-          }
-        }
-
-        return; // Stack delivered - this reply is fully handled
-      } else {
-        // Nothing left (phase 1 covered it all) - clean up and fall through
-        await supabase
-          .from("stack_pending")
-          .update({ status: "delivered", delivered_at: new Date().toISOString() })
-          .eq("id", stackRow.id as string);
-      }
+    const delivered = await deliverPendingStack({
+      supabase,
+      userId,
+      igAccountId: igAccount.id,
+      recipientId,
+      accessToken,
+      senderId,
+      triggerText: messageText,
+      messageMid: ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "",
+    });
+    if (delivered === "delivered") {
+      return; // Stack delivered - this reply is fully handled
     }
   }
 
@@ -1113,6 +1188,72 @@ async function handlePostback(event: Record<string, unknown>) {
   const recipientId = (event.recipient as Record<string, string>)?.id || "";
   const postbackData = event.postback as Record<string, string> | undefined;
   const payload = postbackData?.payload?.toLowerCase()?.trim() || "";
+
+  // ── STACK_DELIVER: the lead tapped the phase-1 button ("Send it to me" /
+  // "Yes, I follow ✅"). Their tap opens the 24h window. If follow gate is
+  // on, re-verify server-side before playing the stack.
+  if (payload.startsWith("stack_deliver:")) {
+    const automationId = payload.split(":")[1] || "";
+    if (!senderId || !recipientId || !automationId) return;
+
+    const { data: igAccount } = await supabase
+      .from("instagram_accounts")
+      .select("user_id, id, ig_username, access_token, page_access_token")
+      .eq("ig_user_id", recipientId)
+      .eq("is_active", true)
+      .single();
+    if (!igAccount) return;
+
+    const userId = igAccount.user_id as string;
+    const accessToken = (igAccount.page_access_token as string) || (igAccount.access_token as string);
+
+    const { data: stackAutomation } = await supabase
+      .from("automations")
+      .select("*")
+      .eq("id", automationId)
+      .eq("user_id", userId)
+      .single();
+    const stackAuto = stackAutomation as Record<string, unknown> | null;
+    if (!stackAuto) return;
+
+    // Follow gate: verify on tap (phase-1 verification can be stale)
+    if (stackAuto.require_follow === true) {
+      const followerCheck = await checkIfFollower(senderId, accessToken);
+      if (followerCheck.isFollower === false) {
+        const igUsernameOwn = (igAccount as Record<string, string>).ig_username || "";
+        await sendGenericTemplateDM(recipientId, accessToken, senderId, {
+          title: "Almost there! One quick step",
+          subtitle: "Follow the account, then tap Yes again",
+          buttons: [
+            { type: "web_url", title: "Follow now", url: `https://instagram.com/${igUsernameOwn}` },
+            { type: "postback", title: "Yes, I follow ✅", payload: payload.toUpperCase().replace("STACK_DELIVER", "STACK_DELIVER") },
+          ],
+        }).catch(() => {});
+        console.log(`[Meta Webhook] Follow gate blocked stack delivery for ${senderId} — follow prompt sent`);
+        return;
+      }
+    }
+
+    const delivered = await deliverPendingStack({
+      supabase,
+      userId,
+      igAccountId: igAccount.id,
+      recipientId,
+      accessToken,
+      senderId,
+      triggerText: "[POSTBACK] STACK_DELIVER tap",
+      messageMid: undefined,
+    });
+
+    if (delivered === "none") {
+      // No pending stack (already delivered / stale tap) — be polite anyway
+      await sendInstagramDM(recipientId, accessToken, senderId,
+        "You're all set! ✅ Your content was already sent above — scroll up to grab it."
+      ).catch(() => {});
+    }
+    return; // Stack tap fully handled
+  }
+
   const buttonTitle = postbackData?.title || "";
 
   if (!senderId || !payload) return;
@@ -1325,15 +1466,41 @@ async function handlePostback(event: Record<string, unknown>) {
     sendResult = await sendInstagramDM(recipientId, accessToken, senderId, responseText);
   }
 
-  // Tag the lead if lead_tag is set
+  // Tag the lead if lead_tag is set — appends to the lead's tags array
+  // (shown as colored labels on the Leads page for segmentation)
   if (flow.lead_tag && sendResult.success) {
-    await supabase
+    const { data: existingLead } = await supabase
       .from("leads")
-      .update({ notes: `Tag: ${flow.lead_tag}` })
+      .select("id, tags")
       .eq("user_id", userId)
-      .eq("ig_user_id", senderId);
+      .eq("ig_user_id", senderId)
+      .limit(1)
+      .maybeSingle();
 
-    console.log(`[Meta Webhook] Tagged lead ${senderId} with "${flow.lead_tag}"`);
+    const tag = (flow.lead_tag as string).trim();
+    if (existingLead) {
+      const currentTags = Array.isArray((existingLead as Record<string, unknown>).tags)
+        ? ((existingLead as Record<string, unknown>).tags as string[])
+        : [];
+      if (!currentTags.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+        await supabase
+          .from("leads")
+          .update({ tags: [...currentTags, tag] })
+          .eq("id", (existingLead as Record<string, unknown>).id as string);
+      }
+    } else {
+      // Lead row may not exist yet (button tap without prior comment capture)
+      await supabase.from("leads").upsert({
+        user_id: userId,
+        ig_user_id: senderId,
+        ig_username: senderId,
+        source: "postback",
+        tags: [tag],
+        notes: `Tagged via button: ${tag}`,
+      }, { onConflict: "user_id,ig_user_id" });
+    }
+
+    console.log(`[Meta Webhook] Tagged lead ${senderId} with "${tag}"`);
   }
 
   // Log the postback response

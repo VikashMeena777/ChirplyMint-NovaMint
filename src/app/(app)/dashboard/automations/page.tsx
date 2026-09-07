@@ -23,6 +23,7 @@ export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<Automation | null>(null);
   const [search, setSearch] = useState("");
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
 
@@ -163,17 +164,23 @@ export default function AutomationsPage() {
               userPlan={userPlan}
               onToggle={handleToggle}
               onDelete={handleDelete}
+              onEdit={(automation) => setEditing(automation)}
             />
           ))}
         </div>
       )}
 
-      {/* Create Automation Wizard Modal */}
-      {showCreate && (
+      {/* Create / Edit Automation Wizard Modal */}
+      {(showCreate || editing) && (
         <CreateAutomationWizard
+          key={editing ? `edit-${editing.id}` : "create"}
           userPlan={userPlan}
           igAccounts={igAccounts}
-          onClose={() => setShowCreate(false)}
+          editAutomation={editing}
+          onClose={() => {
+            setShowCreate(false);
+            setEditing(null);
+          }}
           onCreated={loadAutomations}
         />
       )}
