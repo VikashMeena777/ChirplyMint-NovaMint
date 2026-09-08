@@ -28,6 +28,7 @@ import {
   type TemplateButton,
   type QuickReply,
   type CarouselElement,
+  type AttachmentCacheOpts,
 } from "@/lib/instagram/send-dm";
 
 export interface MessageBlock {
@@ -64,6 +65,14 @@ export interface StackSendResult {
 
 const BLOCK_GAP_MS = 700;
 
+/** D9: tag the owner's own bio links with the lead id for attribution */
+function tagBioLinks(text: string, leadId: string, base?: string): string {
+  if (!base || !leadId || !text.includes(base)) return text;
+  if (text.includes("cmk_lead=")) return text;
+  const sep = text.includes(base + "?") ? "&" : (text.split(base)[1]?.startsWith("/") ? "?" : "?");
+  return text.replace(base, `${base}${sep}cmk_lead=${encodeURIComponent(leadId)}`);
+}
+
 function applyTemplateVars(
   text: string | undefined,
   vars: { name?: string; keyword?: string }
@@ -78,6 +87,8 @@ function applyTemplateVars(
 /**
  * Execute a stack of message blocks sequentially.
  * `typing` controls the typing indicator before the FIRST block.
+ * `cacheOpts` (optional) enables the reusable-attachment cache for
+ * image_album / pdf blocks — cached attachment_ids skip the upload.
  */
 export async function sendMessageStack(params: {
   igUserId: string;
@@ -86,8 +97,14 @@ export async function sendMessageStack(params: {
   blocks: MessageBlock[];
   templateVars: { name?: string; keyword?: string };
   typing?: boolean;
+  cacheOpts?: AttachmentCacheOpts;
+  /** Owner's bio page base URL — links pointing here get ?cmk_lead= for
+   *  conversion attribution (D9). */
+  bioLinkBase?: string;
 }): Promise<StackSendResult> {
   const { igUserId, accessToken, recipientIgScopedId, blocks, templateVars } = params;
+  const tagLinks = (t: string | undefined) =>
+    t ? tagBioLinks(t, recipientIgScopedId, params.bioLinkBase) : t;
   const errors: string[] = [];
   const messageIds: (string | undefined)[] = [];
   let sentBlocks = 0;
@@ -184,7 +201,7 @@ export async function sendMessageStack(params: {
 
       switch (block.type) {
         case "text": {
-          const text = applyTemplateVars(block.text, templateVars);
+          const text = tagLinks(applyTemplateVars(block.text, templateVars));
           if (!text) break; // nothing to send, not an error
           if (block.quick_replies?.length) {
             result = await sendQuickRepliesDM(
@@ -202,7 +219,8 @@ export async function sendMessageStack(params: {
           result = await sendMultiImageDM(
             igUserId, accessToken, recipientIgScopedId,
             urls,
-            applyTemplateVars(block.text, templateVars) || undefined
+            applyTemplateVars(block.text, templateVars) || undefined,
+            params.cacheOpts
           );
           break;
         }
@@ -218,23 +236,35 @@ export async function sendMessageStack(params: {
               buttons: [{ type: "web_url", title: "Open PDF", url: block.file_url }],
             });
           } else {
-            result = await sendFileDM(igUserId, accessToken, recipientIgScopedId, block.file_url);
+            result = await sendFileDM(igUserId, accessToken, recipientIgScopedId, block.file_url, params.cacheOpts);
           }
           break;
         }
         case "button_card": {
           result = await sendGenericTemplateDM(igUserId, accessToken, recipientIgScopedId, {
-            title: applyTemplateVars(block.text, templateVars).slice(0, 80) || "Here you go",
+            title: (tagLinks(applyTemplateVars(block.text, templateVars)) || "Here you go").slice(0, 80),
             subtitle: block.subtitle,
             image_url: block.image_url,
-            buttons: (block.buttons || []).slice(0, 3),
+            buttons: (block.buttons || []).slice(0, 3).map((b) =>
+              b.type === "web_url" ? { ...b, url: tagLinks(b.url) } : b
+            ),
           });
           break;
         }
         case "carousel": {
           const elements = (block.elements || []).slice(0, 10);
           if (elements.length === 0) break;
-          result = await sendCarouselDM(igUserId, accessToken, recipientIgScopedId, elements);
+          result = await sendCarouselDM(
+            igUserId,
+            accessToken,
+            recipientIgScopedId,
+            elements.map((el) => ({
+              ...el,
+              buttons: (el.buttons || []).map((b) =>
+                b.type === "web_url" ? { ...b, url: tagLinks(b.url) } : b
+              ),
+            }))
+          );
           break;
         }
         case "media_share": {

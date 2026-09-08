@@ -269,7 +269,11 @@ export async function getPublicBioPage(slug: string) {
   return { page: page as BioPage, links: (links as BioLink[]) ?? [] };
 }
 
-export async function trackBioLinkClick(linkId: string, pageId: string) {
+export async function trackBioLinkClick(
+  linkId: string,
+  pageId: string,
+  leadIgId?: string
+) {
   const supabase = await createClient();
 
   // Increment click count
@@ -287,8 +291,35 @@ export async function trackBioLinkClick(linkId: string, pageId: string) {
         .then(() => {});
     });
 
-  // Insert click record
-  await supabase.from("bio_link_clicks").insert({ link_id: linkId, page_id: pageId });
+  // Insert click record — attributed to a lead when the DM link carried
+  // the ?cmk_lead= tag (D9 revenue attribution)
+  await supabase.from("bio_link_clicks").insert({
+    link_id: linkId,
+    page_id: pageId,
+    ...(leadIgId ? { lead_ig_id: leadIgId } : {}),
+  });
+
+  // A lead clicking through from their DM = strong interest
+  if (leadIgId) {
+    const { data: page } = await supabase
+      .from("bio_pages")
+      .select("user_id")
+      .eq("id", pageId)
+      .single();
+    if (page) {
+      const { data: lead } = await supabase
+        .from("leads")
+        .select("id, engagement")
+        .eq("user_id", (page as Record<string, string>).user_id)
+        .eq("ig_user_id", leadIgId)
+        .limit(1)
+        .maybeSingle();
+      const row = lead as Record<string, unknown> | null;
+      if (row && row.engagement !== "converted") {
+        await supabase.from("leads").update({ engagement: "interested" }).eq("id", row.id as string);
+      }
+    }
+  }
 
   return { success: true };
 }

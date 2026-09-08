@@ -5,6 +5,10 @@ import {
   sendGenericTemplateDM,
   type TemplateButton,
 } from "@/lib/instagram/send-dm";
+import {
+  getSmartSendHours,
+  alignToSmartSendWindow,
+} from "@/lib/utils/smart-timing";
 
 function getAdminSupabase() {
   return createClient(
@@ -73,6 +77,17 @@ export async function GET(request: Request) {
     let sent = 0;
     let failed = 0;
     let completed = 0;
+
+    // Smart Send-Times (C10): learn each user's active IST hours once per
+    // run and cache them so the batch performs at most one query per user.
+    const smartHoursCache = new Map<string, number[]>();
+    const smartHoursFor = async (userId: string): Promise<number[]> => {
+      const cached = smartHoursCache.get(userId);
+      if (cached) return cached;
+      const hours = await getSmartSendHours(supabase, userId);
+      smartHoursCache.set(userId, hours);
+      return hours;
+    };
 
     for (const enrollment of dueEnrollments) {
       const e = enrollment as Record<string, unknown>;
@@ -209,12 +224,27 @@ export async function GET(request: Request) {
           .eq("step_number", nextStepNumber + 1)
           .single();
 
+        // Smart Send-Times (C10): set when the next step's schedule was
+        // aligned into an active window (noted in the activity metadata).
+        let stepSmartAligned = false;
+
         if (nextStep) {
           // More steps → advance enrollment
           const nextDelay = (nextStep as Record<string, number>).delay_hours;
-          const nextSendAt = new Date(
+          // Smart Send-Times (C10): delay_hours is the MINIMUM gap; when the
+          // user has learned active hours, align the send into the next one
+          // (capped at +8h past the original schedule).
+          const minSendAt = new Date(
             Date.now() + nextDelay * 60 * 60 * 1000
           ).toISOString();
+          const smartHours = await smartHoursFor(e.user_id as string);
+          const nextSendAt = alignToSmartSendWindow(minSendAt, smartHours);
+          stepSmartAligned = nextSendAt !== minSendAt;
+          if (stepSmartAligned) {
+            console.log(
+              `[Drip Cron] ⏰ Smart send-time: step ${nextStepNumber + 1} for @${recipientUsername} aligned → ${nextSendAt}`
+            );
+          }
 
           await supabase
             .from("drip_enrollments")
@@ -301,6 +331,7 @@ export async function GET(request: Request) {
               recipient: recipientUsername,
               step: nextStepNumber,
               automation_id: automation.id,
+              ...(stepSmartAligned ? { scheduled_by: "smart_timing" } : {}),
             },
           })
           .then(() => {});

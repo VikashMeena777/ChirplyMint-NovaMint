@@ -15,7 +15,9 @@ import {
   hideComment,
   likeComment,
   type TemplateButton,
+  type AttachmentCacheOpts,
 } from "@/lib/instagram/send-dm";
+import { getCachedAttachmentId, cacheAttachment } from "@/lib/instagram/attachment-cache";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-limiter";
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
@@ -39,6 +41,53 @@ function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+/**
+ * Attachment-cache wiring (A22): reusable attachment_ids are cached in the
+ * attachment_cache table (service role bypasses RLS) keyed by asset URL.
+ * Stack sends consult the cache first and report fresh ids back after a
+ * successful reusable upload — repeat sends of the same asset skip the
+ * upload round-trip entirely.
+ */
+function buildAttachmentCacheOpts(
+  supabase: ReturnType<typeof getSupabase>,
+  userId: string,
+  igAccountId: string
+): AttachmentCacheOpts {
+  return {
+    userId,
+    igAccountId,
+    getAttachmentId: (url, type) =>
+      getCachedAttachmentId(supabase, userId, url, type === "file" ? "file" : "image"),
+    onAttachmentId: (url, type, id) => {
+      void cacheAttachment(supabase, userId, igAccountId, url, type === "file" ? "file" : "image", id).catch(() => {});
+    },
+  };
+}
+
+/**
+ * D9: the owner's public bio base URL (cached 5 min) — DM links pointing
+ * at it get ?cmk_lead= appended for click attribution.
+ */
+const bioSlugCache = new Map<string, { base: string | null; at: number }>();
+async function getBioLinkBase(
+  supabase: ReturnType<typeof getSupabase>,
+  userId: string
+): Promise<string | null> {
+  const hit = bioSlugCache.get(userId);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.base;
+  const { data } = await supabase
+    .from("bio_pages")
+    .select("slug")
+    .eq("user_id", userId)
+    .limit(1);
+  const slug = (data?.[0] as { slug?: string } | undefined)?.slug;
+  const base = slug
+    ? `${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.novamintnetworks.in"}/u/${slug}`
+    : null;
+  bioSlugCache.set(userId, { base, at: Date.now() });
+  return base;
 }
 
 /**
@@ -900,6 +949,8 @@ async function deliverPendingStack(params: {
       name: (stackRow.recipient_username as string) || senderId,
       keyword: stackAuto?.keyword as string,
     },
+    cacheOpts: buildAttachmentCacheOpts(supabase, userId, igAccountId),
+    bioLinkBase: (await getBioLinkBase(supabase, userId)) ?? undefined,
   });
 
   await supabase.from("dm_logs").insert({
@@ -1017,7 +1068,8 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
 
       const richResult = await maybeSendRichTemplate(
         automation, autoTemplateType, recipientId, accessToken, senderId,
-        (enrollment.recipient_username as string) || "friend"
+        (enrollment.recipient_username as string) || "friend",
+        buildAttachmentCacheOpts(supabase, userId, igAccount.id)
       );
 
       if (richResult) {
@@ -1339,7 +1391,8 @@ async function handlePostback(event: Record<string, unknown>) {
 
     const richResult = await maybeSendRichTemplate(
       automation, autoTemplateType, recipientId, accessToken, senderId,
-      (enrollment.recipient_username as string) || "friend"
+      (enrollment.recipient_username as string) || "friend",
+      buildAttachmentCacheOpts(supabase, userId, igAccount.id)
     );
 
     if (richResult) {
@@ -1672,6 +1725,7 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
       recipientIgScopedId: senderId,
       blocks: (matchedBranch.blocks as MessageBlock[]) || [],
       templateVars: { name: senderId, keyword: messageText },
+      cacheOpts: buildAttachmentCacheOpts(supabase, userId, igAccount.id),
     });
     sendResult = {
       success: stackResult.success,
@@ -1682,7 +1736,8 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
   } else {
     const richResult = await maybeSendRichTemplate(
       matchedAutomation, (matchedAutomation.template_type as string) || "text",
-      recipientId, accessToken, senderId, senderId
+      recipientId, accessToken, senderId, senderId,
+      buildAttachmentCacheOpts(supabase, userId, igAccount.id)
     );
     if (richResult) {
       sendResult = richResult;
@@ -2181,7 +2236,8 @@ async function maybeSendRichTemplate(
   igUserId: string,
   accessToken: string,
   recipientIgId: string,
-  recipientName: string
+  recipientName: string,
+  cacheOpts?: AttachmentCacheOpts
 ): Promise<{ success: boolean; messageId?: string; error?: string } | null> {
   const rawBlocks = (automation.template_blocks as MessageBlock[] | null) || [];
   if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
@@ -2191,6 +2247,7 @@ async function maybeSendRichTemplate(
       recipientIgScopedId: recipientIgId,
       blocks: rawBlocks,
       templateVars: { name: recipientName, keyword: automation.keyword as string },
+      cacheOpts,
     });
     return {
       success: stackResult.success,
@@ -2203,12 +2260,12 @@ async function maybeSendRichTemplate(
     const urls = (automation.template_image_urls as string[]) || [];
     if (urls.length === 0) return null;
     const caption = ((automation.dm_template as string) || "").replace(/\{name\}/gi, `@${recipientName}`);
-    return await sendMultiImageDM(igUserId, accessToken, recipientIgId, urls, caption);
+    return await sendMultiImageDM(igUserId, accessToken, recipientIgId, urls, caption, cacheOpts);
   }
   if (templateType === "pdf") {
     const fileUrl = (automation.template_file_url as string) || "";
     if (!fileUrl) return null;
-    return await sendFileDM(igUserId, accessToken, recipientIgId, fileUrl);
+    return await sendFileDM(igUserId, accessToken, recipientIgId, fileUrl, cacheOpts);
   }
   return null;
 }

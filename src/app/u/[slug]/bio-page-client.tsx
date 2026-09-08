@@ -68,7 +68,8 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
   async function handleLinkClick(link: BioLink) {
     if (!clickedLinks.has(link.id)) {
       setClickedLinks(prev => new Set([...prev, link.id]));
-      trackBioLinkClick(link.id, page.id).catch(() => {});
+      const cmkLead = new URLSearchParams(window.location.search).get("cmk_lead") || undefined;
+      trackBioLinkClick(link.id, page.id, cmkLead).catch(() => {});
     }
     window.open(link.url, "_blank", "noopener,noreferrer");
   }

@@ -146,15 +146,24 @@ function NotesEditor({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     );
   }
 
+  if (lead.custom_notes) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="p-2 rounded-lg hover:bg-muted/40 transition-colors relative"
+        title={`Note: ${lead.custom_notes}`}
+      >
+        <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+      </button>
+    );
+  }
   return (
     <button
       onClick={() => setEditing(true)}
-      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+      className="p-2 rounded-lg hover:bg-muted/40 transition-colors group"
+      title="Add a private note"
     >
-      <StickyNote className="w-3 h-3 opacity-50 group-hover:opacity-100" />
-      <span className="truncate max-w-[140px]">
-        {(lead.custom_notes as string) || "Add note..."}
-      </span>
+      <StickyNote className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-foreground" />
     </button>
   );
 }
@@ -436,12 +445,11 @@ export default function LeadsPage() {
                   )}
                 </button>
               </div>
-              <div className="col-span-3">Lead</div>
+              <div className="col-span-4">Lead</div>
               <div className="col-span-1">Source</div>
               <div className="col-span-2">Tags</div>
-              <div className="col-span-2">Notes</div>
               <div className="col-span-2">Captured</div>
-              <div className="col-span-2 text-right">Actions</div>
+              <div className="col-span-3 text-right">Actions</div>
             </div>
 
             <div className="divide-y divide-border">
@@ -453,7 +461,7 @@ export default function LeadsPage() {
                 return (
                   <div
                     key={lead.id as string}
-                    className={`grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-2 px-5 py-4 hover:bg-muted/20 transition-colors items-center ${
+                    className={`grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-1.5 px-4 py-2.5 hover:bg-muted/20 transition-colors items-center ${
                       isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""
                     }`}
                   >
@@ -470,14 +478,14 @@ export default function LeadsPage() {
 
                     {/* Username + engagement + contact info */}
                     <div
-                      className="lg:col-span-3 flex items-center gap-2 min-w-0 cursor-pointer"
+                      className="lg:col-span-4 flex items-center gap-2.5 min-w-0 cursor-pointer"
                       onClick={() =>
                         setExpandedId(expandedId === lead.id ? null : (lead.id as string))
                       }
                       title="Click to see full lead details"
                     >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-[oklch(0.52_0.19_162)]">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
+                        <span className="text-[11px] font-bold text-[oklch(0.52_0.19_162)]">
                           {username[0].toUpperCase()}
                         </span>
                       </div>
@@ -513,17 +521,15 @@ export default function LeadsPage() {
 
                     {/* Source */}
                     <div className="lg:col-span-1">
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]">
-                        {(lead.source as string) || "—"}
-                      </span>
+                      <span className="text-xs text-muted-foreground capitalize">{(lead.source as string) || "—"}</span>
                     </div>
 
                     {/* Tags */}
-                    <div className="lg:col-span-2 flex items-center gap-1 flex-wrap">
+                    <div className="lg:col-span-2 flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                       {tags.map((tag) => (
                         <span
                           key={tag}
-                          className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getTagStyle(tag)}`}
+                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${getTagStyle(tag)}`}
                         >
                           {getTagEmoji(tag)} {tag}
                         </span>
@@ -531,44 +537,42 @@ export default function LeadsPage() {
                       <TagPicker lead={lead} onUpdate={loadLeads} />
                     </div>
 
-                    {/* Notes */}
-                    <div className="lg:col-span-2">
-                      <NotesEditor lead={lead} onUpdate={loadLeads} />
-                    </div>
-
                     {/* Captured date */}
                     <div className="lg:col-span-2">
                       <span className="text-xs text-muted-foreground">
                         {new Date(lead.captured_at as string).toLocaleDateString("en-IN", {
-                          day: "numeric", month: "short", year: "numeric",
+                          day: "numeric", month: "short",
                         })}
                       </span>
                     </div>
 
-                    {/* Actions */}
-                    <div className="lg:col-span-2 flex items-center justify-end gap-1">
+                    {/* Actions — one tight row of icon buttons, never wraps */}
+                    <div className="lg:col-span-3 flex items-center justify-end gap-0.5">
                       <a
                         href={`https://ig.me/m/${username}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-xs font-medium hover:bg-[oklch(0.52_0.19_162/20%)] transition-colors"
+                        className="p-2 rounded-lg bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] hover:bg-[oklch(0.52_0.19_162/20%)] transition-colors"
                         title="Send DM on Instagram"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
-                        DM
                       </a>
                       <a
                         href={`https://instagram.com/${username}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-muted/40 transition-colors"
+                        className="p-2 rounded-lg hover:bg-muted/40 transition-colors"
                         title="View profile"
                       >
                         <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                       </a>
+                      <div className="mx-0.5 h-5 w-px bg-border" />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <NotesEditor lead={lead} onUpdate={loadLeads} />
+                      </div>
                       <button
-                        onClick={() => handleDelete(lead.id as string)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(lead.id as string); }}
+                        className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                         title="Delete lead"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-red-500" />

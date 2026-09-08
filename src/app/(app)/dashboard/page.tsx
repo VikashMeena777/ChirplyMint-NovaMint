@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { getDashboardStats } from "@/lib/actions/dashboard";
 import { getSetupStatus } from "@/lib/actions/setup";
+import { getRateLimitStatus } from "@/lib/actions/instagram-api";
 import { SetupChecklist } from "@/components/setup-checklist";
 import {
   AnimatedStatGrid,
@@ -18,9 +19,10 @@ import {
 } from "@/components/dashboard/animated-widgets";
 
 export default async function DashboardPage() {
-  const [data, setupStatus] = await Promise.all([
+  const [data, setupStatus, rateLimit] = await Promise.all([
     getDashboardStats(),
     getSetupStatus(),
+    getRateLimitStatus(),
   ]);
 
   const stats = [
@@ -81,13 +83,34 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          Welcome back{data?.user.name ? `, ${data.user.name.split(" ")[0]}` : ""} 👋
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Here&apos;s what&apos;s happening with your automations.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Welcome back{data?.user.name ? `, ${data.user.name.split(" ")[0]}` : ""} 👋
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Here&apos;s what&apos;s happening with your automations.
+          </p>
+        </div>
+        {/* API rate-limit gauge (BUC usage) — hidden until a reading exists */}
+        {rateLimit.callCount !== null && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+              rateLimit.level === "critical"
+                ? "border-red-500/30 bg-red-500/10 text-red-600"
+                : rateLimit.level === "warning"
+                ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+            {rateLimit.level === "critical"
+              ? "API usage critical — sending may pause"
+              : rateLimit.level === "warning"
+              ? "API usage 80%+"
+              : "API healthy"}
+          </span>
+        )}
       </div>
 
       {/* Setup Checklist */}

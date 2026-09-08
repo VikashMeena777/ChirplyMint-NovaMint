@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { fetchInstagramPosts, fetchInstagramPostByUrl, fetchInstagramStories, type InstagramPost } from "@/lib/instagram/send-dm";
+import { fetchInstagramPosts, fetchInstagramPostByUrl, fetchInstagramStories, getBucUsage, type InstagramPost } from "@/lib/instagram/send-dm";
 import { fetchAccountInsights, fetchRecentMedia } from "@/lib/instagram/insights";
 
 /**
@@ -169,4 +169,44 @@ export async function getContentInsights(): Promise<{
     accountMetrics: account.metrics,
     media,
   };
+}
+
+/**
+ * Rate-limit gauge (A23): the messaging senders in send-dm.ts keep the latest
+ * x-business-use-case-usage reading per IG account in memory. Levels:
+ * ok < 80% of the 24h window, warning ≥ 80%, critical ≥ 95% (Meta throttles
+ * at 100%). "unknown" = no reading in this server instance yet (cold start /
+ * no sends observed) — the UI renders nothing in that case.
+ */
+export async function getRateLimitStatus(): Promise<{
+  level: "ok" | "warning" | "critical" | "unknown";
+  callCount: number | null;
+  readAt: string | null;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { level: "unknown", callCount: null, readAt: null };
+
+  // Get the user's active Instagram account
+  const { data: igAccount } = await supabase
+    .from("instagram_accounts")
+    .select("ig_user_id")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .limit(1)
+    .single();
+
+  if (!igAccount) {
+    return { level: "unknown", callCount: null, readAt: null };
+  }
+
+  const usage = getBucUsage(igAccount.ig_user_id as string);
+  if (!usage || typeof usage.callCount !== "number") {
+    return { level: "unknown", callCount: null, readAt: null };
+  }
+
+  const level = usage.callCount >= 95 ? "critical" : usage.callCount >= 80 ? "warning" : "ok";
+  return { level, callCount: usage.callCount, readAt: usage.readAt };
 }

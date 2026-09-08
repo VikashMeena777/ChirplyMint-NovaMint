@@ -45,6 +45,65 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Business Use Case (BUC) rate-limit telemetry (A23).
+ * Meta echoes the `x-business-use-case-usage` header on Messaging API
+ * responses: JSON keyed by app-scoped IG user id, each entry an array with
+ * `call_count` (% of the 24h window consumed), `total_cputime`, `total_time`
+ * and `type`. The latest reading per sending account is kept in memory so the
+ * dashboard can show a usage gauge (see getRateLimitStatus).
+ */
+export interface BucUsageEntry {
+  callCount: number;
+  totalCputime?: number;
+  totalTime?: number;
+  type?: string;
+  readAt: string;
+}
+
+const bucUsageMap = new Map<string, BucUsageEntry>();
+
+// % of the 24h window at which we start warning in logs (matches the
+// dashboard's amber "API usage 80%+" state)
+const BUC_WARN_THRESHOLD = 80;
+
+/**
+ * Record the latest BUC usage reading from a response header.
+ * Best-effort: wrapped so telemetry can never break a send.
+ */
+function recordBucUsage(igUserId: string, headers: Headers): void {
+  try {
+    const raw = headers.get("x-business-use-case-usage");
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<
+      string,
+      Array<{ call_count?: number; total_cputime?: number; total_time?: number; type?: string }>
+    >;
+    const entry = parsed?.[igUserId]?.[0];
+    if (!entry || typeof entry.call_count !== "number") return;
+    bucUsageMap.set(igUserId, {
+      callCount: entry.call_count,
+      totalCputime: entry.total_cputime,
+      totalTime: entry.total_time,
+      type: entry.type,
+      readAt: new Date().toISOString(),
+    });
+    if (entry.call_count >= BUC_WARN_THRESHOLD) {
+      logWarn("IG BUC Usage", `Rate-limit window ${entry.call_count}% consumed for IG account ${igUserId}`);
+    }
+  } catch {
+    // Telemetry only — never break a send over a usage header.
+  }
+}
+
+/**
+ * Latest BUC rate-limit reading for an IG account.
+ * Returns null when no send has been observed in this server instance yet.
+ */
+export function getBucUsage(igUserId: string): BucUsageEntry | null {
+  return bucUsageMap.get(igUserId) ?? null;
+}
+
+/**
  * Send a DM to an Instagram user via the Instagram Messaging API.
  * Uses POST /<IG_ID>/messages with Authorization Bearer header.
  * Requires: instagram_business_manage_messages permission.
@@ -93,6 +152,8 @@ export async function sendInstagramDM(
         },
         body: JSON.stringify(body),
       });
+
+      recordBucUsage(igUserId, res.headers);
 
       const data = await res.json();
 
@@ -433,6 +494,8 @@ export async function sendGenericTemplateDM(
       body: JSON.stringify(body),
     });
 
+    recordBucUsage(igUserId, res.headers);
+
     const data = await res.json();
 
     if (data.error) {
@@ -736,16 +799,67 @@ export async function sendSenderAction(
 }
 
 /**
+ * Optional attachment-cache wiring (A22). When provided, image/file sends
+ * reuse Meta attachment_ids: a cached id (getAttachmentId) skips the upload
+ * entirely, and a fresh one is uploaded once (is_reusable:true) then reported
+ * via onAttachmentId so the caller can persist it. All fields optional — on
+ * any cache/upload failure the send falls back to the plain URL payload.
+ */
+export interface AttachmentCacheOpts {
+  userId?: string;
+  igAccountId?: string;
+  onAttachmentId?: (url: string, type: string, id: string) => void;
+  getAttachmentId?: (url: string, type: string) => Promise<string | null>;
+}
+
+/**
+ * Resolve the attachment payload for one asset URL under cache mode:
+ *   1. cached attachment_id (getAttachmentId)      -> send by id
+ *   2. fresh reusable upload (is_reusable:true)    -> send by id + report for caching
+ *   3. fallback                                    -> plain { url } payload
+ */
+async function resolveAttachmentPayload(
+  igUserId: string,
+  accessToken: string,
+  url: string,
+  type: "image" | "file",
+  opts?: AttachmentCacheOpts
+): Promise<Record<string, string>> {
+  if (opts?.getAttachmentId) {
+    try {
+      const cachedId = await opts.getAttachmentId(url, type);
+      if (cachedId) return { attachment_id: cachedId };
+    } catch {
+      // Cache read failure — fall through to a fresh upload / URL payload.
+    }
+  }
+  if (opts?.onAttachmentId) {
+    const upload = await uploadReusableAttachment(igUserId, accessToken, type, url);
+    if (upload.success && upload.attachmentId) {
+      try {
+        opts.onAttachmentId(url, type, upload.attachmentId);
+      } catch {
+        // Cache write failure — the send itself already has the id.
+      }
+      return { attachment_id: upload.attachmentId };
+    }
+  }
+  return { url };
+}
+
+/**
  * Multi-image DM — up to 10 images in ONE message (GA May 2026).
  * Accepts image URLs (8MB max each, png/jpeg). On error 2534068 (feature not
  * available for the account), falls back to sending images one by one.
+ * With cacheOpts, each image is sent by reusable attachment_id when possible.
  */
 export async function sendMultiImageDM(
   igUserId: string,
   accessToken: string,
   recipientIgScopedId: string,
   imageUrls: string[],
-  caption?: string
+  caption?: string,
+  opts?: AttachmentCacheOpts
 ): Promise<{ success: boolean; messageId?: string; error?: string; fellBackToSingles?: boolean }> {
   const urls = imageUrls.slice(0, 10);
   try {
@@ -755,12 +869,16 @@ export async function sendMultiImageDM(
     // own text message right AFTER the album: images land first (visual
     // hook), then the caption reads exactly like a native Instagram caption
     // under a post — the pattern every user's brain already knows.
+    const payloads: Record<string, string>[] = [];
+    for (const url of urls) {
+      payloads.push(await resolveAttachmentPayload(igUserId, accessToken, url, "image", opts));
+    }
     const body: Record<string, unknown> = {
       recipient: { id: recipientIgScopedId },
       message: {
-        attachments: urls.map((url) => ({
+        attachments: payloads.map((payload) => ({
           type: "image",
-          payload: { url },
+          payload,
         })),
       },
     };
@@ -772,6 +890,7 @@ export async function sendMultiImageDM(
       },
       body: JSON.stringify(body),
     });
+    recordBucUsage(igUserId, res.headers);
     const data = await res.json();
     if (data.error) {
       const subcode = data.error.error_subcode as number | undefined;
@@ -779,8 +898,8 @@ export async function sendMultiImageDM(
         // Feature not enabled for this account — send as individual images
         // (real image attachments, NOT the URL as text).
         let allOk = true;
-        for (const url of urls) {
-          const single = await sendImageDMByUrl(igUserId, accessToken, recipientIgScopedId, url);
+        for (let i = 0; i < urls.length; i++) {
+          const single = await sendImageDMByUrl(igUserId, accessToken, recipientIgScopedId, urls[i], payloads[i]);
           if (!single.success) allOk = false;
           await sleep(600);
         }
@@ -803,12 +922,15 @@ export async function sendMultiImageDM(
 
 /**
  * Single image attachment DM (used by the multi-image fallback).
+ * `attachmentPayload` overrides the default { url } payload so the fallback
+ * can reuse a cached/uploaded attachment_id.
  */
 export async function sendImageDMByUrl(
   igUserId: string,
   accessToken: string,
   recipientIgScopedId: string,
-  imageUrl: string
+  imageUrl: string,
+  attachmentPayload?: Record<string, string>
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
@@ -820,10 +942,11 @@ export async function sendImageDMByUrl(
       body: JSON.stringify({
         recipient: { id: recipientIgScopedId },
         message: {
-          attachment: { type: "image", payload: { url: imageUrl } },
+          attachment: { type: "image", payload: attachmentPayload || { url: imageUrl } },
         },
       }),
     });
+    recordBucUsage(igUserId, res.headers);
     const data = await res.json();
     if (data.error) return { success: false, error: data.error.message || "Image send failed" };
     return { success: true, messageId: data.message_id };
@@ -835,14 +958,17 @@ export async function sendImageDMByUrl(
 /**
  * File DM — PDF brochures/lead magnets (25MB max, added Dec 2025).
  * The URL must be publicly reachable; Meta fetches it at send time.
+ * With cacheOpts, the file is sent by reusable attachment_id when possible.
  */
 export async function sendFileDM(
   igUserId: string,
   accessToken: string,
   recipientIgScopedId: string,
-  fileUrl: string
+  fileUrl: string,
+  opts?: AttachmentCacheOpts
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
+    const payload = await resolveAttachmentPayload(igUserId, accessToken, fileUrl, "file", opts);
     const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
       method: "POST",
       headers: {
@@ -852,10 +978,11 @@ export async function sendFileDM(
       body: JSON.stringify({
         recipient: { id: recipientIgScopedId },
         message: {
-          attachment: { type: "file", payload: { url: fileUrl } },
+          attachment: { type: "file", payload },
         },
       }),
     });
+    recordBucUsage(igUserId, res.headers);
     const data = await res.json();
     if (data.error) return { success: false, error: data.error.message || "File send failed" };
     return { success: true, messageId: data.message_id };
@@ -882,28 +1009,67 @@ export async function sendQuickRepliesDM(
   promptText: string,
   quickReplies: QuickReply[]
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({
-        recipient: { id: recipientIgScopedId },
-        message: {
-          text: promptText.slice(0, 1000),
-          quick_replies: quickReplies.slice(0, 13).map((q) => ({
-            content_type: q.content_type || "text",
-            title: q.title.slice(0, 20),
-            payload: q.payload,
-          })),
-        },
-      }),
-    });
-    const data = await res.json();
-    if (data.error) return { success: false, error: data.error.message || "Quick replies send failed" };
-    return { success: true, messageId: data.message_id };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+  // Meta rule: native capture chips (user_email / user_phone_number) CANNOT
+  // be mixed with each other in one message — only ONE special type per
+  // message; mixing makes Instagram drop the chips (the "only one button
+  // shows" bug). So we split into sequential messages:
+  //   1. prompt + all text chips
+  //   2. short email prompt + the single email chip (if present)
+  //   3. short phone prompt + the single phone chip (if present)
+  const textChips = quickReplies.filter((q) => (q.content_type || "text") === "text").slice(0, 13);
+  const emailChip = quickReplies.find((q) => q.content_type === "user_email");
+  const phoneChip = quickReplies.find((q) => q.content_type === "user_phone_number");
+
+  async function sendOne(text: string, chips: QuickReply[]): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      const res = await fetch(`${GRAPH_API_BASE}/${igUserId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          recipient: { id: recipientIgScopedId },
+          message: {
+            text: text.slice(0, 1000),
+            quick_replies: chips.map((q) => ({
+              content_type: q.content_type || "text",
+              title: q.title.slice(0, 20),
+              payload: q.payload,
+            })),
+          },
+        }),
+      });
+      recordBucUsage(igUserId, res.headers);
+      const data = await res.json();
+      if (data.error) return { success: false, error: data.error.message || "Quick replies send failed" };
+      return { success: true, messageId: data.message_id };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Network error" };
+    }
   }
+
+  let anySuccess = false;
+  let lastError: string | undefined;
+
+  if (textChips.length > 0) {
+    const r = await sendOne(promptText, textChips);
+    if (r.success) anySuccess = true; else lastError = r.error;
+    await new Promise((res) => setTimeout(res, 600));
+  }
+
+  if (emailChip) {
+    const r = await sendOne("Also - drop your email so we can reach you 📧", [emailChip]);
+    if (r.success) anySuccess = true; else lastError = r.error;
+    await new Promise((res) => setTimeout(res, 600));
+  }
+
+  if (phoneChip) {
+    const r = await sendOne("And your phone number, if that's easier 📱", [phoneChip]);
+    if (r.success) anySuccess = true; else lastError = r.error;
+  }
+
+  if (!textChips.length && !emailChip && !phoneChip) {
+    return { success: false, error: "Quick replies block has no options" };
+  }
+  return anySuccess ? { success: true } : { success: false, error: lastError };
 }
 
 export interface CarouselElement {

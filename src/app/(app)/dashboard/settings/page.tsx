@@ -17,13 +17,22 @@ import {
   Trash2,
   Clock,
   ShieldBan,
+  Users,
+  Mail,
+  KeyRound,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
+import {
+  inviteTeamMember,
+  revokeInvite,
+  removeTeamMember,
+} from "@/lib/actions/team";
+import { createApiKey, revokeApiKey } from "@/lib/actions/api-keys";
 
-type TabId = "account" | "instagram" | "billing" | "notifications";
+type TabId = "account" | "instagram" | "billing" | "notifications" | "team";
 
 interface UserProfile {
   id: string;
@@ -41,6 +50,7 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "instagram", label: "Instagram", icon: Link2 },
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "team", label: "Team & API", icon: Users },
 ];
 
 export default function SettingsPage() {
@@ -49,6 +59,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [team, setTeam] = useState<{ members: { id: string; member_email: string }[]; invites: { id: string; email: string; token: string }[]; seatLimit: number }>({ members: [], invites: [], seatLimit: 3 });
+  const [teamInviteEmail, setTeamInviteEmail] = useState("");
+  const [teamBusy, setTeamBusy] = useState(false);
+  const [apiKeys, setApiKeys] = useState<{ id: string; name: string; key_prefix: string; last_used_at: string | null; revoked: boolean }[]>([]);
+  const [apiKeyName, setApiKeyName] = useState("");
+  const [newApiKey, setNewApiKey] = useState("");
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
     dm_delivery_alerts: true,
     weekly_report: true,
@@ -87,6 +103,8 @@ export default function SettingsPage() {
   useEffect(() => {
     loadProfile();
     loadNotifPrefs();
+    loadTeam();
+    loadApiKeys();
 
     // Auto-verify payment on return from Cashfree
     const paymentStatus = searchParamsMain.get("payment");
@@ -110,6 +128,17 @@ export default function SettingsPage() {
   async function loadNotifPrefs() {
     const prefs = await getNotificationPreferences();
     if (prefs) setNotifPrefs(prefs);
+  }
+
+  async function loadTeam() {
+    const { getTeam } = await import("@/lib/actions/team");
+    const t = await getTeam();
+    setTeam(t);
+  }
+
+  async function loadApiKeys() {
+    const { getApiKeys } = await import("@/lib/actions/api-keys");
+    setApiKeys(await getApiKeys());
   }
 
   async function handleToggleNotif(key: string, checked: boolean) {
@@ -403,6 +432,146 @@ export default function SettingsPage() {
                 </button>
               </label>
             ))}
+          </div>
+        )}
+
+        {activeTab === "team" && (
+          <div className="space-y-6 max-w-2xl">
+            {/* Team seats (D6) */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[oklch(0.52_0.19_162)]" /> Team Seats
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Invite teammates (Business plan - {team.members.length + team.invites.length}/3 seats used)
+                </p>
+              </div>
+              {team.members.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30">
+                  <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162/15%)] flex items-center justify-center text-xs font-bold text-[oklch(0.52_0.19_162)]">
+                    {m.member_email[0].toUpperCase()}
+                  </div>
+                  <span className="text-sm text-foreground flex-1 truncate">{m.member_email}</span>
+                  <button
+                    onClick={async () => { const r = await removeTeamMember(m.id); if (r.error) toast.error(r.error); else { toast.success("Member removed"); loadTeam(); } }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {team.invites.map((inv) => (
+                <div key={inv.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-border">
+                  <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground flex-1 truncate">{inv.email}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(window.location.origin + "/invite/" + inv.token); toast.success("Invite link copied"); }}
+                    className="text-xs text-[oklch(0.52_0.19_162)] hover:underline"
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    onClick={async () => { const r = await revokeInvite(inv.id); if (r.error) toast.error(r.error); else { toast.success("Invite revoked"); loadTeam(); } }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={teamInviteEmail}
+                  onChange={(e) => setTeamInviteEmail(e.target.value)}
+                  placeholder="teammate@example.com"
+                  className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                />
+                <button
+                  onClick={async () => {
+                    setTeamBusy(true);
+                    const r = await inviteTeamMember(teamInviteEmail);
+                    setTeamBusy(false);
+                    if (r.error) { toast.error(r.error); } else {
+                      toast.success("Invite ready - link copied to clipboard!");
+                      if (r.inviteUrl) navigator.clipboard.writeText(r.inviteUrl).catch(() => {});
+                      setTeamInviteEmail("");
+                      loadTeam();
+                    }
+                  }}
+                  disabled={teamBusy || !teamInviteEmail.trim()}
+                  className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                >
+                  {teamBusy ? "Inviting..." : "Invite"}
+                </button>
+              </div>
+            </div>
+
+            {/* Public API keys (D8) */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-[oklch(0.52_0.19_162)]" /> Public API
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Read-only REST API for your data (Business plan). Endpoints:
+                  <code className="bg-muted px-1 rounded mx-1">/api/v1/leads</code>
+                  <code className="bg-muted px-1 rounded mx-1">/api/v1/automations</code>
+                  <code className="bg-muted px-1 rounded mx-1">/api/v1/dm-logs</code>
+                  <code className="bg-muted px-1 rounded mx-1">/api/v1/stats</code>
+                </p>
+              </div>
+              {apiKeys.map((k) => (
+                <div key={k.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30">
+                  <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{k.name} <span className="text-muted-foreground font-mono text-xs">({k.key_prefix}...)</span></p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {k.revoked ? "Revoked" : k.last_used_at ? "Last used " + new Date(k.last_used_at).toLocaleDateString("en-IN") : "Never used"}
+                    </p>
+                  </div>
+                  {!k.revoked && (
+                    <button
+                      onClick={async () => { const r = await revokeApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key revoked"); loadApiKeys(); } }}
+                      className="text-xs text-red-400 hover:underline"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              ))}
+              {newApiKey && (
+                <div className="rounded-lg border border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] p-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-foreground">Copy your key now - it won't be shown again:</p>
+                  <code className="block text-xs bg-background rounded p-2 break-all select-all">{newApiKey}</code>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  value={apiKeyName}
+                  onChange={(e) => setApiKeyName(e.target.value)}
+                  placeholder="Key name (e.g. Zapier integration)"
+                  className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                />
+                <button
+                  onClick={async () => {
+                    setTeamBusy(true);
+                    const r = await createApiKey(apiKeyName);
+                    setTeamBusy(false);
+                    if (r.error) { toast.error(r.error); } else {
+                      setNewApiKey(r.key || "");
+                      setApiKeyName("");
+                      loadApiKeys();
+                      toast.success("API key created - copy it now!");
+                    }
+                  }}
+                  disabled={teamBusy}
+                  className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                >
+                  {teamBusy ? "Creating..." : "Create key"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -43,7 +43,7 @@ const BLOCK_TYPES: {
   { type: "image_album", label: "Image Album", icon: Images, hint: "Up to 10 images with a caption" },
   { type: "pdf", label: "PDF File", icon: FileText, hint: "Send a document (max 25MB)" },
   { type: "button_card", label: "Button Card", icon: MousePointerClick, hint: "Rich card with up to 3 buttons" },
-  { type: "quick_replies", label: "Quick Replies", icon: MessageCircleReply, hint: "Tappable options incl. email/phone capture" },
+  { type: "quick_replies", label: "Quick Replies", icon: MessageCircleReply, hint: "Tappable options incl. email/phone capture (one block per stack)" },
   { type: "carousel", label: "Carousel", icon: LayoutGrid, hint: "Up to 10 swipeable cards with buttons" },
   { type: "media_share", label: "Share Post", icon: Share2, hint: "Resend one of your posts in the DM" },
 ];
@@ -92,6 +92,20 @@ export function StackComposer({ blocks, onChange }: StackComposerProps) {
 
   function addBlock(type: MessageBlockForm["type"]) {
     if (blocks.length >= MAX_BLOCKS) return;
+    // Quick Replies: ONE block per stack. Picking it again merges the new
+    // (empty) options into the existing block instead of creating a second
+    // one — multiple QR blocks confuse delivery order on Instagram.
+    if (type === "quick_replies" && blocks.some((b) => b.type === "quick_replies")) {
+      const existing = blocks.find((b) => b.type === "quick_replies")!;
+      onChange(
+        blocks.map((b) =>
+          b.id === existing.id
+            ? { ...b, quick_replies: [...(b.quick_replies || [])] }
+            : b
+        )
+      );
+      return;
+    }
     onChange([...blocks, makeBlock(type)]);
   }
 

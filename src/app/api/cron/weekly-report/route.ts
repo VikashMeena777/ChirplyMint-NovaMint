@@ -31,8 +31,16 @@ export async function GET(request: Request) {
     }
 
     let processed = 0;
+    // Wall-clock budget: this cron was timing out at Vercel's 60s kill when
+    // the user list grew (AI insight per user). Stop starting NEW users'
+    // reports at 45s — remaining users get picked up on the next day's run.
+    const deadline = Date.now() + 45_000;
 
     for (const profile of profiles) {
+      if (Date.now() > deadline) {
+        console.log(`[Weekly Report] Time budget reached — deferring remaining ${profiles.length - processed} users to next run`);
+        break;
+      }
       const prefs = (profile.notification_preferences as Record<string, boolean>) ?? {};
       if (prefs.weekly_report === false) continue;
 
