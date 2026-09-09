@@ -25,6 +25,7 @@ import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
+import { startFreeTrial, getInvoices, type InvoiceRow } from "@/lib/actions/billing";
 import {
   inviteTeamMember,
   revokeInvite,
@@ -964,12 +965,29 @@ function InstagramConnectionTab() {
 /* ─── Billing Sub-component ─── */
 function BillingTab({ profile }: { profile: UserProfile | null }) {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [startingTrial, setStartingTrial] = useState(false);
 
   const allPlans = getPlanDisplayData();
   // Only show Pro and Business as upgrade options
   const tiers = allPlans.filter((p) => p.key !== "free");
 
   const currentPlan = profile?.plan ?? "free";
+
+  useEffect(() => {
+    getInvoices().then(setInvoices);
+  }, []);
+
+  async function handleStartTrial() {
+    setStartingTrial(true);
+    const r = await startFreeTrial();
+    setStartingTrial(false);
+    if (r.error) toast.error(r.error);
+    else {
+      toast.success("7-day Pro trial started! 🎉 Everything is unlocked.");
+      window.location.reload();
+    }
+  }
 
   async function handleUpgrade(planKey: string) {
     setUpgradingPlan(planKey);
@@ -1051,6 +1069,98 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
           );
         })()}
       </div>
+
+      {/* Free trial banner (once) */}
+      {currentPlan === "free" && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">🎁 Try Pro free for 7 days</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Unlimited-ish DMs, AI agent, drip sequences, A/B tests — every Pro feature, no card needed. Once per account.
+            </p>
+          </div>
+          <button
+            onClick={handleStartTrial}
+            disabled={startingTrial}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-lg disabled:opacity-50 shrink-0"
+          >
+            {startingTrial ? "Starting…" : "Start free trial"}
+          </button>
+        </div>
+      )}
+
+      {/* Annual option + top-up */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] p-5">
+          <p className="text-sm font-bold text-foreground">Annual plans — 2 months free</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Pay once, worry never. Pro ₹4,990/yr (was ₹5,988) · Business ₹14,990/yr (was ₹17,988).
+          </p>
+          <div className="flex gap-2 mt-3 flex-wrap">
+            <button
+              onClick={() => handleUpgrade("pro_annual")}
+              disabled={upgradingPlan !== null || currentPlan === "pro"}
+              className="px-4 py-2 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-xs font-semibold disabled:opacity-40"
+            >
+              {upgradingPlan === "pro_annual" ? "Processing…" : "Pro Annual ₹4,990"}
+            </button>
+            <button
+              onClick={() => handleUpgrade("business_annual")}
+              disabled={upgradingPlan !== null || currentPlan === "business"}
+              className="px-4 py-2 rounded-xl border border-[oklch(0.52_0.19_162)] text-[oklch(0.52_0.19_162)] text-xs font-semibold disabled:opacity-40"
+            >
+              {upgradingPlan === "business_annual" ? "Processing…" : "Business Annual ₹14,990"}
+            </button>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-sm font-bold text-foreground">⚡ Running low on DMs?</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Top-up +500 DMs for ₹99 — resets your monthly counter instantly. No plan change.
+          </p>
+          <button
+            onClick={() => handleUpgrade("topup_500")}
+            disabled={upgradingPlan !== null}
+            className="mt-3 px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-semibold disabled:opacity-40"
+          >
+            {upgradingPlan === "topup_500" ? "Processing…" : "Buy +500 DMs — ₹99"}
+          </button>
+        </div>
+      </div>
+
+      {/* Invoices */}
+      {invoices.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-sm font-semibold text-foreground mb-3">Invoices</p>
+          <div className="divide-y divide-border">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-3 py-2.5 text-sm">
+                <Check className="w-4 h-4 text-[oklch(0.52_0.19_162)] shrink-0" />
+                <span className="flex-1 truncate">{inv.description || inv.plan}</span>
+                <span className="text-muted-foreground text-xs shrink-0">
+                  {new Date(inv.paid_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+                <span className="font-semibold text-foreground shrink-0">₹{inv.amount}</span>
+                <button
+                  onClick={() => {
+                    const w = window.open("", "_blank");
+                    if (w) {
+                      w.document.write(
+                        `<html><head><title>Invoice ${inv.order_id}</title><style>body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{color:#16a34a}table{width:100%;border-collapse:collapse;margin:20px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}</style></head><body><h1>ChirplyMint Invoice</h1><p>Order: ${inv.order_id}</p><p>Date: ${new Date(inv.paid_at).toLocaleDateString("en-IN")}</p><table><tr><th>Item</th><th>Amount</th></tr><tr><td>${inv.description || inv.plan}</td><td>₹${inv.amount} ${inv.currency}</td></tr></table><p style="color:#888;font-size:12px">ChirplyMint — Instagram DM Automation · chirplymint.novamintnetworks.in</p></body></html>`
+                      );
+                      w.document.close();
+                      w.print();
+                    }
+                  }}
+                  className="text-xs text-[oklch(0.52_0.19_162)] hover:underline shrink-0"
+                >
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {tiers.map((tier) => {

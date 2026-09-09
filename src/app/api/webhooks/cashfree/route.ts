@@ -60,15 +60,48 @@ export async function POST(request: Request) {
         .single();
 
       if (order) {
-        const plan = order.plan as PlanKey;
+        const rawPlan = order.plan as string;
+        const plan = rawPlan as PlanKey;
         const planConfig = PLANS[plan] || PLANS.free;
 
-        // Upgrade user's plan
+        // ── Top-up pack: add DMs, don't change plan ──
+        if (rawPlan === "topup_500") {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("dm_topup_balance, dm_count_this_month")
+            .eq("id", order.user_id)
+            .single();
+          const cur = prof as Record<string, number> | null;
+          const used = cur?.dm_count_this_month ?? 0;
+          await supabase
+            .from("profiles")
+            .update({
+              dm_topup_balance: Math.max(0, (cur?.dm_topup_balance ?? 0) + 500 - used),
+              dm_count_this_month: 0,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.user_id);
+
+          await supabase.from("notifications").insert({
+            user_id: order.user_id,
+            type: "payment_success",
+            title: "⚡ +500 DMs added!",
+            body: "Your DM top-up is active — your monthly counter was reset. Happy automating!",
+            metadata: { order_id: orderId },
+          });
+          return NextResponse.json({ status: "ok" });
+        }
+
+        // ── Plan purchase (monthly or annual) ──
+        const periodDays = rawPlan.endsWith("_annual") ? 365 : 30;
+        const effectivePlan = rawPlan.replace("_annual", "") as PlanKey;
+        const effConfig = PLANS[effectivePlan] || PLANS.free;
+
         await supabase
           .from("profiles")
           .update({
-            plan,
-            dm_limit: planConfig.dmLimit,
+            plan: effectivePlan,
+            dm_limit: effConfig.dmLimit,
             updated_at: new Date().toISOString(),
           })
           .eq("id", order.user_id);
@@ -78,12 +111,12 @@ export async function POST(request: Request) {
           .from("subscriptions")
           .upsert({
             user_id: order.user_id,
-            plan,
+            plan: effectivePlan,
             status: "active",
             cashfree_customer_id: orderData.customer_details?.customer_id || null,
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000
+              Date.now() + periodDays * 24 * 60 * 60 * 1000
             ).toISOString(),
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id" });
@@ -93,7 +126,7 @@ export async function POST(request: Request) {
           user_id: order.user_id,
           type: "payment_success",
           title: "🎉 Plan Upgraded!",
-          body: `You've been upgraded to the ${planConfig.name} plan. Enjoy your new features!`,
+          body: `You've been upgraded to the ${effConfig.name} plan${periodDays === 365 ? " (annual)" : ""}. Enjoy your new features!`,
           metadata: { plan, order_id: orderId },
         });
 

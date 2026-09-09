@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layouts/sidebar";
+import { MobileBottomNav } from "@/components/layouts/mobile-bottom-nav";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -21,8 +22,9 @@ export default function AppLayout({
           <ThemeToggle />
           <NotificationBell />
         </div>
-        <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24 md:pb-8">{children}</div>
       </main>
+      <MobileBottomNav />
       <CommandPalette />
       <OnboardingWrapper />
     </div>

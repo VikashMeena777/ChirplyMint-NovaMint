@@ -12,7 +12,25 @@ import {
   getTopAutomations,
 } from "@/lib/actions/analytics";
 import { getPerAutomationStats } from "@/lib/actions/automation-stats";
+import { getConversionFunnel } from "@/lib/actions/funnel";
 import AnalyticsChartsClient from "@/components/dashboard/analytics-charts-client";
+
+function FunnelBar({ label, count, max, color }: { label: string; count: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.max(2, Math.round((count / max) * 100)) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-40 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="flex-1 h-6 rounded-lg bg-muted/40 overflow-hidden">
+        <div
+          className="h-full rounded-lg flex items-center justify-end px-2 transition-all duration-700"
+          style={{ width: `${pct}%`, background: color }}
+        >
+          <span className="text-[11px] font-bold text-white">{count}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -23,6 +41,7 @@ export default async function AnalyticsPage() {
   let dmsSent = 0;
   let leadsCount = 0;
   let automationCount = 0;
+  const funnel = await getConversionFunnel();
 
   // Parallel fetch all analytics data for maximum speed
   const [
@@ -139,6 +158,33 @@ export default async function AnalyticsPage() {
         topAutomations={topAutomations}
         automationStats={automationStats}
       />
+
+      {/* ── Conversion Funnel (unified pipeline) ── */}
+      {funnel.overall.some((st) => st.count > 0) && (
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+            <h2 className="text-sm font-bold text-foreground">Conversion Funnel</h2>
+            <span className="text-[11px] text-muted-foreground">last 30 days</span>
+          </div>
+          <div className="space-y-2">
+            {funnel.overall.map((st: { label: string; count: number }, i: number) => (
+              <FunnelBar
+                key={st.label}
+                label={st.label}
+                count={st.count}
+                max={funnel.overall[0]?.count || 1}
+                color={`oklch(0.52 0.19 ${162 + i * 12})`}
+              />
+            ))}
+          </div>
+          {(funnel.overall[0]?.count ?? 0) > 0 && (funnel.overall[4]?.count ?? 0) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {Math.round((funnel.overall[4].count / funnel.overall[0].count) * 1000) / 10}% of delivered DMs turn into captured contacts.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

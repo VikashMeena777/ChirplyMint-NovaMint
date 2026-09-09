@@ -510,3 +510,191 @@ export async function updateAutomation(
   revalidatePath("/dashboard/automations");
   return { success: true, id };
 }
+
+export async function cloneAutomation(
+  id: string
+): Promise<{ success?: boolean; error?: string; newId?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: original } = await supabase
+    .from("automations")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  if (!original) return { error: "Automation not found" };
+
+  const o = original as Record<string, unknown>;
+
+  // Check plan limit
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+  const { count: activeCount } = await supabase
+    .from("automations")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .in("status", ["active", "paused"]);
+  const { canCreateAutomation } = await import("@/lib/utils/plan-limits");
+  const check = canCreateAutomation(((profile as Record<string, string> | null)?.plan || "free") as PlanKey, activeCount ?? 0);
+  if (!check.allowed) {
+    return { error: `Plan limit reached (${check.limit} automations). Upgrade to clone more.` };
+  }
+
+  // Clone with a "- copy" name, reset stats, paused state
+  const { data: inserted, error } = await supabase
+    .from("automations")
+    .insert({
+      user_id: user.id,
+      instagram_account_id: o.instagram_account_id,
+      name: `${o.name} (copy)`,
+      keyword: `${o.keyword}-copy`,
+      dm_template: o.dm_template,
+      scope_type: o.scope_type,
+      content_type: o.content_type,
+      media_id: null, // post-scoped clones start account-wide
+      post_url: null,
+      ai_enabled: o.ai_enabled,
+      ai_persona: o.ai_persona,
+      comment_reply_enabled: o.comment_reply_enabled,
+      comment_reply_template: o.comment_reply_template,
+      require_follow: o.require_follow,
+      template_type: o.template_type,
+      template_title: o.template_title,
+      template_subtitle: o.template_subtitle,
+      template_image_url: o.template_image_url,
+      template_buttons: o.template_buttons,
+      template_image_urls: o.template_image_urls,
+      template_file_url: o.template_file_url,
+      template_blocks: o.template_blocks,
+      auto_react: o.auto_react,
+      story_link_branches: o.story_link_branches,
+      trigger_type: o.trigger_type,
+      status: "paused",
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  logActivity(user.id, "automation.cloned", { from_id: id, to_id: (inserted as Record<string, string>).id }).catch(() => {});
+  revalidatePath("/dashboard/automations");
+  return { success: true, newId: (inserted as Record<string, string>).id };
+}
+
+/** Bulk pause/resume */
+export async function bulkSetAutomationStatus(
+  ids: string[],
+  status: "active" | "paused"
+): Promise<{ success?: boolean; updated?: number; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error, count } = await supabase
+    .from("automations")
+    .update({ status })
+    .in("id", ids)
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/automations");
+  return { success: true, updated: count ?? 0 };
+}
+
+/**
+ * TEST MODE: simulate a comment from the account owner (never public).
+ * The full automation pipeline runs, but the DM lands in the OWNER's own
+ * Instagram DMs so they can see exactly what a lead would receive.
+ */
+export async function testAutomation(
+  id: string,
+  testKeyword: string
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: automation } = await supabase
+    .from("automations")
+    .select("*, instagram_accounts!inner(ig_user_id, ig_username, page_access_token, access_token, is_active)")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  if (!automation) return { error: "Automation not found" };
+
+  const a = automation as Record<string, unknown>;
+  const ig = a.instagram_accounts as Record<string, string>;
+  const accessToken = ig.page_access_token || ig.access_token;
+  if (!accessToken) return { error: "Account token missing — reconnect Instagram" };
+
+  // Find the OWNER's own IG-scoped id (test DM goes to them)
+  const meRes = await fetch(
+    `https://graph.instagram.com/v26.0/me?fields=user_id&access_token=${encodeURIComponent(accessToken)}`
+  );
+  const me = (await meRes.json()) as { user_id?: string; id?: string; error?: { message?: string } };
+  const ownId = me.user_id || me.id;
+  if (!ownId) {
+    return { error: "Could not resolve your Instagram id — reconnect the account" };
+  }
+
+  // Build the message from the automation's content (mirror of stack/DM logic)
+  const blocks = (a.template_blocks as { type: string; text?: string }[] | null) || [];
+  let message: string;
+  if (blocks.length > 0) {
+    const firstText = blocks.find((b) => b.type === "text" && (b.text || "").trim());
+    message = (firstText?.text || `Test from "${a.name}"`).replace(/\{name\}/gi, `@${ig.ig_username}`);
+  } else if (a.template_type === "button") {
+    message = (a.template_title as string) || `Test from "${a.name}"`;
+  } else {
+    message = (a.dm_template as string) || `Test from "${a.name}"`;
+    message = message.replace(/\{name\}/gi, `@${ig.ig_username}`);
+  }
+
+  // Send the test DM to the owner themselves (window may not be open if they
+  // never DM'd the account — that's expected; the error tells them to DM first)
+  const sendRes = await fetch(`https://graph.instagram.com/v26.0/${ig.ig_user_id}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({
+      recipient: { id: ownId },
+      message: { text: `[TEST MODE] ${message}` },
+    }),
+  });
+  const sendData = (await sendRes.json()) as { error?: { message?: string; code?: number } };
+
+  if (sendData.error) {
+    const msg = sendData.error.message || "Send failed";
+    if (/window|24/i.test(msg)) {
+      return {
+        error:
+          "Test message needs an open conversation: send ANY DM to your own account from the Instagram app first, then run the test again.",
+      };
+    }
+    return { error: msg };
+  }
+
+  await supabase.from("dm_logs").insert({
+    user_id: user.id,
+    automation_id: id,
+    instagram_account_id: a.instagram_account_id as string,
+    recipient_ig_id: ownId,
+    recipient_username: ig.ig_username,
+    message_text: `[TEST MODE] ${message.slice(0, 200)}`,
+    comment_text: `[SIMULATED] keyword: ${testKeyword || a.keyword}`,
+    status: "sent",
+    trigger_type: "test",
+  });
+
+  return { success: true };
+}

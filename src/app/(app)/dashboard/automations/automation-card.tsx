@@ -17,6 +17,8 @@ import {
   GitBranch,
   FlaskConical,
   Workflow,
+  Copy,
+  Loader2,
 } from "lucide-react";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
 import ABTestPanel from "@/components/dashboard/ab-test-panel";
@@ -132,6 +134,9 @@ interface AutomationCardProps {
   onToggle: (id: string, status: string) => void;
   onDelete: (id: string) => void;
   onEdit: (automation: Automation) => void;
+  onClone: (id: string) => void;
+  onTest: (id: string, keyword: string) => void;
+  testing?: boolean;
 }
 
 export default function AutomationCard({
@@ -140,6 +145,9 @@ export default function AutomationCard({
   onToggle,
   onDelete,
   onEdit,
+  onClone,
+  onTest,
+  testing,
 }: AutomationCardProps) {
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all group overflow-hidden">
@@ -188,6 +196,21 @@ export default function AutomationCard({
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
+          </button>
+          <button
+            onClick={() => onClone(a.id)}
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Clone this automation"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onTest(a.id, a.keyword)}
+            disabled={testing}
+            className="p-1.5 rounded-lg border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors disabled:opacity-50"
+            title="Test mode — sends the DM to YOURSELF (never public)"
+          >
+            {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={() => onDelete(a.id)}

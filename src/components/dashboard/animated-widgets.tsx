@@ -18,24 +18,13 @@ interface StatItem {
 }
 
 export function AnimatedStatGrid({ stats }: { stats: StatItem[] }) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 50);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
-          className="rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md hover:border-[oklch(0.52_0.19_162/20%)] transition-all duration-300"
-          style={{
-            opacity: visible ? 1 : 0,
-            transform: visible ? "translateY(0)" : "translateY(12px)",
-            transition: `opacity 0.5s ease ${i * 100}ms, transform 0.5s ease ${i * 100}ms, box-shadow 0.2s ease, border-color 0.2s ease`,
-          }}
+          className="animate-fade-up rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md hover:border-[oklch(0.52_0.19_162/20%)] transition-all duration-300"
+          style={{ animationDelay: `${i * 100}ms` }}
         >
           <div className="flex items-center justify-between">
             <div

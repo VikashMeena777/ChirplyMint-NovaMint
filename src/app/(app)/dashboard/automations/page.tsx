@@ -12,6 +12,7 @@ import {
   deleteAutomation,
 } from "@/lib/actions/automations";
 import { toast } from "sonner";
+import { cloneAutomation, testAutomation } from "@/lib/actions/automations";
 import { AutomationCardSkeleton } from "@/components/ui/page-skeleton";
 import { getProfile } from "@/lib/actions/dashboard";
 import { type PlanKey } from "@/lib/utils/plan-limits";
@@ -24,6 +25,7 @@ export default function AutomationsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Automation | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
 
@@ -94,6 +96,28 @@ export default function AutomationsPage() {
     }
   }
 
+  async function handleClone(id: string) {
+    const result = await cloneAutomation(id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Automation cloned (paused) — edit the copy and resume it");
+      loadAutomations();
+    }
+  }
+
+  async function handleTest(id: string, keyword: string) {
+    setTestingId(id);
+    toast.info("Sending a test DM to your own Instagram…");
+    const result = await testAutomation(id, keyword);
+    setTestingId(null);
+    if (result.error) {
+      toast.error(result.error, { duration: 8000 });
+    } else {
+      toast.success("Test DM sent to YOUR Instagram — check your DMs! (nothing was public)");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -146,13 +170,20 @@ export default function AutomationsPage() {
               : "Create your first automation to start sending DMs when someone comments a keyword on your post."}
           </p>
           {!search && (
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Create Your First Automation
-            </button>
+            <>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Create Your First Automation
+              </button>
+              <p className="mt-4 text-xs text-muted-foreground max-w-sm mx-auto">
+                Short on ideas? The wizard includes a 🎨 recipe gallery — browse
+                the gallery to start from a ready-made automation for your niche,
+                then swap in your own links.
+              </p>
+            </>
           )}
         </div>
       ) : (
@@ -165,6 +196,9 @@ export default function AutomationsPage() {
               onToggle={handleToggle}
               onDelete={handleDelete}
               onEdit={(automation) => setEditing(automation)}
+              onClone={handleClone}
+              onTest={handleTest}
+              testing={testingId === a.id}
             />
           ))}
         </div>

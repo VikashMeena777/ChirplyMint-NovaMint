@@ -29,16 +29,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
     }
 
-    const { plan } = (await request.json()) as { plan: PlanKey };
+    const { plan: rawPlan } = (await request.json()) as { plan: string };
 
-    if (!plan || !PLANS[plan] || plan === "free") {
-      return NextResponse.json(
-        { error: "Invalid plan selected" },
-        { status: 400 }
-      );
+    // Supported purchases: pro / business / pro_annual / business_annual / topup_500
+    const PRICES: Record<string, { amount: number; label: string }> = {
+      pro: { amount: PLANS.pro.price, label: "Pro (monthly)" },
+      business: { amount: PLANS.business.price, label: "Business (monthly)" },
+      pro_annual: { amount: PLANS.pro.price * 10, label: "Pro (annual — 2 months free)" },
+      business_annual: { amount: PLANS.business.price * 10, label: "Business (annual — 2 months free)" },
+      topup_500: { amount: 99, label: "+500 DM top-up" },
+    };
+
+    const entry = PRICES[rawPlan];
+    if (!entry) {
+      return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }
-
-    const planConfig = PLANS[plan];
+    const plan = rawPlan as PlanKey;
+    const planConfig = { price: entry.amount };
     const orderId = `CM_${user.id.slice(0, 8)}_${Date.now()}`;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
@@ -72,10 +79,20 @@ export async function POST(request: Request) {
     await admin.from("payment_orders").insert({
       user_id: user.id,
       order_id: orderId,
-      plan,
+      plan: rawPlan,
       amount: planConfig.price,
       status: "pending",
       payment_session_id: result.paymentSessionId,
+    });
+
+    // Pre-register the invoice (amount final at payment success via webhook)
+    await admin.from("invoices").insert({
+      user_id: user.id,
+      order_id: orderId,
+      amount: planConfig.price,
+      plan: rawPlan,
+      description: entry.label,
+      paid_at: new Date().toISOString(),
     });
 
     return NextResponse.json({

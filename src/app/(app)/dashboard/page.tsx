@@ -12,6 +12,7 @@ import { getDashboardStats } from "@/lib/actions/dashboard";
 import { getSetupStatus } from "@/lib/actions/setup";
 import { getRateLimitStatus } from "@/lib/actions/instagram-api";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import {
   AnimatedStatGrid,
   AnimatedPlanCard,
@@ -117,6 +118,14 @@ export default async function DashboardPage() {
       {setupStatus && !setupStatus.dismissed && !setupStatus.allComplete && (
         <SetupChecklist initialStatus={setupStatus} />
       )}
+
+            {/* Onboarding checklist (aha-moment driver) */}
+      <OnboardingChecklist
+        igConnected={setupStatus?.steps.some((st) => st.id === "connect_instagram" && st.completed) ?? false}
+        hasAutomation={(data?.stats.activeAutomations ?? 0) > 0}
+        hasDMs={(data?.stats.dmsSentThisMonth ?? 0) > 0 || (data?.stats.totalLeads ?? 0) > 0}
+        hasLeads={(data?.stats.totalLeads ?? 0) > 0}
+      />
 
       {/* Animated Stats Grid */}
       <AnimatedStatGrid stats={stats} />

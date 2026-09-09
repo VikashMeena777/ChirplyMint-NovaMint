@@ -149,6 +149,21 @@ export async function generateAgentReply(params: {
 
   if (!agent) return null;
 
+  // Inbox takeover: if the owner paused the AI for this lead, stay silent —
+  // they're answering personally from the inbox.
+  const admin = getSupabase();
+  const { data: pausedLead } = await admin
+    .from("leads")
+    .select("ai_paused")
+    .eq("user_id", params.userId)
+    .eq("ig_user_id", params.senderIgId)
+    .limit(1)
+    .maybeSingle();
+  if ((pausedLead as Record<string, unknown> | null)?.ai_paused === true) {
+    console.log(`[AI Agent] Paused for ${params.senderIgId} (inbox takeover) — no reply`);
+    return null;
+  }
+
   const config = agent as AgentConfig;
 
   // 2. Get FAQs for context

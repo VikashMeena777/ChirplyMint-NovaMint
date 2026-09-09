@@ -55,6 +55,7 @@ import {
   PRESET_TEMPLATES,
 } from "./automation-types";
 import { StackComposer } from "./stack-composer";
+import { AUTOMATION_RECIPES } from "@/lib/automation-recipes";
 
 interface CreateAutomationWizardProps {
   userPlan: PlanKey;
@@ -133,6 +134,7 @@ export default function CreateAutomationWizard({
 
   // Wizard step
   const [step, setStep] = useState(1);
+  const [showGallery, setShowGallery] = useState(false);
   const [creating, setCreating] = useState(false);
 
   // Posts & Stories
@@ -253,6 +255,32 @@ export default function CreateAutomationWizard({
     }));
     toast.success(`"${preset.name}" template applied!`);
   }
+  function applyRecipe(recipeId: string) {
+    const recipe = AUTOMATION_RECIPES.find((r) => r.id === recipeId);
+    if (!recipe) return;
+    const blocks = recipe.blocks.map((b, i) => ({
+      ...b,
+      id: `recipe_${recipeId}_${i}`,
+      type: b.type as MessageBlockForm["type"],
+      quick_replies: b.quick_replies?.map((q) => ({ ...q, payload: `qr_${recipeId}_${q.payload}` })),
+      elements: b.elements?.map((el) => ({ ...el, buttons: el.buttons || [] })),
+    })) as MessageBlockForm[];
+    setFormData((f) => ({
+      ...f,
+      keyword: recipe.keyword,
+      comment_reply_enabled: true,
+      comment_reply_template: recipe.commentReply,
+      template_type: "stack",
+      template_blocks: blocks,
+    }));
+    setShowGallery(false);
+    toast.success(`"${recipe.name}" recipe loaded — swap in your own links!`, {
+      description: "Replace the placeholder URLs (your-cdn.com / your-store.com) with your real links.",
+      duration: 6000,
+    });
+  }
+
+
 
   function addButton() {
     if (formData.template_buttons.length >= 3) {
@@ -1144,6 +1172,14 @@ export default function CreateAutomationWizard({
                 <div className="space-y-4">
                   {/* Preset Templates */}
                   <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowGallery(true)}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-dashed border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] hover:bg-[oklch(0.52_0.19_162/10%)] transition-colors mb-3"
+                    >
+                      <span className="text-sm font-semibold text-foreground">🎨 Browse recipe gallery</span>
+                      <span className="text-xs text-muted-foreground">{AUTOMATION_RECIPES.length} ready-made automations by niche</span>
+                    </button>
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Quick Presets</label>
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {PRESET_TEMPLATES.map((preset) => (
@@ -1887,6 +1923,43 @@ export default function CreateAutomationWizard({
             </button>
           )}
         </div>
+
+        {/* Recipe Gallery Modal */}
+        {showGallery && (
+          <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowGallery(false)}>
+            <div className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-2xl max-h-[85%] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Recipe Gallery</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Pick a niche recipe — everything prefills, just swap in your links.</p>
+                </div>
+                <button onClick={() => setShowGallery(false)} className="p-1.5 rounded-lg hover:bg-muted/40 text-muted-foreground">✕</button>
+              </div>
+              <div className="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {AUTOMATION_RECIPES.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => applyRecipe(r.id)}
+                    className="text-left p-4 rounded-xl border border-border hover:border-[oklch(0.52_0.19_162)] hover:bg-[oklch(0.52_0.19_162/5%)] transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center">
+                        <r.icon className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{r.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{r.niche} · keyword: {r.keyword.split(",")[0]}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                      {r.blocks.find((b) => b.text)?.text?.slice(0, 90) || r.commentReply}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

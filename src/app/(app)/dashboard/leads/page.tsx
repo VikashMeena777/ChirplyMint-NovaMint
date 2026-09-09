@@ -5,7 +5,7 @@ import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
   Loader2, Webhook, ExternalLink, MessageCircle, Tag, StickyNote,
   Check, X, Filter, CheckSquare, Square, Lock, ArrowUpRight,
-  Mail, Phone, Flame, ChevronDown,
+  Mail, Phone, Flame, ChevronDown, Rows3,
 } from "lucide-react";
 import {
   getLeads, exportLeadsCSV, deleteLead, updateLeadTags,
@@ -183,7 +183,20 @@ export default function LeadsPage() {
   const [bulkMenuOpen, setBulkMenuOpen] = useState(false);
   const [userPlan, setUserPlan] = useState<PlanKey>("free");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dense, setDense] = useState(false);
   const limit = 10;
+
+  // ── Density toggle (persisted) ──
+  useEffect(() => {
+    if (localStorage.getItem("leads-dense") === "true") setDense(true);
+  }, []);
+
+  function toggleDense() {
+    setDense((d) => {
+      localStorage.setItem("leads-dense", String(!d));
+      return !d;
+    });
+  }
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
@@ -337,6 +350,18 @@ export default function LeadsPage() {
             className="w-full h-10 pl-9 pr-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
           />
         </div>
+        <button
+          onClick={toggleDense}
+          title={dense ? "Switch to comfortable rows" : "Switch to dense rows"}
+          className={`h-10 self-start px-3 rounded-xl border text-sm font-medium inline-flex items-center gap-1.5 transition-colors ${
+            dense
+              ? "border-[oklch(0.52_0.19_162/30%)] bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]"
+              : "border-border bg-card text-muted-foreground hover:bg-muted/30"
+          }`}
+        >
+          <Rows3 className="w-4 h-4" />
+          {dense ? "Dense" : "Cozy"}
+        </button>
         {allTags.length > 0 && (
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
@@ -420,7 +445,7 @@ export default function LeadsPage() {
           </div>
         ) : leads.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-14 h-14 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center mx-auto mb-4">
               <Users className="w-6 h-6 text-[oklch(0.52_0.19_162)]" />
             </div>
             <h3 className="text-lg font-semibold text-foreground">
@@ -431,12 +456,17 @@ export default function LeadsPage() {
                 ? "Try a different search or tag filter."
                 : "Leads will appear here once your automations capture them from comments and DMs."}
             </p>
+            {!search && !tagFilter && (
+              <p className="text-xs text-muted-foreground/70 mt-3 max-w-sm mx-auto">
+                Tip: use the &apos;Ask Email&apos; quick reply in your automations to
+                capture contacts automatically.
+              </p>
+            )}
           </div>
         ) : (
           <>
             {/* Desktop table header */}
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden"
-              >
+            <div className={`flex items-center gap-3 px-4 ${dense ? "py-1.5" : "py-2.5"} bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden`}>
               <button onClick={toggleSelectAll} className="p-0.5 shrink-0">
                 {selected.size === leads.length ? (
                   <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -460,7 +490,7 @@ export default function LeadsPage() {
                 return (
                   <div
                     key={lead.id as string}
-                    className={`flex flex-wrap xl:flex-nowrap items-center gap-3 px-4 py-2 hover:bg-muted/20 transition-colors whitespace-nowrap ${isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""}`}
+                    className={`flex flex-wrap xl:flex-nowrap items-center gap-3 px-4 ${dense ? "py-1" : "py-2"} hover:bg-muted/20 transition-colors whitespace-nowrap ${isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""}`}
                   >
                     {/* Checkbox */}
                     <div className="hidden xl:flex items-center shrink-0">
@@ -482,7 +512,7 @@ export default function LeadsPage() {
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
                         <span className="text-[10px] font-bold text-[oklch(0.52_0.19_162)]">{username[0].toUpperCase()}</span>
                       </div>
-                      <a href={`https://instagram.com/${username}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] truncate shrink-0">
+                      <a href={`https://instagram.com/${username}`} target="_blank" rel="noopener noreferrer" className={`${dense ? "text-[13px]" : "text-sm"} font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] truncate shrink-0`}>
                         @{username}
                       </a>
                       <EngagementBadge level={(lead.engagement as string) || "new"} />

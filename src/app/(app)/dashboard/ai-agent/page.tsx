@@ -696,12 +696,18 @@ export default function AIAgentPage() {
           {/* FAQ List */}
           {faqs.length === 0 ? (
             <div className="bg-card border border-border rounded-2xl p-12 text-center">
-              <HelpCircle className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-muted-foreground font-medium">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/15 to-indigo-500/10 flex items-center justify-center mx-auto mb-4">
+                <HelpCircle className="w-6 h-6 text-violet-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">
                 No FAQs yet
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                Teach your agent the answers your customers ask most — it will
+                lean on them whenever a DM matches.
               </p>
-              <p className="text-sm text-muted-foreground/60 mt-1">
-                Add questions and answers to help your agent respond accurately
+              <p className="text-xs text-muted-foreground/70 mt-3 max-w-sm mx-auto">
+                Tip: start with pricing, shipping times, and refund questions.
               </p>
             </div>
           ) : (

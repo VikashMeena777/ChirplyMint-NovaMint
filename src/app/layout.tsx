@@ -7,6 +7,7 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
+  manifest: "/manifest.json",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"),
   title: "ChirplyMint — Automate Instagram DMs & Comments",
   description:
