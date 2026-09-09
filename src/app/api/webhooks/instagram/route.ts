@@ -25,6 +25,7 @@ import crypto from "crypto";
 import { checkDmMilestones } from "@/lib/email/dm-milestones";
 import { pickABVariant } from "@/lib/actions/ab-test";
 import { sendMessageStack, type MessageBlock } from "@/lib/instagram/message-stack";
+import { sendMediaShareDM } from "@/lib/instagram/send-dm";
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "";
 // Signature secrets: this is an "Instagram API with Instagram Login" app, and
@@ -35,6 +36,8 @@ const SIGNING_SECRETS: string[] = [
   process.env.META_WEBHOOK_SECRET,
   process.env.META_APP_SECRET,
 ].filter((s): s is string => Boolean(s));
+
+function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
 function getSupabase() {
   return createClient(
@@ -1179,6 +1182,39 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
         status: sendResult.success ? "sent" : "failed",
       });
 
+      // ── AGENT ACTIONS: share posts / deliver resources the agent promised ──
+      if (sendResult.success && agentResult.actions) {
+        const { sendPostIds, sendResourceIds } = agentResult.actions;
+
+        for (const postId of sendPostIds.slice(0, 2)) {
+          await sleep(600);
+          const r = await sendMediaShareDM(recipientId, accessToken, senderId, postId);
+          console.log(`[AI Agent] Shared post ${postId} ${r.success ? "✅" : "❌ " + r.error}`);
+        }
+
+        for (const automationId of sendResourceIds.slice(0, 2)) {
+          const { data: resAuto } = await supabase
+            .from("automations")
+            .select("template_blocks, template_type, dm_template, keyword")
+            .eq("id", automationId)
+            .eq("user_id", userId)
+            .single();
+          const rAuto = resAuto as Record<string, unknown> | null;
+          const blocks = (rAuto?.template_blocks as MessageBlock[] | null) || [];
+          if (rAuto && blocks.length > 0) {
+            await sleep(800);
+            const stack = await sendMessageStack({
+              igUserId: recipientId,
+              accessToken,
+              recipientIgScopedId: senderId,
+              blocks,
+              templateVars: { name: senderId, keyword: rAuto.keyword as string },
+            });
+            console.log(`[AI Agent] Delivered resource ${automationId}: ${stack.sentBlocks}/${stack.totalBlocks} blocks`);
+          }
+        }
+      }
+
       void Promise.resolve(
         supabase.from("activity_log").insert({
           user_id: userId,
@@ -1957,6 +1993,13 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
       }).catch(() => {});
     }
   }
+
+  // No flow answered this tap - treat it as a normal inbound message so the
+  // AI agent keeps the conversation going (a chip tap shouldn't dead-end).
+  // Contact-capture taps return earlier (they already confirm to the lead).
+  if (!flows || flows.length === 0) {
+    await handleIncomingDM(messagingEvent);
+  }
 }
 
 /**
@@ -2205,6 +2248,50 @@ async function handleMessageEdit(messagingEvent: Record<string, unknown>) {
   console.log(`[Meta Webhook] message #${mid} edited (edit #${numEdit})`);
   if (editedText) {
     console.log(`[Meta Webhook] New text: "${editedText.slice(0, 80)}"`);
+
+    // COMMENT-EDIT RETRIGGER: the classic flow is "typo the keyword → edit it
+    // → expect the automation". The comment webhook will NOT re-fire for an
+    // edit, so we route the edited text back through the comment pipeline.
+    // Guard: the dedupe map in handleComment is keyed by comment ID; edits
+    // carry the same mid so a *duplicate* edit won't retrigger, but the
+    // ORIGINAL comment already consumed that key. We pass an edit-suffixed
+    // id so each edit round gets exactly one shot, while reply-loops and
+    // moderation behave identically.
+    const senderId = (messagingEvent.sender as Record<string, string>)?.id || "";
+    const recipientId = (messagingEvent.recipient as Record<string, string>)?.id || "";
+    if (senderId && recipientId) {
+      try {
+        // Only retrigger when the ORIGINAL comment did NOT already trigger
+        // (if a DM already went out for this mid, the lead has the content).
+        const supabase = getSupabase();
+        const { data: alreadyHandled } = await supabase
+          .from("dm_logs")
+          .select("id")
+          .eq("recipient_ig_id", senderId)
+          .ilike("comment_text", `[EDITED#${numEdit}]%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (!alreadyHandled) {
+          console.log(`[Meta Webhook] Routing edited comment from ${senderId} through automations`);
+          await handleComment(
+            {
+              id: `${mid}_edit${numEdit}`, // unique id so the dedupe map allows this pass
+              text: editedText,
+              from: { id: senderId, username: "" },
+              // media unknown on edits — automations scoped to a post won't
+              // match, account-wide ones will (correct, since we can't
+              // verify the post context anymore)
+              media: { id: "" },
+            },
+            recipientId
+          );
+        }
+      } catch (err) {
+        console.error("[Meta Webhook] Edit retrigger error:", err);
+      }
+    }
+
     // Audit trail: record the edit on any dm_log that captured the original
     // inbound message. Matching is best-effort by recipient + time proximity.
     try {

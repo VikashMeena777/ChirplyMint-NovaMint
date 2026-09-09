@@ -5,7 +5,7 @@ import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
   Loader2, Webhook, ExternalLink, MessageCircle, Tag, StickyNote,
   Check, X, Filter, CheckSquare, Square, Lock, ArrowUpRight,
-  Mail, Phone, Flame,
+  Mail, Phone, Flame, ChevronDown,
 } from "lucide-react";
 import {
   getLeads, exportLeadsCSV, deleteLead, updateLeadTags,
@@ -435,8 +435,8 @@ export default function LeadsPage() {
         ) : (
           <>
             {/* Desktop table header */}
-            <div className="hidden lg:grid grid-cols-12 gap-2 px-5 py-3 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <div className="col-span-1 flex items-center">
+            <div className="hidden xl:grid xl:grid-cols-[2rem_minmax(0,1.9fr)_5rem_minmax(0,1.2fr)_minmax(0,0.9fr)_auto] gap-3 px-4 py-2.5 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="flex items-center">
                 <button onClick={toggleSelectAll} className="p-0.5">
                   {selected.size === leads.length ? (
                     <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -445,11 +445,11 @@ export default function LeadsPage() {
                   )}
                 </button>
               </div>
-              <div className="col-span-4">Lead</div>
-              <div className="col-span-1">Source</div>
-              <div className="col-span-2">Tags</div>
-              <div className="col-span-2">Captured</div>
-              <div className="col-span-3 text-right">Actions</div>
+              <div>Lead</div>
+              <div>Source</div>
+              <div>Tags</div>
+              <div>Captured</div>
+              <div className="text-right">Actions</div>
             </div>
 
             <div className="divide-y divide-border">
@@ -461,12 +461,12 @@ export default function LeadsPage() {
                 return (
                   <div
                     key={lead.id as string}
-                    className={`grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-1.5 px-4 py-2.5 hover:bg-muted/20 transition-colors items-center ${
+                    className={`grid grid-cols-1 xl:grid-cols-[2rem_minmax(0,1.9fr)_5rem_minmax(0,1.2fr)_minmax(0,0.9fr)_auto] gap-3 px-4 py-2 hover:bg-muted/20 transition-colors items-center ${
                       isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""
                     }`}
                   >
                     {/* Checkbox */}
-                    <div className="hidden lg:flex col-span-1 items-center">
+                    <div className="hidden xl:flex items-center">
                       <button onClick={() => toggleSelect(lead.id as string)} className="p-0.5">
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -478,67 +478,74 @@ export default function LeadsPage() {
 
                     {/* Username + engagement + contact info */}
                     <div
-                      className="lg:col-span-4 flex items-center gap-2.5 min-w-0 cursor-pointer"
+                      className="flex items-center gap-2 min-w-0 cursor-pointer"
                       onClick={() =>
                         setExpandedId(expandedId === lead.id ? null : (lead.id as string))
                       }
                       title="Click to see full lead details"
                     >
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-bold text-[oklch(0.52_0.19_162)]">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-[oklch(0.52_0.19_162)]">
                           {username[0].toUpperCase()}
                         </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <a
-                            href={`https://instagram.com/${username}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] transition-colors flex items-center gap-1 group"
-                          >
-                            @{username}
-                            <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </a>
-                          <EngagementBadge level={(lead.engagement as string) || "new"} />
-                        </div>
-                        {((lead.email as string) || (lead.phone as string)) && (
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {(lead.email as string) && (
-                              <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline" title="Captured via email quick reply">
-                                <Mail className="w-3 h-3" /> {lead.email as string}
-                              </a>
-                            )}
-                            {(lead.phone as string) && (
-                              <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:underline" title="Captured via phone quick reply">
-                                <Phone className="w-3 h-3" /> {lead.phone as string}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <a
+                        href={`https://instagram.com/${username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] transition-colors truncate shrink-0"
+                      >
+                        @{username}
+                      </a>
+                      <EngagementBadge level={(lead.engagement as string) || "new"} />
+                      {(lead.email as string) && (
+                        <a
+                          href={`mailto:${lead.email}`}
+                          className="hidden md:inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline min-w-0 max-w-[160px]"
+                          title={lead.email as string}
+                        >
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{lead.email as string}</span>
+                        </a>
+                      )}
+                      {(lead.phone as string) && (
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="hidden md:inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:underline min-w-0 max-w-[120px]"
+                          title={lead.phone as string}
+                        >
+                          <Phone className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{lead.phone as string}</span>
+                        </a>
+                      )}
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-muted-foreground/50 shrink-0 transition-transform ${expandedId === lead.id ? "rotate-180" : ""}`}
+                      />
                     </div>
 
                     {/* Source */}
-                    <div className="lg:col-span-1">
-                      <span className="text-xs text-muted-foreground capitalize">{(lead.source as string) || "—"}</span>
+                    <div>
+                      <span className="text-xs text-muted-foreground capitalize truncate block">{(lead.source as string) || "—"}</span>
                     </div>
 
                     {/* Tags */}
-                    <div className="lg:col-span-2 flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                      {tags.map((tag) => (
+                    <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                      {tags.slice(0, 2).map((tag) => (
                         <span
                           key={tag}
-                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${getTagStyle(tag)}`}
+                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${getTagStyle(tag)}`}
                         >
                           {getTagEmoji(tag)} {tag}
                         </span>
                       ))}
+                      {tags.length > 2 && (
+                        <span className="text-[10px] text-muted-foreground shrink-0">+{tags.length - 2}</span>
+                      )}
                       <TagPicker lead={lead} onUpdate={loadLeads} />
                     </div>
 
                     {/* Captured date */}
-                    <div className="lg:col-span-2">
+                    <div className="flex items-center min-w-0">
                       <span className="text-xs text-muted-foreground">
                         {new Date(lead.captured_at as string).toLocaleDateString("en-IN", {
                           day: "numeric", month: "short",

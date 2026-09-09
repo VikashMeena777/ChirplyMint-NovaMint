@@ -26,6 +26,7 @@ export const metadata: Metadata = {
       "Turn every Instagram comment into a customer. AI-powered DM automation for creators and businesses.",
     type: "website",
     siteName: "ChirplyMint",
+    url: "/",            // resolves to metadataBase — provides og:url
     images: [
       {
         url: "/api/og",
@@ -34,6 +35,12 @@ export const metadata: Metadata = {
         alt: "ChirplyMint — Automate Instagram DMs & Comments",
       },
     ],
+  },
+  facebook: {
+    // The Instagram Login app's platform id — fixes the Meta Sharing
+    // Debugger 'missing fb:app_id' warning and links link-preview
+    // analytics to the app.
+    appId: process.env.META_APP_ID || undefined,
   },
   twitter: {
     card: "summary_large_image",

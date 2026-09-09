@@ -1050,7 +1050,26 @@ export async function sendQuickRepliesDM(
   let lastError: string | undefined;
 
   if (textChips.length > 0) {
-    const r = await sendOne(promptText, textChips);
+    // Text chips + twins of the native capture chips: if Instagram's client
+    // hides the native email/phone chip (some accounts/desktop), the twin is
+    // still a visible tappable option. Tapping the twin sends its payload as
+    // a quick-reply tap (no captured value, but the conversation continues).
+    const twins: QuickReply[] = [];
+    if (emailChip && !textChips.some((q) => q.payload === emailChip.payload + "_twin")) {
+      twins.push({
+        content_type: "text",
+        title: "Send my email ✉",
+        payload: emailChip.payload + "_twin",
+      });
+    }
+    if (phoneChip && !textChips.some((q) => q.payload === phoneChip.payload + "_twin")) {
+      twins.push({
+        content_type: "text",
+        title: "Send my phone ☎",
+        payload: phoneChip.payload + "_twin",
+      });
+    }
+    const r = await sendOne(promptText, [...textChips, ...twins].slice(0, 13));
     if (r.success) anySuccess = true; else lastError = r.error;
     await new Promise((res) => setTimeout(res, 600));
   }
