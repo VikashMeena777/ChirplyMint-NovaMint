@@ -159,6 +159,11 @@ export async function POST(request: Request) {
     const timeBudgetLeft = () => WEBHOOK_DEADLINE_MS - Date.now();
 
     if (body.object === "instagram") {
+      // Delivery observability: with zero log noise in Vercel we can't tell
+      // 'Meta not delivering' from 'processing silently'. This line makes
+      // every delivery visible in Vercel logs.
+      const entryCount = (body.entry || []).length;
+      console.log(`[Meta Webhook] Received ${entryCount} entr${entryCount === 1 ? "y" : "ies"} (object=instagram)`);
       for (const entry of body.entry || []) {
         // Handle comment mentions and keyword triggers
         if (entry.changes) {
