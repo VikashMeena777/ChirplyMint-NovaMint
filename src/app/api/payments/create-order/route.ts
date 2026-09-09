@@ -85,15 +85,6 @@ export async function POST(request: Request) {
       payment_session_id: result.paymentSessionId,
     });
 
-    // Pre-register the invoice (amount final at payment success via webhook)
-    await admin.from("invoices").insert({
-      user_id: user.id,
-      order_id: orderId,
-      amount: planConfig.price,
-      plan: rawPlan,
-      description: entry.label,
-      paid_at: new Date().toISOString(),
-    });
 
     return NextResponse.json({
       paymentSessionId: result.paymentSessionId,

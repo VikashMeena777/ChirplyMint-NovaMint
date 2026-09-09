@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { verifyWebhookSignature } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { sendEmail } from "@/lib/email/send";
+import { createInvoiceForPaidOrder } from "@/lib/billing/invoice";
 import { getPlanUpgradedHtml } from "@/lib/email/templates/plan-upgraded";
 
 function getAdminSupabase() {
@@ -66,21 +67,34 @@ export async function POST(request: Request) {
 
         // ── Top-up pack: add DMs, don't change plan ──
         if (rawPlan === "topup_500") {
+          // Top-up = +500 on the ACTUAL limit (they paid for 500 DMs).
+          // dm-reset only clears the counter monthly, never dm_limit, so
+          // the purchase persists. Counter resets so the room is usable now.
           const { data: prof } = await supabase
             .from("profiles")
-            .select("dm_topup_balance, dm_count_this_month")
+            .select("dm_limit, dm_topup_balance")
             .eq("id", order.user_id)
             .single();
           const cur = prof as Record<string, number> | null;
-          const used = cur?.dm_count_this_month ?? 0;
+          const currentLimit = cur?.dm_limit ?? 50;
+          const purchased = (cur?.dm_topup_balance ?? 0) + 500;
           await supabase
             .from("profiles")
             .update({
-              dm_topup_balance: Math.max(0, (cur?.dm_topup_balance ?? 0) + 500 - used),
+              dm_limit: currentLimit + 500,
+              dm_topup_balance: purchased,
               dm_count_this_month: 0,
               updated_at: new Date().toISOString(),
             })
             .eq("id", order.user_id);
+
+          void createInvoiceForPaidOrder({
+            userId: order.user_id as string,
+            orderId: orderId,
+            amount: 99,
+            plan: "topup_500",
+            description: "+500 DM top-up",
+          }).catch((e) => console.error("[Cashfree Webhook] Invoice creation failed:", e));
 
           await supabase.from("notifications").insert({
             user_id: order.user_id,
@@ -120,6 +134,19 @@ export async function POST(request: Request) {
             ).toISOString(),
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id" });
+
+        // Invoice (sequential, only on confirmed payment)
+        void createInvoiceForPaidOrder({
+          userId: order.user_id as string,
+          orderId: orderId,
+          amount: (orderData as Record<string, unknown>).order_amount as number ?? 0,
+          plan: rawPlan,
+          description: rawPlan.endsWith("_annual")
+            ? `${effConfig.name} plan (annual)`
+            : rawPlan === "topup_500"
+            ? "+500 DM top-up"
+            : `${effConfig.name} plan (monthly)`,
+        }).catch((e) => console.error("[Cashfree Webhook] Invoice creation failed:", e));
 
         // Send success notification
         await supabase.from("notifications").insert({

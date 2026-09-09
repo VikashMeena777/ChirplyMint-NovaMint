@@ -30,7 +30,7 @@ export async function startFreeTrial(): Promise<{ error?: string }> {
   const admin = getAdmin();
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan, plan_expires_at, trial_used")
+    .select("plan, plan_expires_at, trial_used, email")
     .eq("id", user.id)
     .single();
   const p = profile as Record<string, unknown> | null;
@@ -41,6 +41,18 @@ export async function startFreeTrial(): Promise<{ error?: string }> {
   if (p?.plan === "pro" || p?.plan === "business") {
     // Already on a paid plan — extend instead of granting
     return { error: "You're already on a paid plan." };
+  }
+
+  // Abuse guard: a connected Instagram account is required. Throwaway
+  // emails don't have IG professional accounts, so this stops the
+  // "new email = new trial" loop without demanding a card.
+  const { count: igCount } = await admin
+    .from("instagram_accounts")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+  if ((igCount ?? 0) === 0) {
+    return { error: "Connect your Instagram account first (Settings → Instagram), then start the trial." };
   }
 
   const ends = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
@@ -87,6 +99,7 @@ export async function saveDowngradeSurvey(
 export interface InvoiceRow {
   id: string;
   order_id: string;
+  invoice_number?: string;
   amount: number;
   currency: string;
   plan: string;
@@ -103,9 +116,68 @@ export async function getInvoices(): Promise<InvoiceRow[]> {
 
   const { data } = await supabase
     .from("invoices")
-    .select("id, order_id, amount, currency, plan, description, paid_at")
+    .select("id, order_id, invoice_number, amount, currency, plan, description, paid_at")
     .eq("user_id", user.id)
     .order("paid_at", { ascending: false });
 
   return (data as unknown as InvoiceRow[]) ?? [];
+}
+
+/** Cancel the paid plan at period end (survey first). */
+export async function cancelPlanAtPeriodEnd(
+  reason: string,
+  feedback: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getAdmin();
+
+  // Record the survey
+  await admin.from("activity_log").insert({
+    user_id: user.id,
+    action: "billing.downgrade_survey",
+    metadata: { reason, feedback: feedback.slice(0, 500) },
+  });
+
+  // Mark subscription canceled — features stay until current_period_end,
+  // then the subscription-check cron downgrades to free.
+  const { error } = await admin
+    .from("subscriptions")
+    .update({ status: "canceled", updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+
+  await admin.from("notifications").insert({
+    user_id: user.id,
+    type: "info",
+    title: "Plan canceled",
+    body: "Your plan stays active until the end of the paid period, then moves to the free Starter plan. You can re-subscribe anytime.",
+  });
+
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
+/** Re-activate a canceled subscription (before period end). */
+export async function resumePlan(): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getAdmin();
+  const { error } = await admin
+    .from("subscriptions")
+    .update({ status: "active", updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/settings");
+  return {};
 }

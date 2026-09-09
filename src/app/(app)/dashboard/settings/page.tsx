@@ -25,7 +25,7 @@ import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
-import { startFreeTrial, getInvoices, type InvoiceRow } from "@/lib/actions/billing";
+import { startFreeTrial, getInvoices, cancelPlanAtPeriodEnd, resumePlan, type InvoiceRow } from "@/lib/actions/billing";
 import {
   inviteTeamMember,
   revokeInvite,
@@ -967,6 +967,10 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [startingTrial, setStartingTrial] = useState(false);
+  const [showCancelSurvey, setShowCancelSurvey] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelFeedback, setCancelFeedback] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const allPlans = getPlanDisplayData();
   // Only show Pro and Business as upgrade options
@@ -985,6 +989,29 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     if (r.error) toast.error(r.error);
     else {
       toast.success("7-day Pro trial started! 🎉 Everything is unlocked.");
+      window.location.reload();
+    }
+  }
+
+  async function handleCancelPlan() {
+    setCancelling(true);
+    const r = await cancelPlanAtPeriodEnd(cancelReason || "unspecified", cancelFeedback);
+    setCancelling(false);
+    if (r.error) toast.error(r.error);
+    else {
+      toast.success("Plan canceled — active until the end of your paid period");
+      setShowCancelSurvey(false);
+      setCancelReason("");
+      setCancelFeedback("");
+      window.location.reload();
+    }
+  }
+
+  async function handleResumePlan() {
+    const r = await resumePlan();
+    if (r.error) toast.error(r.error);
+    else {
+      toast.success("Plan resumed! 🎉");
       window.location.reload();
     }
   }
@@ -1070,6 +1097,24 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
         })()}
       </div>
 
+      {/* Cancel plan */}
+      {currentPlan !== "free" && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Cancel plan</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Keep every feature until the end of your paid period — no lock-in, re-subscribe anytime.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCancelSurvey(true)}
+            className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+          >
+            Cancel plan
+          </button>
+        </div>
+      )}
+
       {/* Free trial banner (once) */}
       {currentPlan === "free" && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -1143,13 +1188,66 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
                 <span className="font-semibold text-foreground shrink-0">₹{inv.amount}</span>
                 <button
                   onClick={() => {
+                    const invNo = inv.invoice_number || inv.order_id;
+                    const d = new Date(inv.paid_at);
+                    const fy = (() => { const y = d.getFullYear(); const s = d.getMonth() < 3 ? y - 1 : y; return `${s}-${String((s + 1) % 100).padStart(2, "0")}`; })();
                     const w = window.open("", "_blank");
                     if (w) {
-                      w.document.write(
-                        `<html><head><title>Invoice ${inv.order_id}</title><style>body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{color:#16a34a}table{width:100%;border-collapse:collapse;margin:20px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}</style></head><body><h1>ChirplyMint Invoice</h1><p>Order: ${inv.order_id}</p><p>Date: ${new Date(inv.paid_at).toLocaleDateString("en-IN")}</p><table><tr><th>Item</th><th>Amount</th></tr><tr><td>${inv.description || inv.plan}</td><td>₹${inv.amount} ${inv.currency}</td></tr></table><p style="color:#888;font-size:12px">ChirplyMint — Instagram DM Automation · chirplymint.novamintnetworks.in</p></body></html>`
-                      );
+                      w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invNo}</title><style>
+                        *{margin:0;padding:0;box-sizing:border-box}
+                        body{font-family:'Segoe UI',system-ui,sans-serif;color:#1a1a1a;background:#f5f5f5;padding:24px}
+                        .page{background:#fff;max-width:800px;margin:0 auto;padding:48px;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+                        .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:20px;margin-bottom:28px}
+                        .brand{font-size:26px;font-weight:800;color:#16a34a;letter-spacing:-.5px}
+                        .brand-sub{font-size:12px;color:#666;margin-top:2px}
+                        .inv-title{font-size:22px;font-weight:700;color:#1a1a1a}
+                        .inv-meta{font-size:12px;color:#555;margin-top:6px;text-align:right;line-height:1.7}
+                        .parties{display:flex;gap:32px;margin-bottom:28px}
+                        .party{flex:1}
+                        .party h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px}
+                        .party p{font-size:13px;line-height:1.7;color:#333}
+                        table{width:100%;border-collapse:collapse;margin:20px 0 8px}
+                        th{background:#f4faf5;color:#16a34a;font-size:11px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:10px 14px}
+                        td{padding:12px 14px;border-bottom:1px solid #eee;font-size:13px}
+                        .total-row td{border-top:2px solid #16a34a;border-bottom:none;font-weight:700;font-size:15px;color:#16a34a}
+                        .words{font-size:12px;color:#555;font-style:italic;margin:16px 0 24px}
+                        .decl{background:#f9f9f9;border-left:3px solid #ccc;padding:10px 14px;font-size:11px;color:#666;margin-top:24px;line-height:1.6}
+                        .foot{margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#999;display:flex;justify-content:space-between}
+                        @media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0;padding:24px}}
+                      </style></head><body><div class="page">
+                        <div class="head">
+                          <div><div class="brand">ChirplyMint</div><div class="brand-sub">by NovaMint Networks</div></div>
+                          <div><div class="inv-title">Invoice</div><div class="inv-meta">
+                            <strong>No. ${invNo}</strong><br/>Date: ${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}<br/>FY ${fy}
+                          </div></div>
+                        </div>
+                        <div class="parties">
+                          <div class="party"><h4>From</h4><p><strong>NovaMint Networks</strong><br/>chirplymint.novamintnetworks.in<br/>support@novamintnetworks.in</p></div>
+                          <div class="party"><h4>Billed To</h4><p><strong>${profile?.name || "Customer"}</strong><br/>${profile?.email || ""}</p></div>
+                        </div>
+                        <table>
+                          <tr><th style="width:60%">Description</th><th>Qty</th><th style="text-align:right">Amount</th></tr>
+                          <tr><td>${inv.description || inv.plan}</td><td>1</td><td style="text-align:right">₹${Number(inv.amount).toFixed(2)}</td></tr>
+                          <tr class="total-row"><td colspan="2">Total Paid</td><td style="text-align:right">₹${Number(inv.amount).toFixed(2)}</td></tr>
+                        </table>
+                        <p class="words">Amount in words: [auto]</p>
+                        <div class="decl">Payment Reference: ${inv.order_id} · Mode: Online (Cashfree)<br/>This document is issued as a payment receipt. The seller is not GST-registered; no GST is charged or collected on this supply.</div>
+                        <div class="foot"><span>Computer-generated invoice — no signature required.</span><span>ChirplyMint — Instagram DM Automation</span></div>
+                      </div></body></html>`);
+                      // Fill amount-in-words server-style: simple client calc
                       w.document.close();
-                      w.print();
+                      const wordsEl = w.document.querySelector(".words");
+                      if (wordsEl) {
+                        const n = Math.floor(Number(inv.amount));
+                        const ones = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+                        const tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+                        const two = (x: number) => x < 20 ? ones[x] : tens[Math.floor(x/10)] + (x%10 ? " " + ones[x%10] : "");
+                        const three = (x: number) => (x > 99 ? ones[Math.floor(x/100)] + " Hundred" + (x%100 ? " " : "") : "") + (x%100 ? two(x%100) : "");
+                        const lakh = Math.floor(n/100000), thou = Math.floor((n%100000)/1000), hund = n%1000;
+                        let str = [lakh ? two(lakh) + " Lakh" : "", thou ? two(thou) + " Thousand" : "", hund ? three(hund) : ""].filter(Boolean).join(" ");
+                        wordsEl.textContent = "Amount in words: " + (str || "Zero") + " Rupees Only";
+                      }
+                      setTimeout(() => w.print(), 200);
                     }
                   }}
                   className="text-xs text-[oklch(0.52_0.19_162)] hover:underline shrink-0"
@@ -1218,6 +1316,49 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
           );
         })}
       </div>
+
+      {/* Cancel survey modal */}
+      {showCancelSurvey && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCancelSurvey(false)}>
+          <div className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Sorry to see you go 💚</h3>
+              <p className="text-xs text-muted-foreground mt-1">Your plan stays active until the period ends. Why are you leaving?</p>
+            </div>
+            <select
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm"
+            >
+              <option value="">Select a reason…</option>
+              <option value="too_expensive">Too expensive</option>
+              <option value="not_using">Not using it enough</option>
+              <option value="missing_feature">Missing a feature</option>
+              <option value="technical_issues">Technical issues</option>
+              <option value="other">Other</option>
+            </select>
+            <textarea
+              value={cancelFeedback}
+              onChange={(e) => setCancelFeedback(e.target.value)}
+              placeholder="Anything we could have done better? (optional)"
+              rows={3}
+              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCancelSurvey(false)} className="px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted/30">
+                Keep my plan
+              </button>
+              <button
+                onClick={handleCancelPlan}
+                disabled={cancelling || !cancelReason}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-40"
+              >
+                {cancelling ? "Canceling…" : "Confirm cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

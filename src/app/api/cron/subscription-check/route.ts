@@ -36,10 +36,12 @@ export async function GET(request: Request) {
     const nowIso = now.toISOString();
 
     // Fetch all active/grace subscriptions whose period has ended
+    // 'canceled' is included so plans canceled at period end actually
+    // downgrade when the paid period expires (user-initiated cancel flow).
     const { data: expiredSubs, error: fetchError } = await supabase
       .from("subscriptions")
       .select("id, user_id, plan, status, current_period_end")
-      .in("status", ["active", "grace_period"])
+      .in("status", ["active", "grace_period", "canceled"])
       .lt("current_period_end", nowIso);
 
     if (fetchError) {

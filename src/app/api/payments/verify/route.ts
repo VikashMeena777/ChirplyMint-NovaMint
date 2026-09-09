@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createInvoiceForPaidOrder } from "@/lib/billing/invoice";
 import { verifyPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
@@ -123,6 +124,15 @@ export async function POST(request: Request) {
       },
       { onConflict: "user_id" }
     );
+
+    // Invoice (sequential, only on confirmed payment)
+    void createInvoiceForPaidOrder({
+      userId: user.id,
+      orderId: orderId,
+      amount: (order as Record<string, unknown>).amount as number ?? 0,
+      plan: order.plan as string,
+      description: `${planConfig.name} plan`,
+    }).catch((e) => console.error("[Payment Verify] Invoice creation failed:", e));
 
     console.log(
       `[Payment Verify] User ${user.id} upgraded to ${plan} via API verification`

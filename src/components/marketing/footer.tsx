@@ -110,6 +110,22 @@ export function Footer() {
                   Contact
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/roadmap"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Roadmap
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/status"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  System Status
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -131,6 +147,14 @@ export function Footer() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/security"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Security
                 </Link>
               </li>
               <li>

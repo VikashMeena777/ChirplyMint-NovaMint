@@ -638,14 +638,30 @@ export async function testAutomation(
   const accessToken = ig.page_access_token || ig.access_token;
   if (!accessToken) return { error: "Account token missing — reconnect Instagram" };
 
-  // Find the OWNER's own IG-scoped id (test DM goes to them)
-  const meRes = await fetch(
-    `https://graph.instagram.com/v26.0/me?fields=user_id&access_token=${encodeURIComponent(accessToken)}`
+  // Message recipients use conversation-scoped IGSIDs — the account's raw
+  // IG id is NOT a valid recipient ("The requested user cannot be found").
+  // The test DM goes to the account you've DM'd this business account from
+  // (most recent conversation). No conversation = clear instructions.
+  const convRes = await fetch(
+    `https://graph.instagram.com/v26.0/${ig.ig_user_id}/conversations?platform=instagram&fields=participants&limit=50&access_token=${encodeURIComponent(accessToken)}`
   );
-  const me = (await meRes.json()) as { user_id?: string; id?: string; error?: { message?: string } };
-  const ownId = me.user_id || me.id;
+  const conv = (await convRes.json()) as {
+    data?: { participants?: { data?: { id: string; username?: string }[] } }[];
+    error?: { message?: string };
+  };
+  if (conv.error) return { error: conv.error.message || "Could not load conversations" };
+
+  const threads = conv.data || [];
+  const last = threads
+    .map((t) => (t.participants?.data || []).find((p) => p.id !== ig.ig_user_id))
+    .filter(Boolean) as { id: string; username?: string }[];
+  const ownId = last[0]?.id;
+
   if (!ownId) {
-    return { error: "Could not resolve your Instagram id — reconnect the account" };
+    return {
+      error:
+        "No conversation found to deliver the test to. Open Instagram, DM your own business account (from the profile you want the test on), then run the test again.",
+    };
   }
 
   // Build the message from the automation's content (mirror of stack/DM logic)

@@ -997,6 +997,16 @@ export default function CreateAutomationWizard({
           {step === 2 && (
             <div className="space-y-5">
               {/* Template Type Selector */}
+              {/* Recipe gallery — always visible, one tap to prefill everything */}
+              <button
+                type="button"
+                onClick={() => setShowGallery(true)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-dashed border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] hover:bg-[oklch(0.52_0.19_162/10%)] transition-colors"
+              >
+                <span className="text-sm font-semibold text-foreground">🎨 Start from a recipe</span>
+                <span className="text-xs text-muted-foreground">{AUTOMATION_RECIPES.length} ready-made automations by niche</span>
+              </button>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Message Type</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -1172,14 +1182,6 @@ export default function CreateAutomationWizard({
                 <div className="space-y-4">
                   {/* Preset Templates */}
                   <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowGallery(true)}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-dashed border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] hover:bg-[oklch(0.52_0.19_162/10%)] transition-colors mb-3"
-                    >
-                      <span className="text-sm font-semibold text-foreground">🎨 Browse recipe gallery</span>
-                      <span className="text-xs text-muted-foreground">{AUTOMATION_RECIPES.length} ready-made automations by niche</span>
-                    </button>
                     <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Quick Presets</label>
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {PRESET_TEMPLATES.map((preset) => (

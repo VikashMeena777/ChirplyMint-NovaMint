@@ -1201,56 +1201,11 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     // Fall through to automation-based AI
   }
 
-  // ── Strategy 2: Automation-based AI reply (legacy) ──
-  const { data: automation } = await supabase
-    .from("automations")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("instagram_account_id", igAccount.id)
-    .eq("status", "active")
-    .eq("ai_enabled", true)
-    .limit(1)
-    .single();
-
-  if (!automation) return;
-
-  const reply = await generateDMReply({
-    automationName: automation.name as string,
-    keyword: "",
-    dmTemplate: automation.dm_template as string,
-    commenterUsername: senderId,
-    commentText: messageText,
-    aiEnabled: true,
-  });
-
-  const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, reply);
-
-  await supabase.from("dm_logs").insert({
-    user_id: userId,
-    automation_id: automation.id,
-    instagram_account_id: igAccount.id,
-    recipient_ig_id: senderId,
-    recipient_username: senderId,
-    message_text: reply,
-    comment_text: messageText,
-    status: sendResult.success ? "sent" : "failed",
-  });
-
-  void Promise.resolve(
-    supabase.from("activity_log").insert({
-      user_id: userId,
-      action: sendResult.success ? "dm.ai_reply_sent" : "dm.ai_reply_failed",
-      metadata: {
-        sender: senderId,
-        automation: automation.name,
-        error: sendResult.error || null,
-      },
-    })
-  ).catch(() => { });
-
-  console.log(
-    `[Meta Webhook] AI reply ${sendResult.success ? "sent ✅" : "failed ❌"} for DM from ${senderId}`
-  );
+  // NOTE: the legacy "automation AI replies to every DM" path was removed —
+  // it fired even when the dedicated AI Agent was OFF (user-reported bug:
+  // random AI replies to any DM). The AI Agent (ai_agents, is_active) is the
+  // ONLY thing that auto-replies to plain DMs; automation ai_enabled only
+  // personalizes comment-triggered DMs in handleComment.
 }
 
 /**
