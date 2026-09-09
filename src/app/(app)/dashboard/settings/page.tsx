@@ -1222,7 +1222,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
                           </div></div>
                         </div>
                         <div class="parties">
-                          <div class="party"><h4>From</h4><p><strong>NovaMint Networks</strong><br/>chirplymint.novamintnetworks.in<br/>support@novamintnetworks.in</p></div>
+                          <div class="party"><h4>From</h4><p><strong>NovaMint Networks</strong><br/>${process.env.NEXT_PUBLIC_SELLER_ADDRESS || "India"}<br/>chirplymint.novamintnetworks.in · support@novamintnetworks.in${process.env.NEXT_PUBLIC_SELLER_PAN ? "<br/>PAN: " + process.env.NEXT_PUBLIC_SELLER_PAN : ""}</p></div>
                           <div class="party"><h4>Billed To</h4><p><strong>${profile?.name || "Customer"}</strong><br/>${profile?.email || ""}</p></div>
                         </div>
                         <table>
@@ -1231,7 +1231,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
                           <tr class="total-row"><td colspan="2">Total Paid</td><td style="text-align:right">₹${Number(inv.amount).toFixed(2)}</td></tr>
                         </table>
                         <p class="words">Amount in words: [auto]</p>
-                        <div class="decl">Payment Reference: ${inv.order_id} · Mode: Online (Cashfree)<br/>This document is issued as a payment receipt. The seller is not GST-registered; no GST is charged or collected on this supply.</div>
+                        <div class="decl">Payment Reference: ${inv.order_id} · Mode: Online (Cashfree)<br/>We are not registered under GST; GST is not charged on this invoice. Computer-generated document.</div>
                         <div class="foot"><span>Computer-generated invoice — no signature required.</span><span>ChirplyMint — Instagram DM Automation</span></div>
                       </div></body></html>`);
                       // Fill amount-in-words server-style: simple client calc
