@@ -65,6 +65,7 @@ export default function SettingsPage() {
   const [apiKeys, setApiKeys] = useState<{ id: string; name: string; key_prefix: string; last_used_at: string | null; revoked: boolean }[]>([]);
   const [apiKeyName, setApiKeyName] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
     dm_delivery_alerts: true,
     weekly_report: true,
@@ -213,7 +214,38 @@ export default function SettingsPage() {
                 className="w-full h-11 px-4 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Password</h3>
+                <p className="text-xs text-muted-foreground">
+                  {profile?.authProvider === "email"
+                    ? "Change the password you use to log in."
+                    : "You signed in with Google. Setting a password also lets you log in with email."}
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password (min 8 characters)"
+                    className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newPassword) return;
+                      const { changePassword } = await import("@/lib/actions/auth");
+                      const r = await changePassword(newPassword);
+                      if (r.error) toast.error(r.error);
+                      else { toast.success("Password updated!"); setNewPassword(""); }
+                    }}
+                    disabled={!newPassword || newPassword.length < 8}
+                    className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
                 Email
               </label>

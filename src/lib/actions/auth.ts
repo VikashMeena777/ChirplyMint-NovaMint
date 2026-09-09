@@ -168,3 +168,19 @@ async function sendWelcomeEmail(userId: string, email: string, name: string) {
 
   logInfo("Onboarding", "✉️ Welcome email sent", { email });
 }
+
+export async function changePassword(newPassword: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters" };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  return {};
+}

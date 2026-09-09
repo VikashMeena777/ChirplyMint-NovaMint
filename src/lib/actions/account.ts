@@ -24,24 +24,29 @@ export async function deleteAccount(password: string) {
   if (!password || password.trim().length === 0) {
     return { error: "Password is required" };
   }
+  const isOAuthSentinel = password === "__oauth_confirmed__";
 
-  // Verify password before proceeding
-  // For OAuth users: check if they have an email identity with a password
-  const hasPasswordIdentity = user.app_metadata?.providers?.includes("email");
+  // Verify password before proceeding — ONLY for users who actually have a
+  // password identity. Supabase stores identities per provider; Google-only
+  // users have no password, and app_metadata.providers can list just
+  // "google" (so checking .includes("email") there wrongly put Google users
+  // through password verification — every password failed).
+  const identities = (user.identities || []) as { provider: string }[];
+  const hasPasswordIdentity =
+    user.app_metadata?.providers?.includes("email") ||
+    identities.some((i) => i.provider === "email");
 
-  if (hasPasswordIdentity) {
-    // Email/password user — verify their password
+  if (hasPasswordIdentity && !isOAuthSentinel) {
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email!,
       password,
     });
-
     if (signInError) {
       return { error: "Incorrect password. Please try again." };
     }
   }
-  // OAuth-only users: password field acts as extra friction (any value accepted)
-  // They already passed the "type DELETE" check on the frontend
+  // OAuth-only users: the client sends a sentinel; the "type DELETE" gate is
+  // the real confirmation.
 
   try {
     // 1. Delete profile (cascades to automations, leads, dm_logs, etc.)
