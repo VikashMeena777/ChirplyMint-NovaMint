@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { chatCompletion } from "@/lib/ai/provider";
-import { getPostKnowledge, getResourceKnowledge, buildContentKnowledgePrompt, extractAgentActions } from "@/lib/ai/agent-knowledge";
 
 function getSupabase() {
   return createClient(
@@ -137,7 +136,6 @@ export async function generateAgentReply(params: {
 }): Promise<{
   reply: string;
   agentId: string;
-  actions?: { sendPostIds: string[]; sendResourceIds: string[] };
 } | null> {
   const supabase = getSupabase();
 
@@ -205,15 +203,6 @@ export async function generateAgentReply(params: {
     languageHint = langMap[savedLang] || languageHint;
   }
 
-  // 5b. Content knowledge: the owner's posts + automation resources, so the
-  // agent answers like someone who actually made that content — and can
-  // offer to send posts/resources via [SEND_*] action tags.
-  const [posts, resources] = await Promise.all([
-    getPostKnowledge(params.userId),
-    getResourceKnowledge(params.userId),
-  ]);
-  const contentKnowledge = buildContentKnowledgePrompt(posts, resources);
-
   // 6. Build anti-repetition context
   const antiRepetition = buildAntiRepetitionContext(conversationHistory);
 
@@ -270,7 +259,7 @@ CONVERSATION AWARENESS:
 - If someone asks something you don't know, just say "${config.fallback_message}" — don't make stuff up
 - NEVER start with "Sure!", "Of course!", "Great question!", "I'd be happy to help!" — that sounds like AI
 - NEVER use phrases like "Feel free to", "Don't hesitate to", "Let me know if" — those are robotic
-${faqContext}${contentKnowledge}${antiRepetition}${feedbackContext}`;
+${faqContext}${antiRepetition}${feedbackContext}`;
 
   // 8. Save incoming message to conversation history
   await supabase.from("ai_conversations").insert({
@@ -356,11 +345,6 @@ ${faqContext}${contentKnowledge}${antiRepetition}${feedbackContext}`;
     // Post-process: strip AI artifacts
     reply = humanizeReply(reply);
 
-    // Action tags: [SEND_POST:id] / [SEND_RESOURCE:id] are instructions to
-    // the system, not text for the user — strip them out of the reply.
-    const { cleanReply, sendPostIds, sendResourceIds } = extractAgentActions(reply);
-    reply = cleanReply || reply;
-
     // Enforce max length
     if (reply.length > config.max_reply_length) {
       // Try to cut at the last sentence boundary
@@ -386,14 +370,7 @@ ${faqContext}${contentKnowledge}${antiRepetition}${feedbackContext}`;
       content: reply,
     });
 
-    return {
-      reply,
-      agentId: config.id,
-      actions: {
-        sendPostIds,
-        sendResourceIds,
-      },
-    };
+    return { reply, agentId: config.id };
   } catch (error) {
     console.error("[AI Agent] Error generating reply:", error);
 

@@ -206,13 +206,13 @@ export async function POST(request: Request) {
 
               // Quick-reply tap: message with quick_reply payload, optionally
               // carrying structured lead data (user_email / user_phone_number).
+              // EXCLUSIVE: a tap is handled by handleQuickReply only — falling
+              // through to handleIncomingDM here caused DOUBLE replies (QR
+              // response + AI agent answering the same tap).
               if (msg.quick_reply) {
                 await handleQuickReply(messagingEvent);
-              }
-
-              // Check if this is a story reply (has story reference)
-              const storyRef = msg.reply_to;
-              if (storyRef && (storyRef as Record<string, unknown>)?.story) {
+              } else if (msg.reply_to && (msg.reply_to as Record<string, unknown>)?.story) {
+                // Story reply (has story reference)
                 await handleStoryReplyDM(messagingEvent);
               } else {
                 await handleIncomingDM(messagingEvent);
@@ -1182,38 +1182,6 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
         status: sendResult.success ? "sent" : "failed",
       });
 
-      // ── AGENT ACTIONS: share posts / deliver resources the agent promised ──
-      if (sendResult.success && agentResult.actions) {
-        const { sendPostIds, sendResourceIds } = agentResult.actions;
-
-        for (const postId of sendPostIds.slice(0, 2)) {
-          await sleep(600);
-          const r = await sendMediaShareDM(recipientId, accessToken, senderId, postId);
-          console.log(`[AI Agent] Shared post ${postId} ${r.success ? "✅" : "❌ " + r.error}`);
-        }
-
-        for (const automationId of sendResourceIds.slice(0, 2)) {
-          const { data: resAuto } = await supabase
-            .from("automations")
-            .select("template_blocks, template_type, dm_template, keyword")
-            .eq("id", automationId)
-            .eq("user_id", userId)
-            .single();
-          const rAuto = resAuto as Record<string, unknown> | null;
-          const blocks = (rAuto?.template_blocks as MessageBlock[] | null) || [];
-          if (rAuto && blocks.length > 0) {
-            await sleep(800);
-            const stack = await sendMessageStack({
-              igUserId: recipientId,
-              accessToken,
-              recipientIgScopedId: senderId,
-              blocks,
-              templateVars: { name: senderId, keyword: rAuto.keyword as string },
-            });
-            console.log(`[AI Agent] Delivered resource ${automationId}: ${stack.sentBlocks}/${stack.totalBlocks} blocks`);
-          }
-        }
-      }
 
       void Promise.resolve(
         supabase.from("activity_log").insert({
@@ -1905,6 +1873,24 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
   const accessToken = await getAccountToken(recipientId);
   if (!accessToken) return;
 
+  // TWIN taps are text-type stand-ins for the native capture chips
+  // (payload ends "_twin"): no contact value arrives. Hand the tap to the
+  // AI agent as a normal message — it should ask for the email/phone in
+  // conversation, never claim something was sent.
+  if (quickReply.payload.endsWith("_twin")) {
+    console.log("[Meta Webhook] Twin chip tapped by " + senderId + " - handing to AI agent");
+    await handleIncomingDM({
+      ...messagingEvent,
+      message: {
+        ...(messagingEvent.message as Record<string, unknown>),
+        // strip quick_reply so handleIncomingDM treats it as plain text
+        text: "I'd like to share my " + (quickReply.payload.includes("email") ? "email" : "phone number"),
+        quick_reply: undefined,
+      },
+    });
+    return;
+  }
+
   // Structured lead capture: email / phone quick replies write straight
   // onto the lead row.
   if (contentType === "user_email" || contentType === "user_phone_number") {
@@ -1994,12 +1980,6 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
     }
   }
 
-  // No flow answered this tap - treat it as a normal inbound message so the
-  // AI agent keeps the conversation going (a chip tap shouldn't dead-end).
-  // Contact-capture taps return earlier (they already confirm to the lead).
-  if (!flows || flows.length === 0) {
-    await handleIncomingDM(messagingEvent);
-  }
 }
 
 /**

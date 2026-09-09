@@ -435,21 +435,20 @@ export default function LeadsPage() {
         ) : (
           <>
             {/* Desktop table header */}
-            <div className="hidden xl:grid xl:grid-cols-[2rem_minmax(0,1.9fr)_5rem_minmax(0,1.2fr)_minmax(0,0.9fr)_auto] gap-3 px-4 py-2.5 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <div className="flex items-center">
-                <button onClick={toggleSelectAll} className="p-0.5">
-                  {selected.size === leads.length ? (
-                    <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
-                  ) : (
-                    <Square className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              <div>Lead</div>
-              <div>Source</div>
-              <div>Tags</div>
-              <div>Captured</div>
-              <div className="text-right">Actions</div>
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden"
+              >
+              <button onClick={toggleSelectAll} className="p-0.5 shrink-0">
+                {selected.size === leads.length ? (
+                  <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
+                ) : (
+                  <Square className="w-4 h-4" />
+                )}
+              </button>
+              <div className="w-[26%] min-w-0">Lead</div>
+              <div className="w-[70px] shrink-0">Source</div>
+              <div className="w-[18%] min-w-0">Tags</div>
+              <div className="w-[110px] shrink-0">Captured</div>
+              <div className="ml-auto text-right shrink-0">Actions</div>
             </div>
 
             <div className="divide-y divide-border">
@@ -461,12 +460,10 @@ export default function LeadsPage() {
                 return (
                   <div
                     key={lead.id as string}
-                    className={`grid grid-cols-1 xl:grid-cols-[2rem_minmax(0,1.9fr)_5rem_minmax(0,1.2fr)_minmax(0,0.9fr)_auto] gap-3 px-4 py-2 hover:bg-muted/20 transition-colors items-center ${
-                      isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""
-                    }`}
+                    className={`flex flex-wrap xl:flex-nowrap items-center gap-3 px-4 py-2 hover:bg-muted/20 transition-colors whitespace-nowrap ${isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""}`}
                   >
                     {/* Checkbox */}
-                    <div className="hidden xl:flex items-center">
+                    <div className="hidden xl:flex items-center shrink-0">
                       <button onClick={() => toggleSelect(lead.id as string)} className="p-0.5">
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -476,60 +473,40 @@ export default function LeadsPage() {
                       </button>
                     </div>
 
-                    {/* Username + engagement + contact info */}
+                    {/* Username + engagement + contacts — single line */}
                     <div
-                      className="flex items-center gap-2 min-w-0 cursor-pointer"
-                      onClick={() =>
-                        setExpandedId(expandedId === lead.id ? null : (lead.id as string))
-                      }
+                      className="flex items-center gap-2 w-[26%] min-w-0 cursor-pointer"
+                      onClick={() => setExpandedId(expandedId === lead.id ? null : (lead.id as string))}
                       title="Click to see full lead details"
                     >
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-bold text-[oklch(0.52_0.19_162)]">
-                          {username[0].toUpperCase()}
-                        </span>
+                        <span className="text-[10px] font-bold text-[oklch(0.52_0.19_162)]">{username[0].toUpperCase()}</span>
                       </div>
-                      <a
-                        href={`https://instagram.com/${username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] transition-colors truncate shrink-0"
-                      >
+                      <a href={`https://instagram.com/${username}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] truncate shrink-0">
                         @{username}
                       </a>
                       <EngagementBadge level={(lead.engagement as string) || "new"} />
                       {(lead.email as string) && (
-                        <a
-                          href={`mailto:${lead.email}`}
-                          className="hidden md:inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline min-w-0 max-w-[160px]"
-                          title={lead.email as string}
-                        >
+                        <a href={`mailto:${lead.email}`} className="hidden lg:inline-flex items-center gap-1 text-[11px] text-sky-400 min-w-0" title={lead.email as string}>
                           <Mail className="w-3 h-3 shrink-0" />
                           <span className="truncate">{lead.email as string}</span>
                         </a>
                       )}
                       {(lead.phone as string) && (
-                        <a
-                          href={`tel:${lead.phone}`}
-                          className="hidden md:inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:underline min-w-0 max-w-[120px]"
-                          title={lead.phone as string}
-                        >
+                        <a href={`tel:${lead.phone}`} className="hidden lg:inline-flex items-center gap-1 text-[11px] text-emerald-400 min-w-0" title={lead.phone as string}>
                           <Phone className="w-3 h-3 shrink-0" />
                           <span className="truncate">{lead.phone as string}</span>
                         </a>
                       )}
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 text-muted-foreground/50 shrink-0 transition-transform ${expandedId === lead.id ? "rotate-180" : ""}`}
-                      />
+                      <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground/50 shrink-0 transition-transform ${expandedId === lead.id ? "rotate-180" : ""}`} />
                     </div>
-
                     {/* Source */}
-                    <div>
+                    <div className="w-[70px] shrink-0 overflow-hidden">
                       <span className="text-xs text-muted-foreground capitalize truncate block">{(lead.source as string) || "—"}</span>
                     </div>
 
                     {/* Tags */}
-                    <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 w-[18%] min-w-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       {tags.slice(0, 2).map((tag) => (
                         <span
                           key={tag}
@@ -545,7 +522,7 @@ export default function LeadsPage() {
                     </div>
 
                     {/* Captured date */}
-                    <div className="flex items-center min-w-0">
+                    <div className="w-[110px] shrink-0 text-xs text-muted-foreground overflow-hidden">
                       <span className="text-xs text-muted-foreground">
                         {new Date(lead.captured_at as string).toLocaleDateString("en-IN", {
                           day: "numeric", month: "short",
@@ -588,7 +565,7 @@ export default function LeadsPage() {
 
                     {/* ── Expanded detail: full timeline + every field ── */}
                     {expandedId === lead.id && (
-                      <div className="col-span-full mt-1 rounded-xl bg-muted/30 border border-border p-4 space-y-3">
+                      <div className="w-full mt-1 rounded-xl bg-muted/30 border border-border p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-bold text-foreground uppercase tracking-wider">
                             Lead details

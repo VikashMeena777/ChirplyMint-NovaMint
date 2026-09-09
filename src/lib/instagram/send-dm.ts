@@ -1054,18 +1054,20 @@ export async function sendQuickRepliesDM(
     // hides the native email/phone chip (some accounts/desktop), the twin is
     // still a visible tappable option. Tapping the twin sends its payload as
     // a quick-reply tap (no captured value, but the conversation continues).
+    // Twins reuse the ORIGINAL label the owner configured ("Ask Email"),
+    // so the lead sees exactly the options they set.
     const twins: QuickReply[] = [];
     if (emailChip && !textChips.some((q) => q.payload === emailChip.payload + "_twin")) {
       twins.push({
         content_type: "text",
-        title: "Send my email ✉",
+        title: emailChip.title.slice(0, 20),
         payload: emailChip.payload + "_twin",
       });
     }
     if (phoneChip && !textChips.some((q) => q.payload === phoneChip.payload + "_twin")) {
       twins.push({
         content_type: "text",
-        title: "Send my phone ☎",
+        title: phoneChip.title.slice(0, 20),
         payload: phoneChip.payload + "_twin",
       });
     }
