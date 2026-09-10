@@ -134,9 +134,11 @@ export async function checkDmMilestones(
       totalLeads = totalLeads || (await loadLeads());
       const convRate = newLifetime > 0 ? ((totalLeads / newLifetime) * 100).toFixed(1) : "0";
 
-      await sendEmail({
+      const milestoneResult = await sendEmail({
         to: email,
         subject: milestone.title(userName, milestone.atCount),
+        userId,
+        category: "marketing",
         html: milestone.html({
           name: userName,
           totalDms: milestone.atCount === 1 ? newLifetime : milestone.atCount,
@@ -146,10 +148,15 @@ export async function checkDmMilestones(
           automationName,
         }),
       });
+      if (!milestoneResult.success) {
+        logError("DM Milestone", `Email failed (lifetime=${newLifetime}) — will retry on next DM`, milestoneResult.error);
+        break;
+      }
       await supabase
         .from("profiles")
         .update({ [milestone.flagColumn]: true })
-        .eq("id", userId);
+        .eq("id", userId)
+        .eq(milestone.flagColumn, false);
       logInfo("Milestone", `🎉 ${milestone.atCount}-DM milestone email sent`, { userId });
 
       // In-app notification for every milestone

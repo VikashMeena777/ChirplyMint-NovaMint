@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PLANS } from "@/lib/utils/plan-limits";
+import { PURCHASES } from "@/lib/billing/fulfill";
 import { createRenewalPaymentLink } from "@/lib/cashfree/client";
 import { sendEmail } from "@/lib/email/send";
 
@@ -77,16 +78,33 @@ export async function GET(request: Request) {
 
       if (newPayment) {
         // ── SCENARIO 1: RENEWAL ──
-        const renewPlan = (newPayment as Record<string, string>).plan;
+        // Top-ups are NOT renewals — they never extend the period or change
+        // the plan. Ignore them here (fulfill.ts already applied the credits).
+        const rawRenewPlan = (newPayment as Record<string, string>).plan;
+        const purchaseSpec = PURCHASES[rawRenewPlan];
+        if (!purchaseSpec || purchaseSpec.kind === "topup") {
+          console.log(`[Sub Check] ⏭️ Skipping non-renewal payment ${rawRenewPlan} for ${userId}`);
+        } else {
+        const renewPlan = purchaseSpec.effectivePlan!;
         const newPeriodStart = nowIso;
-        const newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const newPeriodEnd = new Date(now.getTime() + purchaseSpec.periodDays * 24 * 60 * 60 * 1000).toISOString();
 
-        // Reset DM count + update plan
+        // Reset DM count + update plan, preserving purchased top-up credits
+        // (same rule as fulfill.ts: plan limit + dm_topup_balance, -1 stays -1)
+        const { data: renewProf } = await supabase
+          .from("profiles")
+          .select("dm_topup_balance")
+          .eq("id", userId)
+          .maybeSingle();
+        const renewTopup =
+          ((renewProf as Record<string, number> | null)?.dm_topup_balance as number) ?? 0;
+        const renewBase = PLANS[renewPlan]?.dmLimit ?? PLANS.free.dmLimit;
+        const renewLimit = renewBase === -1 ? -1 : renewBase + renewTopup;
         await supabase.from("profiles").update({
           plan: renewPlan,
           dm_count_this_month: 0,
           dm_count_reset_at: nowIso,
-          dm_limit: PLANS[renewPlan as keyof typeof PLANS]?.dmLimit ?? PLANS.free.dmLimit,
+          dm_limit: renewLimit,
           updated_at: nowIso,
         }).eq("id", userId);
 
@@ -104,12 +122,13 @@ export async function GET(request: Request) {
           user_id: userId,
           type: "payment_success",
           title: "🎉 Plan Renewed!",
-          body: `Your ${PLANS[renewPlan as keyof typeof PLANS]?.name || "Pro"} plan has been renewed. DM count has been reset.`,
+          body: `Your ${PLANS[renewPlan]?.name || "Pro"} plan has been renewed. DM count has been reset.`,
           metadata: { plan: renewPlan },
         });
 
         renewed++;
         console.log(`[Sub Check] ✅ Renewed: ${userId} → ${renewPlan}`);
+        }
 
       } else if (daysSinceExpiry <= GRACE_PERIOD_DAYS) {
         // ── SCENARIO 2: GRACE PERIOD — Daily countdown emails ──
@@ -132,16 +151,14 @@ export async function GET(request: Request) {
           .single();
 
         const billingPrefs = ((profile as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
-        if (billingPrefs.payment_emails === false) {
-          graced++;
-          continue; // opted out of billing emails
-        }
+        const emailOptOut = billingPrefs.payment_emails === false;
 
         const { data: authUser } = await supabase.auth.admin.getUserById(userId);
         const userEmail = authUser?.user?.email;
         const userName = (profile as Record<string, string>)?.full_name || "there";
 
-        // Daily in-app notification with countdown
+        // Daily in-app notification with countdown — always delivered even
+        // if billing emails are opted out (in-app is not email).
         await supabase.from("notifications").insert({
           user_id: userId,
           type: "warning",
@@ -182,8 +199,8 @@ export async function GET(request: Request) {
           console.error("[Sub Check] Renewal link error:", linkErr);
         }
 
-        // Daily countdown email
-        if (userEmail) {
+        // Daily countdown email — skipped if opted out of billing emails.
+        if (userEmail && !emailOptOut) {
           const urgencyColor = daysLeft <= 1 ? "#dc2626" : "#f59e0b";
           const ctaUrl = renewalLinkUrl || `${process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"}/dashboard/settings`;
           sendEmail({
@@ -279,13 +296,17 @@ export async function GET(request: Request) {
     let referralDowngraded = 0;
     for (const profile of (expiredReferrals || [])) {
       const p = profile as Record<string, unknown>;
-      // Only downgrade if they don't have an active paid subscription
+      // Only downgrade if they don't have a paid subscription that still
+      // covers them — including canceled-but-not-yet-expired (user cancelled
+      // at period end but is still entitled until current_period_end).
       const { data: activeSub } = await supabase
         .from("subscriptions")
-        .select("id")
+        .select("id, current_period_end")
         .eq("user_id", p.id)
-        .in("status", ["active", "grace_period"])
-        .single();
+        .in("status", ["active", "grace_period", "canceled"])
+        .gt("current_period_end", nowIso)
+        .limit(1)
+        .maybeSingle();
 
       if (!activeSub) {
         await supabase.from("profiles").update({

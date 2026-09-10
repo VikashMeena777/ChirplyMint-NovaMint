@@ -116,20 +116,43 @@ export function isUnlimitedDM(limit: number | null | undefined): boolean {
 }
 
 /**
+ * Effective DM limit for a user: purchased dm_limit column wins over the
+ * plan default. fulfill.ts writes dm_limit += 500 on top-up, so every
+ * enforcement point MUST go through here — never PLANS[plan].dmLimit alone.
+ *
+ * Rules:
+ * - storedLimit === -1 (unlimited plan) stays unlimited
+ * - storedLimit > 0 (plan + top-ups) is the real quota
+ * - storedLimit null/undefined/0 (legacy rows) falls back to plan default
+ */
+export function getEffectiveDMLimit(
+  plan: PlanKey,
+  storedLimit: number | null | undefined
+): number {
+  if (isUnlimitedDM(storedLimit)) return -1;
+  if (typeof storedLimit === "number" && storedLimit > 0) return storedLimit;
+  const planConfig = PLANS[plan] || PLANS.free;
+  return planConfig.dmLimit;
+}
+
+/**
  * Check if the user can send more DMs this month.
+ * Pass storedLimit (profiles.dm_limit) when available so top-up purchases
+ * are honoured. Omitting it falls back to the plan default (legacy).
  */
 export function canSendDM(
   plan: PlanKey,
-  currentCount: number
+  currentCount: number,
+  storedLimit?: number | null
 ): { allowed: boolean; limit: number; remaining: number } {
-  const planConfig = PLANS[plan] || PLANS.free;
-  if (isUnlimitedDM(planConfig.dmLimit)) {
+  const effective = getEffectiveDMLimit(plan, storedLimit);
+  if (isUnlimitedDM(effective)) {
     return { allowed: true, limit: -1, remaining: -1 };
   }
-  const remaining = Math.max(0, planConfig.dmLimit - currentCount);
+  const remaining = Math.max(0, effective - currentCount);
   return {
-    allowed: currentCount < planConfig.dmLimit,
-    limit: planConfig.dmLimit,
+    allowed: currentCount < effective,
+    limit: effective,
     remaining,
   };
 }

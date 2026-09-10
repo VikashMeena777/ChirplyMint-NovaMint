@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     // Get all users who have weekly_report enabled
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, email, notification_preferences, review_request_sent_at");
+      .select("id, full_name, notification_preferences, review_request_sent_at");
 
     if (!profiles || profiles.length === 0) {
       return NextResponse.json({ status: "ok", processed: 0 });
@@ -46,7 +46,10 @@ export async function GET(request: Request) {
 
       const userId = profile.id as string;
       const userName = (profile.full_name as string) || "there";
-      const userEmail = profile.email as string;
+      // Canonical email source — profiles.email goes stale when users change
+      // email. Every other cron uses auth.admin.getUserById.
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const userEmail = authUser?.user?.email;
       const now = new Date();
       const weekAgo = new Date(now);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -155,7 +158,7 @@ export async function GET(request: Request) {
           .eq("id", userId);
       }
 
-      // Send email report (fire-and-forget, non-blocking)
+      // Send email report — awaited so failures are visible and counted.
       // (weekly_report preference already checked above via `continue`)
       if (userEmail) {
         const emailHtml = getWeeklyReportEmailHtml({
@@ -169,15 +172,22 @@ export async function GET(request: Request) {
           periodEnd: now.toLocaleDateString("en-IN"),
         });
 
-        sendEmail({
-          to: userEmail,
-          subject: `📊 Your ChirplyMint Weekly Report — ${dms} DMs sent`,
-          userId,
-          category: "marketing",
-          html: emailHtml,
-        }).catch((err) =>
-          console.error(`[Weekly Report] Email failed for ${userId}:`, err)
-        );
+        try {
+          const emailResult = await sendEmail({
+            to: userEmail,
+            subject: `📊 Your ChirplyMint Weekly Report — ${dms} DMs sent`,
+            userId,
+            category: "marketing",
+            html: emailHtml,
+          });
+          if (!emailResult.success) {
+            console.error(`[Weekly Report] Email failed for ${userId}:`, emailResult.error);
+          }
+        } catch (err) {
+          console.error(`[Weekly Report] Email failed for ${userId}:`, err);
+        }
+      } else {
+        console.log(`[Weekly Report] Skipping email for ${userId} — no auth email`);
       }
 
       processed++;

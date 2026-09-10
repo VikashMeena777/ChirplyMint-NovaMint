@@ -139,17 +139,28 @@ export async function GET(request: Request) {
           `[Token Refresh] ❌ Failed for @${acc.ig_username}: ${errorMsg}`
         );
 
-        // Create an in-app notification so user knows to reconnect
-        supabase
+        // Create an in-app notification so user knows to reconnect.
+        // Column is `body` (not `message`) like every other notification insert.
+        // De-dupe: one failure notice per account per day, not daily spam.
+        const dayAgoIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: recentFailure } = await supabase
           .from("notifications")
-          .insert({
-            user_id: acc.user_id,
-            type: "warning",
-            title: "Instagram Reconnection Needed",
-            message: `Your Instagram token for @${acc.ig_username} could not be refreshed. Please reconnect your account in Settings to keep automations running.`,
-            is_read: false,
-          })
-          .then(() => {});
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", acc.user_id)
+          .eq("type", "warning")
+          .ilike("title", "%Reconnection Needed%")
+          .gte("created_at", dayAgoIso);
+        if ((recentFailure ?? 0) === 0) {
+          await supabase
+            .from("notifications")
+            .insert({
+              user_id: acc.user_id,
+              type: "warning",
+              title: "Instagram Reconnection Needed",
+              body: `Your Instagram token for @${acc.ig_username} could not be refreshed. Please reconnect your account in Settings to keep automations running.`,
+              is_read: false,
+            });
+        }
 
         // Log failure activity
         supabase
@@ -203,29 +214,44 @@ export async function GET(request: Request) {
 
         const { data: u45 } = await supabase.auth.admin.getUserById(acc45.user_id);
         if (u45?.user?.email) {
-          const { sendEmail } = await import("@/lib/email/send");
-          void sendEmail({
-            to: u45.user.email,
-            subject: "💚 All good - your Instagram connection is healthy",
-            html: "<div style=\"font-family:sans-serif;max-width:500px;margin:0 auto;\"><h2 style=\"color:#16a34a;\">ChirplyMint</h2><p>Hey! Quick heads-up: <strong>@" + acc45.ig_username + "</strong>'s connection is healthy and its access token renews automatically in about 5 days.</p><p>No action needed. If your automations ever pause unexpectedly, a quick reconnect in Settings fixes everything.</p><a href=\"" + (process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com") + "/dashboard/settings\" style=\"display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;margin-top:8px;\">Connection Settings</a><p style=\"color:#888;font-size:12px;margin-top:24px;\">ChirplyMint - Instagram DM Automation</p></div>",
-          }).catch(() => {});
+          // Respect global marketing opt-out; day-45 is a marketing-ish nudge.
+          const { data: prof45 } = await supabase
+            .from("profiles")
+            .select("notification_preferences")
+            .eq("id", acc45.user_id)
+            .maybeSingle();
+          const prefs45 = ((prof45 as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+          if (prefs45.product_updates !== false) {
+            const { sendEmail } = await import("@/lib/email/send");
+            const day45Result = await sendEmail({
+              to: u45.user.email,
+              subject: "💚 All good - your Instagram connection is healthy",
+              userId: acc45.user_id,
+              category: "marketing",
+              html: "<div style=\"font-family:sans-serif;max-width:500px;margin:0 auto;\"><h2 style=\"color:#16a34a;\">ChirplyMint</h2><p>Hey! Quick heads-up: <strong>@" + acc45.ig_username + "</strong>'s connection is healthy and its access token renews automatically in about 5 days.</p><p>No action needed. If your automations ever pause unexpectedly, a quick reconnect in Settings fixes everything.</p><a href=\"" + (process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com") + "/dashboard/settings\" style=\"display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;margin-top:8px;\">Connection Settings</a><p style=\"color:#888;font-size:12px;margin-top:24px;\">ChirplyMint - Instagram DM Automation</p></div>",
+            });
+            if (!day45Result.success) {
+              console.error("[Token Refresh] Day-45 email failed for @" + acc45.ig_username + ":", day45Result.error);
+            }
+          }
         }
         console.log("[Token Refresh] Day-45 nudge sent for @" + acc45.ig_username);
       }
     }
 
     // ── TOKEN EXPIRY WARNING (#14) ──
-    // Check ALL active accounts for tokens expiring within 7 days
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    // Tokens last ~60 days from updated_at. If updated_at is >53 days ago, token expires in <7 days.
+    // Backup for when auto-refresh FAILS: tokens older than 53 days expire in
+    // <7 days. Yes, auto-refresh at day 50 already tried — this catches the
+    // ones where refresh failed and the user must reconnect manually.
+    // (Old query asked for updated_at BOTH older than 53d AND newer than 50d,
+    // which is empty and never fired.)
     const fiftyThreeDaysAgo = new Date(now.getTime() - 53 * 24 * 60 * 60 * 1000);
 
     const { data: expiringAccounts } = await supabase
       .from("instagram_accounts")
       .select("id, user_id, ig_username, updated_at")
       .eq("is_active", true)
-      .lt("updated_at", fiftyThreeDaysAgo.toISOString())
-      .gte("updated_at", fiftyDaysAgo.toISOString()); // Between 53-50 days = expiring in 7-10 days, not yet due for refresh
+      .lt("updated_at", fiftyThreeDaysAgo.toISOString());
 
     if (expiringAccounts && expiringAccounts.length > 0) {
       for (const ea of expiringAccounts) {

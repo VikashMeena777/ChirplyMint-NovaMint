@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendPrivateReply, sendInstagramDM } from "@/lib/instagram/send-dm";
+import { sendInstagramDM } from "@/lib/instagram/send-dm";
+import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
 
 function getAdminSupabase() {
   return createClient(
@@ -86,6 +87,40 @@ export async function GET(request: Request) {
 
       const acc = igAccount as Record<string, string>;
 
+      // Stale-plan guard: don't retry DMs for expired/cancelled subscriptions
+      // or users already at their DM limit. The original send checked this;
+      // the plan could have expired while the DM sat in the retry queue.
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("plan, dm_count_this_month, dm_limit")
+        .eq("id", dm.user_id as string)
+        .maybeSingle();
+      const p = prof as Record<string, unknown> | null;
+      const plan = ((p?.plan as string) || "free") as PlanKey;
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status, current_period_end")
+        .eq("user_id", dm.user_id as string)
+        .maybeSingle();
+      const s = sub as Record<string, string> | null;
+      const subExpired =
+        s && s.current_period_end && new Date(s.current_period_end).getTime() < Date.now() &&
+        s.status !== "active";
+      if (subExpired || !canSendDM(plan, (p?.dm_count_this_month as number) || 0, p?.dm_limit as number | null).allowed) {
+        await supabase.from("dm_logs").update({
+          status: "failed",
+          error_message: subExpired ? "Subscription expired before retry" : "DM limit reached before retry",
+          retry_count: retryCount,
+          retry_after: null,
+        }).eq("id", dmId);
+        failed++;
+        continue;
+      }
+
+      // NOTE: original comment DMs go out as Instagram Private Replies
+      // (1-per-comment, 7-day window). This retry uses regular DMs, which
+      // need an open 24h window — a window error here means the private-reply
+      // path already expired, not a bug. We surface that clearly below.
       // Try sending the DM
       const result = await sendInstagramDM(
         acc.ig_user_id,
@@ -103,7 +138,6 @@ export async function GET(request: Request) {
         }).eq("id", dmId);
         succeeded++;
       } else if (result.rateLimited && retryCount < 3) {
-        // ⏳ Still rate limited — requeue for later (exponential: 1h, 2h, 4h)
         const nextRetryMs = 60 * 60 * 1000 * Math.pow(2, retryCount - 1);
         await supabase.from("dm_logs").update({
           retry_count: retryCount,
@@ -112,8 +146,15 @@ export async function GET(request: Request) {
         requeued++;
       } else {
         // ❌ Permanent failure (non-rate-limit error or max retries)
+        // Window errors get a clear message so the owner knows the 24h
+        // messaging window closed — not a system bug.
+        const errMsg = (result.error as string) || "Send failed";
+        const isWindow = /window|24 ?h|outside.*allowed/i.test(errMsg);
         await supabase.from("dm_logs").update({
           status: "failed",
+          error_message: isWindow
+            ? "Messaging window closed — customer must message again to reopen (24h rule)"
+            : errMsg,
           retry_count: retryCount,
           retry_after: null,
         }).eq("id", dmId);

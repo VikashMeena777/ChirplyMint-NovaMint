@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { verifyWebhookSignature } from "@/lib/cashfree/client";
+import { verifyWebhookSignature, verifyPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { sendEmail } from "@/lib/email/send";
-import { fulfillPaidOrder } from "@/lib/billing/fulfill";
+import { fulfillPaidOrder, PURCHASES } from "@/lib/billing/fulfill";
 import { getPlanUpgradedHtml } from "@/lib/email/templates/plan-upgraded";
 
 function getAdminSupabase() {
@@ -21,15 +21,17 @@ export async function POST(request: Request) {
 
     console.log("[Cashfree Webhook] Received webhook event");
 
-    // Verify webhook signature — ALWAYS verify, never skip
+    // Verify webhook signature — ALWAYS verify, never skip.
+    // Misconfigured must be 500 (so Cashfree retries + Vercel alerts fire),
+    // never 200 (which would silently ACK-and-drop real money events).
     if (!process.env.CASHFREE_WEBHOOK_SECRET) {
       console.error("[Cashfree Webhook] CRITICAL: CASHFREE_WEBHOOK_SECRET not configured");
-      return NextResponse.json({ error: "Server misconfigured" }, { status: 200 });
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
     const isValid = verifyWebhookSignature(rawBody, timestamp, signature);
     if (!isValid) {
       console.error("[Cashfree Webhook] Invalid signature — rejecting");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 200 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
     }
     console.log("[Cashfree Webhook] Signature verified ✅");
 
@@ -48,6 +50,56 @@ export async function POST(request: Request) {
     const orderId = orderData.order_id;
 
     if (eventType === "PAYMENT_SUCCESS_WEBHOOK") {
+      // Never trust the webhook type alone — confirm with Cashfree that a
+      // SUCCESS payment actually exists and the amount matches what we charged.
+      const { data: expected } = await supabase
+        .from("payment_orders")
+        .select("amount, plan, status")
+        .eq("order_id", orderId)
+        .maybeSingle();
+      const exp = expected as Record<string, unknown> | null;
+      if (exp?.status === "paid") {
+        // Already fulfilled — idempotent, nothing more to do.
+        return NextResponse.json({ status: "ok" });
+      }
+      try {
+        const verification = await verifyPaymentOrder(orderId);
+        const payments = (verification.payments as Array<Record<string, unknown>>) || [];
+        const success = payments.find((p) => p.payment_status === "SUCCESS");
+        if (verification.success && payments.length > 0 && !success) {
+          console.error(`[Cashfree Webhook] No SUCCESS payment for ${orderId} — ignoring`);
+          return NextResponse.json({ status: "ok" });
+        }
+        // Amount check when Cashfree returns an amount field.
+        const paidAmount = success
+          ? Number(success.payment_amount ?? success.order_amount ?? NaN)
+          : NaN;
+        const expectedAmount = Number((exp?.amount as number) ?? PURCHASES[(exp?.plan as string) || ""]?.amount ?? NaN);
+        if (!Number.isNaN(paidAmount) && !Number.isNaN(expectedAmount) && paidAmount < expectedAmount) {
+          console.error(`[Cashfree Webhook] Underpaid ${orderId}: got ${paidAmount}, expected ${expectedAmount} — ignoring`);
+          // Visible to the owner (console-only would be a silent money event)
+          const { data: underOrd } = await supabase
+            .from("payment_orders")
+            .select("user_id")
+            .eq("order_id", orderId)
+            .maybeSingle();
+          const underUid = (underOrd as Record<string, string> | null)?.user_id;
+          if (underUid) {
+            await supabase.from("notifications").insert({
+              user_id: underUid,
+              type: "warning",
+              title: "⚠️ Payment amount mismatch",
+              body: `We received ₹${paidAmount} for order ${orderId} but expected ₹${expectedAmount}. Contact support if this was you.`,
+              metadata: { order_id: orderId, paid: paidAmount, expected: expectedAmount },
+            });
+          }
+          return NextResponse.json({ status: "ok" });
+        }
+      } catch (verifyErr) {
+        // If the verify call itself fails, fall through and fulfil anyway —
+        // the signature is valid, so this is still a genuine Cashfree event.
+        console.error(`[Cashfree Webhook] Verify-before-fulfil failed for ${orderId}:`, verifyErr);
+      }
       // Shared fulfilment: monthly / annual / top-up, idempotent (the verify
       // route calls the exact same function when the user returns from checkout).
       const result = await fulfillPaidOrder({
@@ -58,7 +110,10 @@ export async function POST(request: Request) {
 
       if (!result.ok) {
         console.error(`[Cashfree Webhook] Fulfilment failed for ${orderId}:`, result.error);
-        return NextResponse.json({ status: "ok" });
+        // Return 500 so Cashfree retries; fulfillPaidOrder is idempotent so
+        // a retry can never double-credit. Returning ok here would ACK-and-drop
+        // real money (silent failure).
+        return NextResponse.json({ error: "Fulfilment failed, retry" }, { status: 500 });
       }
 
       // Plan-upgrade email (top-ups get an in-app notification instead)
@@ -105,13 +160,16 @@ export async function POST(request: Request) {
         })();
       }
     } else if (eventType === "PAYMENT_FAILED_WEBHOOK") {
+      // Never overwrite a paid order with failed — webhooks can arrive out
+      // of order, and paid + active subscription must win.
       await supabase
         .from("payment_orders")
         .update({
           status: "failed",
           updated_at: new Date().toISOString(),
         })
-        .eq("order_id", orderId);
+        .eq("order_id", orderId)
+        .neq("status", "paid");
     }
 
     return NextResponse.json({ status: "ok" });

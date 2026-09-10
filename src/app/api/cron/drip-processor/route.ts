@@ -9,6 +9,12 @@ import {
   getSmartSendHours,
   alignToSmartSendWindow,
 } from "@/lib/utils/smart-timing";
+import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
+
+function isWindowError(msg: string | undefined): boolean {
+  if (!msg) return false;
+  return /window|24 ?h|human_agent|human agent|outside.*allowed|tag|messaging_window|blocked.*user/i.test(msg);
+}
 
 function getAdminSupabase() {
   return createClient(
@@ -107,6 +113,38 @@ export async function GET(request: Request) {
         continue;
       }
 
+      // Plan-limit gate (A3): drips must honour purchased dm_limit, not just webhook DMs
+      {
+        const { data: limitProf } = await supabase
+          .from("profiles")
+          .select("plan, dm_count_this_month, dm_limit")
+          .eq("id", e.user_id as string)
+          .maybeSingle();
+        const lp = limitProf as Record<string, unknown> | null;
+        const lplan = ((lp?.plan as string) || "free") as PlanKey;
+        const lcount = (lp?.dm_count_this_month as number) || 0;
+        const lcheck = canSendDM(lplan, lcount, lp?.dm_limit as number | null);
+        if (!lcheck.allowed) {
+          await supabase.from("dm_logs").insert({
+            user_id: e.user_id as string,
+            automation_id: (automation.id as string) || null,
+            recipient_ig_id: e.recipient_ig_id as string,
+            recipient_username: (e.recipient_username as string) || "user",
+            message_text: `[SKIPPED] Plan DM limit reached (${lcheck.limit}/month) — drip paused`,
+            comment_text: null,
+            status: "skipped_plan_limit",
+          });
+          // Back off 24h so we don't hammer the same enrollment hourly all month
+          await supabase
+            .from("drip_enrollments")
+            .update({ next_send_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() })
+            .eq("id", e.id as string);
+          failed++;
+          console.log(`[Drip Cron] Plan limit hit for ${e.user_id} (${lcount}/${lcheck.limit}) — pausing drip 24h`);
+          continue;
+        }
+      }
+
       const nextStepNumber = (e.current_step as number) + 1;
 
       // Get the next step
@@ -155,8 +193,20 @@ export async function GET(request: Request) {
       const recipientIgId = e.recipient_ig_id as string;
       const recipientUsername = (e.recipient_username as string) || "user";
 
+      // Guard: empty step text would crash .replace() and abort the whole
+      // batch. Skip this enrollment cleanly instead.
+      const rawText = stepData.message_text as string | null;
+      if (!rawText) {
+        console.error(`[Drip Cron] Empty message_text for step ${nextStepNumber} — skipping enrollment ${e.id}`);
+        await supabase
+          .from("drip_enrollments")
+          .update({ next_send_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() })
+          .eq("id", e.id as string);
+        failed++;
+        continue;
+      }
       // Replace variables in message
-      const messageText = (stepData.message_text as string)
+      const messageText = rawText
         .replace(/\{name\}/gi, `@${recipientUsername}`)
         .replace(/\{step\}/gi, String(nextStepNumber));
 
@@ -251,8 +301,11 @@ export async function GET(request: Request) {
             .update({
               current_step: nextStepNumber,
               next_send_at: nextSendAt,
+              failure_count: 0,
+              last_error: null,
             })
-            .eq("id", e.id as string);
+            .eq("id", e.id as string)
+            .eq("current_step", e.current_step as number);
         } else {
           // This was the last step → mark completed
           await supabase
@@ -261,10 +314,20 @@ export async function GET(request: Request) {
               current_step: nextStepNumber,
               status: "completed",
               completed_at: now,
+              failure_count: 0,
+              last_error: null,
             })
-            .eq("id", e.id as string);
+            .eq("id", e.id as string)
+            .eq("current_step", e.current_step as number);
 
-          // In-app completion notification
+          // In-app completion notification (respect drip_completed pref)
+          const { data: cprof } = await supabase
+            .from("profiles")
+            .select("notification_preferences")
+            .eq("id", e.user_id as string)
+            .single();
+          const cprefs = ((cprof as Record<string, unknown> | null)?.notification_preferences as Record<string, boolean>) ?? {};
+          if (cprefs.drip_completed !== false) {
           await supabase.from("notifications").insert({
             user_id: e.user_id as string,
             type: "success",
@@ -272,53 +335,27 @@ export async function GET(request: Request) {
             body: `@${recipientUsername} just finished the full drip sequence — they've received every message.`,
             metadata: { enrollment_id: e.id, recipient: recipientUsername },
           });
+          }
 
           completed++;
         }
 
-        // Increment DM count on the automation
-        try {
+        // Increment counters atomically via hardened RPC (C2: no read-then-write fallback)
+        {
           const { error: rpcErr } = await supabase.rpc("increment_field", {
             table_name: "automations",
             field_name: "dms_sent",
             row_id: automation.id as string,
           });
-          if (rpcErr) throw rpcErr;
-        } catch {
-          // Fallback: direct update if RPC doesn't exist
-          const { data: autoData } = await supabase
-            .from("automations")
-            .select("dms_sent")
-            .eq("id", automation.id as string)
-            .single();
-          const current =
-            ((autoData as Record<string, number> | null)?.dms_sent as number) || 0;
-          await supabase
-            .from("automations")
-            .update({ dms_sent: current + 1 })
-            .eq("id", automation.id as string);
+          if (rpcErr) console.error(`[Drip Cron] increment automations.dms_sent failed:`, rpcErr.message);
         }
-
-        // Increment user's monthly DM count
-        try {
+        {
           const { error: rpcErr2 } = await supabase.rpc("increment_field", {
             table_name: "profiles",
             field_name: "dm_count_this_month",
             row_id: e.user_id as string,
           });
-          if (rpcErr2) throw rpcErr2;
-        } catch {
-          // Fallback: direct update if RPC doesn't exist
-          const { data: dmProfile } = await supabase
-            .from("profiles")
-            .select("dm_count_this_month")
-            .eq("id", e.user_id as string)
-            .single();
-          const dmCurrent = ((dmProfile as Record<string, number> | null)?.dm_count_this_month as number) || 0;
-          await supabase
-            .from("profiles")
-            .update({ dm_count_this_month: dmCurrent + 1 })
-            .eq("id", e.user_id as string);
+          if (rpcErr2) console.error(`[Drip Cron] increment dm_count_this_month failed:`, rpcErr2.message);
         }
 
         // Log activity
@@ -341,12 +378,47 @@ export async function GET(request: Request) {
           `[Drip Cron] Sent step ${nextStepNumber} to @${recipientUsername}`
         );
       } else {
-        // DM failed — mark enrollment as failed after 3 consecutive failures
-        // For now, just skip and retry next cycle
+        // DM failed — finite retries (A2). Window errors (24h closed + no
+        // HUMAN_AGENT approval) will never succeed on retry, so fail fast
+        // after 2 and notify the owner. Other errors get 3 attempts.
+        const errMsg = sendResult.error || "Send failed";
+        const windowErr = isWindowError(errMsg);
+        const prevFails = (e.failure_count as number) || 0;
+        const nextFails = prevFails + 1;
+        const maxFails = windowErr ? 2 : 3;
         failed++;
         console.error(
-          `[Drip Cron] Failed step ${nextStepNumber} to @${recipientUsername}: ${sendResult.error}`
+          `[Drip Cron] Failed step ${nextStepNumber} to @${recipientUsername}: ${errMsg} (attempt ${nextFails}/${maxFails}${windowErr ? ", 24h window" : ""})`
         );
+        if (nextFails >= maxFails) {
+          await supabase
+            .from("drip_enrollments")
+            .update({
+              status: "failed",
+              completed_at: now,
+              failure_count: nextFails,
+              last_error: errMsg.slice(0, 500),
+            })
+            .eq("id", e.id as string);
+          await supabase.from("notifications").insert({
+            user_id: e.user_id as string,
+            type: "warning",
+            title: windowErr ? "⏰ Drip paused — 24h window closed" : "⚠️ Drip step failed",
+            body: windowErr
+              ? `Step ${nextStepNumber} to @${recipientUsername} couldn't send: the 24h messaging window closed and HUMAN_AGENT isn't approved. Ask them to reply (reopens 24h) or keep steps within 24h.`
+              : `Step ${nextStepNumber} to @${recipientUsername} failed ${maxFails}x: ${errMsg.slice(0, 140)}. The enrollment was paused.`,
+            metadata: { enrollment_id: e.id, step: nextStepNumber, error: errMsg.slice(0, 200) },
+          });
+        } else {
+          await supabase
+            .from("drip_enrollments")
+            .update({
+              failure_count: nextFails,
+              last_error: errMsg.slice(0, 500),
+              next_send_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            })
+            .eq("id", e.id as string);
+        }
       }
     }
 

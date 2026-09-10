@@ -37,16 +37,22 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
 
   const dm = dmLog as Record<string, unknown>;
 
-  // Check plan limits before retrying
+  // C1: if a previous attempt actually stored a Meta message id, don't resend
+  if (dm.meta_message_id) {
+    return { success: false, error: "Already delivered (Meta message recorded). Refresh to see it." };
+  }
+
+  // Check plan limits before retrying (honours purchased dm_limit top-ups)
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan, dm_count_this_month")
+    .select("plan, dm_count_this_month, dm_limit")
     .eq("id", user.id)
     .single();
 
   const plan = ((profile as Record<string, unknown>)?.plan as PlanKey) || "free";
   const dmCount = ((profile as Record<string, unknown>)?.dm_count_this_month as number) || 0;
-  const limitCheck = canSendDM(plan, dmCount);
+  const storedLimit = (profile as Record<string, unknown> | null)?.dm_limit as number | null;
+  const limitCheck = canSendDM(plan, dmCount, storedLimit);
 
   if (!limitCheck.allowed) {
     return {
@@ -103,20 +109,23 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
       return { success: false, error: data.error.message || "Instagram API error" };
     }
 
-    // Success — update DM log
+    // Success — update DM log (store Meta id for duplicate protection)
     await supabase.from("dm_logs").update({
       status: "sent",
       sent_at: new Date().toISOString(),
       error_message: null,
+      ...(data.message_id ? { meta_message_id: data.message_id } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", dmLogId);
 
-    // Increment DM count via admin client — dm_count_this_month is a
-    // server-only column (blocked from client writes by the hardening grant).
+    // Increment DM count atomically via RPC (C2 — no read-then-write race)
     const admin = getAdminSupabase();
-    await admin.from("profiles").update({
-      dm_count_this_month: dmCount + 1,
-    }).eq("id", user.id);
+    const { error: incrErr } = await admin.rpc("increment_field", {
+      table_name: "profiles",
+      field_name: "dm_count_this_month",
+      row_id: user.id,
+    });
+    if (incrErr) console.error("[Retry DM] increment failed:", incrErr.message);
 
     logActivity(user.id, "dm.retry_success", {
       dm_log_id: dmLogId,

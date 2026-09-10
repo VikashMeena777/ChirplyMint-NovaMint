@@ -15,7 +15,8 @@ export async function logActivity(
       action,
       metadata,
     });
-  } catch {
-    // Non-blocking — silently fail
+  } catch (e) {
+    // Non-blocking, but never fully silent — Vercel log tail is the backstop
+    console.warn(`[Activity] log failed for ${action}:`, e instanceof Error ? e.message : e);
   }
 }

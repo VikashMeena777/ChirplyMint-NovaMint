@@ -21,7 +21,9 @@ function verifySvixSignature(
 ): boolean {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
-    console.warn("[Resend Webhook] RESEND_WEBHOOK_SECRET not configured — skipping verification");
+    // Fail closed — the POST handler returns 500 before ever calling this
+    // without a secret; this is a backstop, never a skip.
+    console.error("[Resend Webhook] CRITICAL: RESEND_WEBHOOK_SECRET not configured — rejecting");
     return false;
   }
 
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
     // Verify timestamp is within 5 minutes to prevent replay attacks
     const timestampSec = parseInt(svixTimestamp, 10);
     const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - timestampSec) > 300) {
+    if (!Number.isFinite(timestampSec) || Math.abs(now - timestampSec) > 300) {
       return NextResponse.json(
         { error: "Webhook timestamp too old" },
         { status: 400 }

@@ -124,11 +124,17 @@ export async function GET(request: Request) {
       // nextStep === 3 means sequence complete, no more emails
 
       // Send email if not skipped
+      let emailOk = false;
       if (!shouldSkip && html && !optedOut) {
         try {
-          await sendEmail({ to: email, subject, html, userId, category: "marketing" });
-          sent++;
-          console.log(`[Drip] ✉️ Sent step ${step} to ${email}`);
+          const result = await sendEmail({ to: email, subject, html, userId, category: "marketing" });
+          if (result.success) {
+            sent++;
+            emailOk = true;
+            console.log(`[Drip] ✉️ Sent step ${step} to ${email}`);
+          } else {
+            console.error(`[Drip] Failed to send step ${step} to ${email}:`, result.error);
+          }
         } catch (emailErr) {
           console.error(`[Drip] Failed to send step ${step} to ${email}:`, emailErr);
         }
@@ -137,11 +143,19 @@ export async function GET(request: Request) {
         console.log(`[Drip] ⏭️ Skipped step ${step} for ${email} (${optedOut ? "opted out" : "action already done"})`);
       }
 
-      // Advance to next step regardless
+      // Advance only on success / skip / opt-out. On email failure, retry
+      // in 1h without advancing, guarded by current step (no double-send on
+      // overlapping runs).
+      if (!shouldSkip && !optedOut && html && !emailOk) {
+        await supabase.from("profiles").update({
+          onboarding_email_next_at: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+        }).eq("id", userId).eq("onboarding_email_step", step);
+        continue;
+      }
       await supabase.from("profiles").update({
         onboarding_email_step: nextStep,
         onboarding_email_next_at: nextAt?.toISOString() || null,
-      }).eq("id", userId);
+      }).eq("id", userId).eq("onboarding_email_step", step);
     }
 
     console.log(`[Drip] Done: ${sent} sent, ${skipped} skipped`);

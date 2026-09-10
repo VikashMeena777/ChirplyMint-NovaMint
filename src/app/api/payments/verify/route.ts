@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { fulfillPaidOrder } from "@/lib/billing/fulfill";
 import { verifyPaymentOrder } from "@/lib/cashfree/client";
-import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
 
 function getAdminSupabase() {
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
     // Check if the order belongs to this user and is still pending
     const { data: order } = await adminSupabase
       .from("payment_orders")
-      .select("user_id, plan, status")
+      .select("user_id, plan, amount, status")
       .eq("order_id", orderId)
       .single();
 
@@ -82,6 +81,25 @@ export async function POST(request: Request) {
     if (!successfulPayment) {
       return NextResponse.json(
         { status: "not_paid", message: "No successful payment found" },
+        { status: 400 }
+      );
+    }
+
+    // Amount check: an underpaid order must not unlock the plan.
+    // PURCHASES is the single catalogue — compare DB amount and spec.
+    const { PURCHASES } = await import("@/lib/billing/fulfill");
+    const spec = PURCHASES[(order as Record<string, string>).plan];
+    if (!spec) {
+      return NextResponse.json({ error: "Unknown purchase type" }, { status: 400 });
+    }
+    const paidAmount = Number(
+      successfulPayment.payment_amount ?? successfulPayment.order_amount ?? NaN
+    );
+    const expectedAmount = Number((order as Record<string, unknown>).amount ?? spec.amount);
+    if (!Number.isNaN(paidAmount) && !Number.isNaN(expectedAmount) && paidAmount < expectedAmount) {
+      console.error(`[Payment Verify] Underpaid ${orderId}: got ${paidAmount}, expected ${expectedAmount}`);
+      return NextResponse.json(
+        { status: "not_paid", message: "Payment amount does not match order" },
         { status: 400 }
       );
     }

@@ -87,7 +87,7 @@ export async function trackDMFailure(
             <p style="color: #888; font-size: 12px; margin-top: 24px;">ChirplyMint — Instagram DM Automation</p>
           </div>
         `,
-      }).catch(() => {});
+      }).catch((e) => console.error(`[Failure Tracker] alert email failed for ${userId}:`, e));
     }
 
     logInfo("Failure Tracker", `🚨 Alert sent for @${igUsername}`, { consecutiveFailures: current });

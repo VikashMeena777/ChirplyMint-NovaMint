@@ -90,6 +90,31 @@ export async function fulfillPaidOrder(params: {
 }): Promise<FulfillResult> {
   const admin = getAdmin();
 
+  // Validate the purchase type BEFORE flipping to paid, so an unknown
+  // plan can never get stuck as paid-forever with nothing delivered.
+  const { data: pending } = await admin
+    .from("payment_orders")
+    .select("user_id, plan, amount, status")
+    .eq("order_id", params.orderId)
+    .maybeSingle();
+  if (!pending) {
+    return { ok: false, error: "Order not found" };
+  }
+  const pendingOrder = pending as unknown as {
+    user_id: string;
+    plan: string;
+    amount: number;
+    status: string;
+  };
+  const earlySpec = PURCHASES[pendingOrder.plan];
+  if (!earlySpec) {
+    console.error(`[Fulfill] Unknown purchase "${pendingOrder.plan}" for ${params.orderId} — not marking paid`);
+    return { ok: false, error: `Unknown purchase type: ${pendingOrder.plan}` };
+  }
+  if (pendingOrder.status === "paid") {
+    return { ok: true, alreadyFulfilled: true, kind: earlySpec.kind };
+  }
+
   // Claim the order: only the caller that flips pending → paid fulfils it.
   const { data: claimed } = await admin
     .from("payment_orders")
@@ -142,12 +167,13 @@ export async function fulfillPaidOrder(params: {
     // Unlimited plans (-1) keep their limit; the purchase is still recorded.
     const nextLimit = currentLimit === -1 ? -1 : currentLimit + TOPUP_DM_COUNT;
 
+    // Do NOT reset dm_count_this_month here — resetting would give away
+    // free DMs (e.g. used 1900/2000 + top-up = 2500 limit + 0 used).
     await admin
       .from("profiles")
       .update({
         dm_limit: nextLimit,
         dm_topup_balance: (cur?.dm_topup_balance ?? 0) + TOPUP_DM_COUNT,
-        dm_count_this_month: 0,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.user_id);
@@ -159,7 +185,7 @@ export async function fulfillPaidOrder(params: {
       body:
         currentLimit === -1
           ? "Your top-up is recorded — your plan already includes unlimited DMs."
-          : `Your DM limit is now ${nextLimit} and this month's counter was reset. Happy automating!`,
+          : `Your DM limit is now ${nextLimit}. Happy automating!`,
       metadata: { order_id: params.orderId },
     });
   } else {
@@ -167,21 +193,43 @@ export async function fulfillPaidOrder(params: {
     const planKey = spec.effectivePlan!;
     const planConfig = PLANS[planKey];
 
+    // Preserve any previously bought top-up credits on top of the new plan
+    // limit, and never wipe a stored Cashfree customer id with null.
+    const { data: existingProf } = await admin
+      .from("profiles")
+      .select("dm_topup_balance")
+      .eq("id", order.user_id)
+      .maybeSingle();
+    const topupBalance =
+      (existingProf as Record<string, number> | null)?.dm_topup_balance ?? 0;
+    const nextPlanLimit =
+      planConfig.dmLimit === -1 ? -1 : planConfig.dmLimit + topupBalance;
+
     await admin
       .from("profiles")
       .update({
         plan: planKey,
-        dm_limit: planConfig.dmLimit,
+        dm_limit: nextPlanLimit,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.user_id);
+
+    const { data: existingSub } = await admin
+      .from("subscriptions")
+      .select("cashfree_customer_id")
+      .eq("user_id", order.user_id)
+      .maybeSingle();
+    const keepCustomerId =
+      params.cashfreeCustomerId ||
+      (existingSub as Record<string, string | null> | null)?.cashfree_customer_id ||
+      null;
 
     await admin.from("subscriptions").upsert(
       {
         user_id: order.user_id,
         plan: planKey,
         status: "active",
-        cashfree_customer_id: params.cashfreeCustomerId || null,
+        cashfree_customer_id: keepCustomerId,
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(
           Date.now() + spec.periodDays * 24 * 60 * 60 * 1000

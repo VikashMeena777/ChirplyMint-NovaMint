@@ -428,6 +428,19 @@ export async function enrollInDrip(
     Date.now() + delayHours * 60 * 60 * 1000
   ).toISOString();
 
+  // Don't restart someone mid-drip: a duplicate webhook retry must not reset
+  // current_step to 0 or flip completed/cancelled back to active.
+  const { data: existing } = await supabase
+    .from("drip_enrollments")
+    .select("status, current_step")
+    .eq("sequence_id", sequenceId)
+    .eq("recipient_ig_id", recipientIgId)
+    .maybeSingle();
+  const ex = existing as Record<string, unknown> | null;
+  if (ex && (ex.status === "active" || ex.status === "waiting_reply")) {
+    return { success: true, alreadyEnrolled: true };
+  }
+
   const { error } = await supabase.from("drip_enrollments").upsert(
     {
       sequence_id: sequenceId,

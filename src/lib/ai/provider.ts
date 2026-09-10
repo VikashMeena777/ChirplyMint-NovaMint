@@ -74,33 +74,66 @@ export interface ChatParams {
  * Try each provider in order and return the first successful reply.
  * Returns null only when no provider is configured or every provider fails —
  * callers keep their own template fallbacks for that case.
+ *
+ * Visibility: logs which provider succeeded so silent degradation
+ * (primary down → fallback model) is visible in logs, not invisible.
  */
 export async function chatCompletion(params: ChatParams): Promise<string | null> {
+  return (await chatCompletionWithMeta(params)).text;
+}
+
+/**
+ * Same as chatCompletion but also reports which provider answered.
+ * `provider` is null when every provider failed or none is configured.
+ * `fallbackUsed` is true when the caller must use its template fallback.
+ */
+export async function chatCompletionWithMeta(params: ChatParams): Promise<{
+  text: string | null;
+  provider: string | null;
+  fallbackUsed: boolean;
+}> {
   const providers = buildProviders();
 
   if (providers.length === 0) {
     console.warn("[AI] No AI providers configured (NVIDIA_NIM_API_KEY / GROQ_API_KEY)");
-    return null;
+    return { text: null, provider: null, fallbackUsed: true };
   }
 
   let lastError: unknown = null;
   for (const provider of providers) {
     try {
-      const completion = await provider.client.chat.completions.create({
+      // Build a minimal request: omit undefined params (some NIM/Groq
+      // deployments 400 on explicit null/extra fields, e.g. extra_body or
+      // unsupported penalty params). NIM only gets model/messages/max_tokens/
+      // temperature; penalties are Groq/OpenAI-only.
+      type CreateParams = Parameters<typeof provider.client.chat.completions.create>[0];
+      const req = {
         model: provider.model,
-        messages:
-          params.messages as Parameters<
-            typeof provider.client.chat.completions.create
-          >[0]["messages"],
-        max_tokens: params.max_tokens,
-        temperature: params.temperature,
-        frequency_penalty: params.frequency_penalty,
-        presence_penalty: params.presence_penalty,
-      });
-      const content = completion.choices?.[0]?.message?.content?.trim();
+        messages: params.messages as CreateParams["messages"],
+        ...(params.max_tokens !== undefined ? { max_tokens: params.max_tokens } : {}),
+        ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
+        ...(provider.name !== "nvidia-nim"
+          ? {
+              ...(params.frequency_penalty !== undefined ? { frequency_penalty: params.frequency_penalty } : {}),
+              ...(params.presence_penalty !== undefined ? { presence_penalty: params.presence_penalty } : {}),
+            }
+          : {}),
+      } as CreateParams;
+      const completion = await provider.client.chat.completions.create(req);
+      const content =
+        "choices" in completion
+          ? completion.choices?.[0]?.message?.content?.trim()
+          : undefined;
       if (content) {
         const clean = stripReasoning(content);
-        if (clean) return clean;
+        if (clean) {
+          if (provider.name !== "nvidia-nim") {
+            console.warn(`[AI-FALLBACK] Primary unavailable — answered by ${provider.name} (${provider.model})`);
+          } else {
+            console.log(`[AI] Answered by ${provider.name} (${provider.model})`);
+          }
+          return { text: clean, provider: provider.name, fallbackUsed: false };
+        }
         console.error(`[AI] ${provider.name} reply was entirely reasoning, trying next provider`);
       }
       console.error(`[AI] ${provider.name} returned an empty reply, trying next provider`);
@@ -113,6 +146,6 @@ export async function chatCompletion(params: ChatParams): Promise<string | null>
     }
   }
 
-  if (lastError) console.error("[AI] All providers failed");
-  return null;
+  if (lastError) console.error("[AI] All providers failed — caller will use template fallback");
+  return { text: null, provider: null, fallbackUsed: true };
 }

@@ -86,12 +86,13 @@ export async function GET(request: Request) {
 
       const userName = (p.full_name as string) || "there";
 
+      try {
       // ── Win-Back (30+ days inactive) ──
       if (daysSinceActive >= 30) {
         // Check cooldown
         if (lastEngagementEmail && lastEngagementEmail > winBackCooldown) continue;
 
-        await sendEmail({
+        const winResult = await sendEmail({
           to: userEmail,
           subject: "🔙 We miss you at ChirplyMint!",
           userId,
@@ -101,6 +102,11 @@ export async function GET(request: Request) {
             daysSinceActive,
           }),
         });
+
+        if (!winResult.success) {
+          console.error(`[Engagement] 🔙 Win-back failed for ${userId}:`, winResult.error);
+          continue;
+        }
 
         await supabase
           .from("profiles")
@@ -138,7 +144,7 @@ export async function GET(request: Request) {
           .eq("user_id", userId)
           .eq("status", "active");
 
-        await sendEmail({
+        const nudgeResult = await sendEmail({
           to: userEmail,
           subject: "💤 Your automations miss you!",
           userId,
@@ -150,6 +156,11 @@ export async function GET(request: Request) {
             activeAutomations: activeAutomations ?? 0,
           }),
         });
+
+        if (!nudgeResult.success) {
+          console.error(`[Engagement] 💤 Nudge failed for ${userId}:`, nudgeResult.error);
+          continue;
+        }
 
         await supabase
           .from("profiles")
@@ -167,6 +178,11 @@ export async function GET(request: Request) {
 
         nudgesSent++;
         console.log(`[Engagement] 💤 Nudge sent to ${userId} (${daysSinceActive} days inactive)`);
+      }
+      } catch (userErr) {
+        // One user's failure must never abort the whole batch.
+        console.error(`[Engagement] Skipping ${userId} after error:`, userErr);
+        continue;
       }
     }
 

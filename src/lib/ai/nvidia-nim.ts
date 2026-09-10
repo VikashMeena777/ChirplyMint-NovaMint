@@ -1,4 +1,4 @@
-import { chatCompletion } from "@/lib/ai/provider";
+import { chatCompletion, chatCompletionWithMeta } from "@/lib/ai/provider";
 
 /**
  * Replace template variables like {name}, {keyword} with actual values.
@@ -42,7 +42,7 @@ export async function generateDMReply(context: {
   const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
-    let reply = await chatCompletion({
+    const { text, provider, fallbackUsed } = await chatCompletionWithMeta({
       messages: [
         {
           role: "system",
@@ -72,6 +72,12 @@ Write the DM:`,
       temperature: 0.5,
       frequency_penalty: 0.3,
     });
+    let reply = text;
+    if (fallbackUsed) {
+      console.warn(`[AI-FALLBACK] DM reply for @${context.commenterUsername} using static template (all AI providers failed)`);
+    } else if (provider && provider !== "nvidia-nim") {
+      console.warn(`[AI-FALLBACK] DM reply for @${context.commenterUsername} answered by ${provider}`);
+    }
 
     if (reply) {
       // Strip wrapping quotes
@@ -110,7 +116,7 @@ export async function generateWeeklyInsight(stats: {
   const fallback = `This week: ${stats.dmsSent} DMs sent, ${stats.leadsCapured} leads captured. Conversion rate: ${stats.conversionRate}%.`;
 
   try {
-    const insight = await chatCompletion({
+    const insightResult = await chatCompletion({
       messages: [
         {
           role: "system",
@@ -130,6 +136,10 @@ Generate a brief weekly insight summary.`,
       max_tokens: 200,
       temperature: 0.6,
     });
+    const insight = insightResult;
+    if (!insight) {
+      console.warn("[AI-FALLBACK] Weekly insight using static fallback (all AI providers failed)");
+    }
 
     return insight || fallback;
   } catch (error) {

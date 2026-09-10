@@ -279,6 +279,27 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     return;
   }
 
+  // Cross-instance duplicate guard: serverless instances don't share the
+  // in-memory Map above, so check recent dm_logs for the same
+  // recipient + comment text. Prevents double DMs on Meta retries.
+  try {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: recent } = await supabase
+      .from("dm_logs")
+      .select("id")
+      .eq("recipient_ig_id", commenterId)
+      .eq("comment_text", commentText)
+      .gte("created_at", fiveMinAgo)
+      .limit(1)
+      .maybeSingle();
+    if (recent) {
+      console.log(`[Meta Webhook] Skipping cross-instance duplicate for comment ${commentId || commentText.slice(0, 30)}`);
+      return;
+    }
+  } catch {
+    // Guard must never block a genuine first send — fail open.
+  }
+
   // ═══════════════════════════════════════════════
   // CRITICAL: Scope automations to the receiving IG account.
   // entry.id from Meta webhook = the IG Business Account ID that received the comment.
@@ -355,7 +376,11 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
   if (!automations || automations.length === 0) return;
 
+  // One comment = max one DM. Without this, a comment matching N
+  // automations (overlapping keywords + catch-all) sends N DMs.
+  let dmAlreadySentForComment = false;
   for (const automation of automations) {
+    if (dmAlreadySentForComment) break;
     // Time budget: skip starting new sends when the function is nearly out
     // of wall clock — Meta retries the remaining events cleanly.
     if (timeBudgetLeft && timeBudgetLeft() < 8_000) {
@@ -478,13 +503,14 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     // ═══════════════════════════════════════════════
     const { data: senderProfile } = await supabase
       .from("profiles")
-      .select("plan, dm_count_this_month")
+      .select("plan, dm_count_this_month, dm_limit")
       .eq("id", userId)
       .single();
 
     const senderPlan = ((senderProfile?.plan as string) || "free") as PlanKey;
     const currentDmCount = (senderProfile?.dm_count_this_month as number) || 0;
-    const dmCheck = canSendDM(senderPlan, currentDmCount);
+    const storedDmLimit = (senderProfile as Record<string, unknown> | null)?.dm_limit as number | null;
+    const dmCheck = canSendDM(senderPlan, currentDmCount, storedDmLimit);
 
     if (!dmCheck.allowed) {
       console.log(`[Meta Webhook] User ${userId} hit DM limit (${dmCheck.limit}) — skipping`);
@@ -720,6 +746,8 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       message_text: typeof logMessageText === "string" ? logMessageText : String(logMessageText),
       comment_text: commentText,
       status: dmStatus,
+      // C1: store Meta message id so manual retries can detect duplicates
+      ...(sendResult.messageId ? { meta_message_id: sendResult.messageId } : {}),
       // Queue rate-limited DMs for retry in 1 hour
       ...(dmStatus === "rate_limited" ? {
         retry_after: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -728,27 +756,23 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
     // Update automation stats
     if (sendResult.success) {
-      await supabase.rpc("increment_field", {
+      // C2: atomic RPC only — no read-then-write fallback (loses increments under race)
+      supabase.rpc("increment_field", {
         table_name: "automations",
         field_name: "dms_sent",
         row_id: automation.id,
       }).then(({ error }) => {
-        // Fallback if RPC doesn't exist
-        if (error) {
-          supabase
-            .from("automations")
-            .update({ dms_sent: ((automation.dms_sent as number) || 0) + 1 })
-            .eq("id", automation.id)
-            .then(() => { });
-        }
+        if (error) console.error(`[Meta Webhook] increment dms_sent failed:`, error.message);
       });
 
-      // Increment user's monthly DM count (ATOMIC — prevents race conditions)
-      supabase
-        .from("profiles")
-        .update({ dm_count_this_month: ((senderProfile?.dm_count_this_month as number) || 0) + 1 })
-        .eq("id", userId)
-        .then(() => { });
+      // Increment user's monthly DM count atomically via hardened RPC
+      supabase.rpc("increment_field", {
+        table_name: "profiles",
+        field_name: "dm_count_this_month",
+        row_id: userId,
+      }).then(({ error }) => {
+        if (error) console.error(`[Meta Webhook] increment dm_count failed:`, error.message);
+      });
 
       // AUTO-LIKE the triggering comment (all template types). No extra Meta
       // setup needed — uses the already-approved instagram_manage_comments.
@@ -890,6 +914,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     console.log(
       `[Meta Webhook] ${isCatchAll ? "Catch-all" : `Keyword "${keywords.join(",")}"`} matched from @${commenterUsername} → ${templateType === "button" ? "Template" : "DM"} ${sendResult.success ? "sent ✅" : "failed ❌"}`
     );
+    dmAlreadySentForComment = true;
   }
 }
 
@@ -961,30 +986,50 @@ async function deliverPendingStack(params: {
     bioLinkBase: (await getBioLinkBase(supabase, userId)) ?? undefined,
   });
 
+  const fullSuccess =
+    stackResult.sentBlocks >= stackResult.totalBlocks && stackResult.errors.length === 0;
+
   await supabase.from("dm_logs").insert({
     user_id: userId,
     automation_id: stackRow.automation_id as string,
     instagram_account_id: igAccountId,
     recipient_ig_id: senderId,
     recipient_username: (stackRow.recipient_username as string) || senderId,
-    message_text: `[STACK DELIVERED] ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks${stackResult.errors.length ? " - errors: " + stackResult.errors.join("; ").slice(0, 150) : ""}`,
+    message_text: `[STACK ${fullSuccess ? "DELIVERED" : "PARTIAL"}] ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks${stackResult.errors.length ? " - errors: " + stackResult.errors.join("; ").slice(0, 150) : ""}`,
     comment_text: triggerText,
-    status: stackResult.success ? "sent" : "failed",
+    status: stackResult.sentBlocks > 0 ? "sent" : "failed",
   });
 
-  // Mark delivered BEFORE anything else - duplicate taps/replays can't
-  // double-send a half-played stack.
-  await supabase
-    .from("stack_pending")
-    .update({ status: "delivered", delivered_at: new Date().toISOString() })
-    .eq("id", stackRow.id as string);
+  if (fullSuccess) {
+    // Only mark delivered on FULL success — partial stays waiting so the
+    // next tap/message resumes from pre_sent_count (B4).
+    await supabase
+      .from("stack_pending")
+      .update({ status: "delivered", delivered_at: new Date().toISOString() })
+      .eq("id", stackRow.id as string);
+  } else if (stackResult.sentBlocks > 0) {
+    // Partial: advance the resume cursor, keep waiting for the remainder.
+    await supabase
+      .from("stack_pending")
+      .update({ pre_sent_count: skipCount + stackResult.sentBlocks })
+      .eq("id", stackRow.id as string);
+    console.error(
+      `[Meta Webhook] Stack PARTIAL -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} sent, ${stackResult.totalBlocks - stackResult.sentBlocks} remaining (resumes next message)`
+    );
+  } else {
+    // Zero blocks sent — keep waiting so a retry can replay; the failure is
+    // already in dm_logs for debugging.
+    console.error(
+      `[Meta Webhook] Stack FAILED -> @${(stackRow.recipient_username as string) || senderId}: 0/${stackResult.totalBlocks} sent: ${stackResult.errors.join("; ").slice(0, 200)}`
+    );
+  }
 
   // Typed a real reply = intent ("interested"); a pure button tap = curiosity ("active")
   const isTypedReply = triggerText && !triggerText.startsWith("[POSTBACK]");
   void markLeadEngaged(supabase, userId, senderId, isTypedReply ? "interested" : "active");
 
   console.log(
-    `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${stackResult.success ? "OK" : "FAILED"}`
+    `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${fullSuccess ? "OK" : "PARTIAL/FAILED"}`
   );
 
   if (stackAuto?.auto_react === true && messageMid) {

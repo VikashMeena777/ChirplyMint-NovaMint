@@ -45,32 +45,46 @@ export async function createInvoiceForPaidOrder(params: {
     .maybeSingle();
   if (existing) return {};
 
-  // Sequential number scoped to the financial year
+  // Sequential number scoped to the financial year.
+  // count+1 can collide under concurrency, so retry with the next number on
+  // duplicate invoice_number (order_id duplicates still return idempotent {}).
   const fy = financialYearLabel();
   const prefix = `CM/${fy}/`;
-  const { count: fyCount } = await admin
-    .from("invoices")
-    .select("*", { count: "exact", head: true })
-    .like("invoice_number", `${prefix}%`);
-  const seq = (fyCount ?? 0) + 1;
-  const invoiceNumber = `${prefix}${String(seq).padStart(5, "0")}`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { count: fyCount } = await admin
+      .from("invoices")
+      .select("*", { count: "exact", head: true })
+      .like("invoice_number", `${prefix}%`);
+    const seq = (fyCount ?? 0) + 1 + attempt;
+    const invoiceNumber = `${prefix}${String(seq).padStart(5, "0")}`;
 
-  const { error } = await admin.from("invoices").insert({
-    user_id: params.userId,
-    order_id: params.orderId,
-    invoice_number: invoiceNumber,
-    amount: params.amount,
-    plan: params.plan,
-    description: params.description,
-    paid_at: new Date().toISOString(),
-  });
+    const { error } = await admin.from("invoices").insert({
+      user_id: params.userId,
+      order_id: params.orderId,
+      invoice_number: invoiceNumber,
+      amount: params.amount,
+      plan: params.plan,
+      description: params.description,
+      paid_at: new Date().toISOString(),
+    });
 
-  if (error) {
+    if (!error) return { invoiceNumber };
     // Race: another worker inserted first — fine (idempotent outcome)
-    if (error.code === "23505") return {};
+    if (error.code === "23505") {
+      // Same order_id duplicated → already invoiced, not an error.
+      const { data: recheck } = await admin
+        .from("invoices")
+        .select("id")
+        .eq("order_id", params.orderId)
+        .limit(1)
+        .maybeSingle();
+      if (recheck) return {};
+      // Otherwise it was an invoice_number collision — retry with next seq.
+      continue;
+    }
     return { error: error.message };
   }
-  return { invoiceNumber };
+  return { error: "Could not allocate invoice number after retries" };
 }
 
 /** Amount in words for INR (Indian system: crore/lakh). */

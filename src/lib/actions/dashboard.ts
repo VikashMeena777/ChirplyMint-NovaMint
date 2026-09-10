@@ -30,6 +30,20 @@ export async function getDashboardStats() {
     .eq("id", user.id)
     .single();
 
+  // B1: dashboard visits count as activity (throttled to 1 write/hour so
+  // engagement emails don't call daily logins "inactive").
+  {
+    const p = profile as Record<string, unknown> | null;
+    const lastActive = p?.last_active_at ? new Date(p.last_active_at as string).getTime() : 0;
+    if (Date.now() - lastActive > 60 * 60 * 1000) {
+      supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .then(() => {});
+    }
+  }
+
   // Count active automations
   const { count: automationCount } = await supabase
     .from("automations")

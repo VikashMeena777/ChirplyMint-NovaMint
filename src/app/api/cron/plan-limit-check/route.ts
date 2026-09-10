@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { getEffectiveDMLimit, isUnlimitedDM, type PlanKey } from "@/lib/utils/plan-limits";
 import { sendEmail } from "@/lib/email/send";
 import { getApproachingLimitHtml } from "@/lib/email/templates/approaching-limit";
 
@@ -31,10 +31,10 @@ export async function GET(request: Request) {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Fetch all users with their DM counts and limits
+    // Fetch all users with their DM counts and limits (dm_limit includes top-ups)
     const { data: profiles, error } = await supabase
       .from("profiles")
-      .select("id, plan, dm_count_this_month, last_limit_warning_at")
+      .select("id, plan, dm_count_this_month, dm_limit, last_limit_warning_at, notification_preferences")
       .gt("dm_count_this_month", 0);
 
     if (error) {
@@ -53,8 +53,12 @@ export async function GET(request: Request) {
       const userId = p.id as string;
       const plan = (p.plan as PlanKey) || "free";
       const dmCount = (p.dm_count_this_month as number) || 0;
-      const limit = PLANS[plan]?.dmLimit ?? PLANS.free.dmLimit;
-      const lastWarning = p.last_limit_warning_at as string | null;
+      const limit = getEffectiveDMLimit(plan, p.dm_limit as number | null);
+      // Unlimited plans never need warnings
+      if (isUnlimitedDM(limit)) continue;
+      const prefs = (p.notification_preferences as Record<string, boolean>) ?? {};
+      // Marketing warnings must respect the global opt-out.
+      if (prefs.product_updates === false) continue;
 
       // Determine which threshold they've crossed
       const pct = limit > 0 ? (dmCount / limit) * 100 : 0;
@@ -68,12 +72,17 @@ export async function GET(request: Request) {
 
       if (!threshold) continue;
 
-      // Check if we already warned this month for this threshold or higher
-      if (lastWarning) {
-        const lastDate = new Date(lastWarning);
-        const sameMonth = lastDate.getMonth() === now.getMonth() && lastDate.getFullYear() === now.getFullYear();
-        if (sameMonth) continue; // Already warned this month
-      }
+      // Per-threshold monthly guard: the old single-timestamp check blocked
+      // 100% after an 80% warning. Check notifications for this exact
+      // threshold this calendar month instead.
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { count: alreadyWarned } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", monthStart)
+        .contains("metadata", { threshold });
+      if ((alreadyWarned ?? 0) > 0) continue;
 
       // Send warning notification
       const isMax = threshold === "100";
@@ -87,20 +96,20 @@ export async function GET(request: Request) {
         metadata: { threshold, dm_count: dmCount, dm_limit: limit },
       });
 
-      // Update last warning timestamp
-      await supabase.from("profiles").update({
-        last_limit_warning_at: nowIso,
-      }).eq("id", userId);
-
-      // Send email for 100% threshold
-      if (isMax) {
-        const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-        const userEmail = authUser?.user?.email;
-        if (userEmail) {
-          sendEmail({
-            to: userEmail,
-            subject: "You've hit your ChirplyMint DM limit",
-            html: `
+      // Send email first — only stamp last_limit_warning_at on success so a
+      // failed send retries next hour instead of suppressing all month.
+      let emailOk = false;
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const userEmail = authUser?.user?.email;
+      if (userEmail) {
+        try {
+          if (isMax) {
+            const result = await sendEmail({
+              to: userEmail,
+              subject: "You've hit your ChirplyMint DM limit",
+              userId,
+              category: "marketing",
+              html: `
               <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
                 <h2 style="color: #16a34a;">ChirplyMint</h2>
                 <p>You've sent <strong>${limit}/${limit}</strong> DMs this month and hit your plan limit.</p>
@@ -112,31 +121,43 @@ export async function GET(request: Request) {
                 <p style="color: #888; font-size: 12px; margin-top: 24px;">ChirplyMint — Instagram DM Automation</p>
               </div>
             `,
-          }).catch(() => {});
+            });
+            emailOk = result.success;
+            if (!result.success) console.error(`[Limit Check] Email failed for ${userId}:`, result.error);
+          } else {
+            const { data: prof80 } = await supabase.from("profiles").select("full_name, plan").eq("id", userId).single();
+            const result80 = await sendEmail({
+              to: userEmail,
+              subject: `⚠️ You've used ${Math.round(pct)}% of your DM limit`,
+              userId,
+              category: "marketing",
+              html: getApproachingLimitHtml({
+                name: (prof80 as Record<string, unknown>)?.full_name as string || "there",
+                used: dmCount,
+                limit,
+                plan: (prof80 as Record<string, unknown>)?.plan as string || "Starter",
+              }),
+            });
+            emailOk = result80.success;
+            if (!result80.success) console.error(`[Limit Check] Email failed for ${userId}:`, result80.error);
+          }
+        } catch (emailErr) {
+          console.error(`[Limit Check] Email threw for ${userId}:`, emailErr);
         }
+      } else {
+        // No email to send — in-app alone counts as warned.
+        emailOk = true;
       }
+
+      if (!emailOk) continue;
+
+      // Update last warning timestamp (kept for backwards-compat dashboards)
+      await supabase.from("profiles").update({
+        last_limit_warning_at: nowIso,
+      }).eq("id", userId);
 
       warningsSent++;
       console.log(`[Limit Check] Warned ${userId}: ${threshold}% (${dmCount}/${limit})`);
-
-      // Send email at 80% threshold too (not just 100%)
-      if (!isMax) {
-        const { data: authUser80 } = await supabase.auth.admin.getUserById(userId);
-        const userEmail80 = authUser80?.user?.email;
-        const { data: prof80 } = await supabase.from("profiles").select("full_name, plan").eq("id", userId).single();
-        if (userEmail80) {
-          sendEmail({
-            to: userEmail80,
-            subject: `⚠️ You've used ${Math.round(pct)}% of your DM limit`,
-            html: getApproachingLimitHtml({
-              name: (prof80 as Record<string, unknown>)?.full_name as string || "there",
-              used: dmCount,
-              limit,
-              plan: (prof80 as Record<string, unknown>)?.plan as string || "Starter",
-            }),
-          }).catch(() => {});
-        }
-      }
 
     }
 

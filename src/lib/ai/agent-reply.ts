@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { chatCompletion } from "@/lib/ai/provider";
+import { chatCompletionWithMeta } from "@/lib/ai/provider";
 
 function getSupabase() {
   return createClient(
@@ -301,7 +301,9 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
   }
 
   // 10. Generate AI reply
-  if (!process.env.NVIDIA_NIM_API_KEY) {
+  // Both providers count — Groq alone is enough (provider.ts falls back
+  // nim → groq). Previously Groq-only setups silently got fallback messages.
+  if (!process.env.NVIDIA_NIM_API_KEY && !process.env.GROQ_API_KEY) {
     await supabase.from("ai_conversations").insert({
       agent_id: config.id,
       user_id: params.userId,
@@ -347,13 +349,29 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
 
     chatMessages.push({ role: "user", content: params.incomingMessage });
 
-    const aiReply = await chatCompletion({
+    const { text: aiReply, provider, fallbackUsed } = await chatCompletionWithMeta({
       messages: chatMessages,
       max_tokens: 200,
       temperature: 0.5,
       frequency_penalty: 0.4,
       presence_penalty: 0.2,
     });
+    if (fallbackUsed) {
+      console.warn(`[AI-FALLBACK] AI agent ${config.id} using fallback_message for @${params.senderUsername} (all providers failed)`);
+      supabase.from("activity_log").insert({
+        user_id: params.userId,
+        action: "ai.fallback_used",
+        metadata: { agent_id: config.id, recipient: params.senderUsername },
+      }).then(() => {});
+    } else if (provider && provider !== "nvidia-nim") {
+      // B3: provider failover must be visible outside Vercel logs
+      console.warn(`[AI-FALLBACK] answered by ${provider} for @${params.senderUsername}`);
+      supabase.from("activity_log").insert({
+        user_id: params.userId,
+        action: "ai.provider_fallback",
+        metadata: { agent_id: config.id, provider, recipient: params.senderUsername },
+      }).then(() => {});
+    }
 
     let reply = aiReply || config.fallback_message;
 

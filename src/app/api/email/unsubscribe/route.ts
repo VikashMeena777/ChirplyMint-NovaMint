@@ -44,7 +44,7 @@ function page(title: string, body: string, ok: boolean) {
 /**
  * GET /api/email/unsubscribe?user=<uuid>
  * One-click unsubscribe from all non-essential (marketing) email:
- * sets product_updates=false and weekly_report=false.
+ * sets product_updates=false, weekly_report=false and email_digest=false.
  * Transactional email (payments, security/failure alerts) still arrives.
  */
 export async function GET(request: NextRequest) {
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
         ...prefs,
         product_updates: false,
         weekly_report: false,
+        email_digest: false,
       },
       updated_at: new Date().toISOString(),
     })
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
   console.log(`[Unsubscribe] User ${userId} opted out of marketing emails`);
   return page(
     "You're unsubscribed",
-    "You'll no longer receive product updates, tips, or weekly reports. Important account emails (payments, security alerts) will still arrive.",
+    "You'll no longer receive product updates, tips, weekly reports, or the daily digest. Important account emails (payments, security alerts) will still arrive.",
     true
   );
 }
