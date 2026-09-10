@@ -30,7 +30,6 @@ import {
   AnimatedCard,
 } from "@/components/motion/kit";
 import { springSnappy, springTap } from "@/components/motion/transitions";
-import { SendIcon } from "@/components/icons/send/send";
 import { IconDrawCard } from "@/components/motion/icon-draw";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { ZapIcon } from "@/components/icons/zap/zap";
@@ -412,7 +411,7 @@ function Pricing() {
                 <div
                   className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm ${
                     plan.key === "pro"
-                      ? "border-mint/40 ring-1 ring-mint/25 bg-gradient-to-b from-mint/10 to-card shadow-[0_8px_30px_-12px_oklch(0.62_0.19_162/28%)]"
+                      ? "border-mint/40 ring-1 ring-mint/25 bg-gradient-to-b from-mint/10 to-card shadow-[inset_0_1px_0_oklch(0.72_0.15_162/25%)]"
                       : "border-border bg-card/60"
                   }`}
                 >
@@ -492,7 +491,6 @@ function FinalCTA() {
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
           </motion.div>
-          <SendIcon />
         </div>
         <p className="mt-6 text-xs text-muted-foreground">
           Free forever plan · No credit card · Official Meta API integration
@@ -520,13 +518,31 @@ export default function Home() {
       <main className="relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
-        <NicheMarquee />
-        <HowItWorks />
-        <FeatureBento />
-        <FunnelRings />
-        <Pricing />
-        <FinalCTA />
-        <Footer />
+        {/* everything below the hero, wrapped for the dark-mode ambience */}
+        <div className="relative">
+          {/* dark-only premium ambience: greenise glow — hero stays untouched */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
+            style={{
+              background: [
+                "radial-gradient(720px 480px at 88% 12%, oklch(0.45 0.12 162 / 14%), transparent 60%)",
+                "radial-gradient(680px 520px at 8% 42%, oklch(0.42 0.1 178 / 12%), transparent 62%)",
+                "radial-gradient(900px 620px at 50% 96%, oklch(0.45 0.12 162 / 10%), transparent 60%)",
+                "linear-gradient(180deg, oklch(0.22 0.03 168 / 30%) 0%, transparent 18%, transparent 82%, oklch(0.2 0.03 168 / 35%) 100%)",
+              ].join(", "),
+            }}
+          />
+          <div className="relative z-10">
+            <NicheMarquee />
+            <HowItWorks />
+            <FeatureBento />
+            <FunnelRings />
+            <Pricing />
+            <FinalCTA />
+          </div>
+          <Footer />
+        </div>
         {feedItems.length > 0 && <LiveActivityFeed initialItems={feedItems} />}
       </main>
     </SmoothScroll>

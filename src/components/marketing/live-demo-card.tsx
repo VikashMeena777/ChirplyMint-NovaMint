@@ -210,13 +210,19 @@ export function LiveDemoCard() {
                       )}
 
                       {step >= 4 && (
-                        <motion.div {...bubbleAnim} className="ml-auto w-fit max-w-[85%]">
+                        <motion.div {...bubbleAnim} className="ml-auto w-[236px] max-w-full">
                           <div className="rounded-[20px] rounded-br-md bg-neutral-200 p-2 dark:bg-neutral-800">
-                            <div className="grid grid-cols-3 gap-1">
+                            {/* IG-style carousel: square tiles, roomy, dots */}
+                            <div className="grid grid-cols-3 gap-1.5">
                               {["from-violet-400 to-fuchsia-500", "from-sky-400 to-cyan-500", "from-amber-400 to-orange-500"].map((g, i) => (
-                                <div key={i} className={`flex h-14 items-center justify-center rounded-lg bg-gradient-to-br ${g}`}>
-                                  <ImageIcon className="h-4 w-4 text-white/85" />
+                                <div key={i} className={`flex aspect-square items-center justify-center rounded-xl bg-gradient-to-br ${g}`}>
+                                  <ImageIcon className="h-5 w-5 text-white/85" />
                                 </div>
+                              ))}
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-center gap-1">
+                              {[0, 1, 2].map((d) => (
+                                <span key={d} className={`h-1 rounded-full transition-all ${d === 0 ? "w-3 bg-neutral-500 dark:bg-neutral-300" : "w-1 bg-neutral-300 dark:bg-neutral-600"}`} />
                               ))}
                             </div>
                           </div>
