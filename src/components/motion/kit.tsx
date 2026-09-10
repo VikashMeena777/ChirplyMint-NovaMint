@@ -110,10 +110,8 @@ export function AnimatedCard({
       whileHover={{ y: -4, scale: 1.012 }}
       transition={springSoft}
     >
-      <div
-        aria-hidden
-        className="absolute -inset-px rounded-[inherit] bg-gradient-to-b from-[oklch(0.62_0.19_162/0)] to-[oklch(0.62_0.19_162/12%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      />
+      {/* Hover = lift only. The old mint gradient overlay sat BEHIND
+          translucent card backgrounds and tinted them green on hover. */}
       <div className="relative rounded-[inherit]">{children}</div>
     </motion.article>
   );

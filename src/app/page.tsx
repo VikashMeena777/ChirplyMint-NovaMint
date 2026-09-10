@@ -413,7 +413,7 @@ function Pricing() {
                   className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm ${
                     plan.key === "pro"
                       ? "border-mint/40 ring-1 ring-mint/25 bg-gradient-to-b from-mint/10 to-card shadow-[inset_0_1px_0_oklch(0.72_0.15_162/25%)]"
-                      : "border-border bg-card/60"
+                      : "border-border bg-card/85"
                   }`}
                 >
                   {plan.key === "pro" && (
@@ -439,7 +439,7 @@ function Pricing() {
                       href={plan.key === "free" ? "/signup" : "/dashboard/settings?tab=billing"}
                       className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold transition-all ${
                         plan.key === "pro"
-                          ? "bg-gradient-mint text-white glow-mint"
+                          ? "bg-gradient-mint text-white shadow-sm"
                           : "border border-border bg-card text-foreground hover:border-mint/40 hover:bg-mint/5"
                       }`}
                     >
