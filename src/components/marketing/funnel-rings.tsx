@@ -19,7 +19,7 @@ const RINGS = [
     label: "DMs delivered",
     value: 220,
     pct: 1,
-    r: 88,
+    r: 118,
     icon: Send,
     stroke: "url(#fr-outer)",
     note: "every comment matched",
@@ -28,7 +28,7 @@ const RINGS = [
     label: "Taps received",
     value: 158,
     pct: 0.72,
-    r: 74,
+    r: 96,
     icon: MousePointerClick,
     stroke: "url(#fr-middle)",
     note: "button card CTA",
@@ -37,14 +37,14 @@ const RINGS = [
     label: "Leads captured",
     value: 90,
     pct: 0.41,
-    r: 58,
+    r: 74,
     icon: UserPlus,
     stroke: "url(#fr-inner)",
     note: "tagged + exportable",
   },
 ];
 
-const SIZE = 220;
+const SIZE = 280;
 
 export function FunnelRings() {
   const ref = useRef<HTMLDivElement>(null);
@@ -112,7 +112,7 @@ export function FunnelRings() {
                           cy={cx}
                           r={ring.r}
                           fill="none"
-                          strokeWidth={hovered === i ? 16 : 12}
+                          strokeWidth={hovered === i ? 15 : 11}
                           className="stroke-muted/40"
                           style={{ transition: "stroke-width 0.25s" }}
                         />
@@ -124,7 +124,7 @@ export function FunnelRings() {
                           fill="none"
                           stroke={ring.stroke}
                           strokeLinecap="round"
-                          strokeWidth={hovered === i ? 16 : 12}
+                          strokeWidth={hovered === i ? 15 : 11}
                           strokeDasharray={C}
                           initial={{ strokeDashoffset: C }}
                           animate={inView ? { strokeDashoffset: C * (1 - ring.pct) } : {}}
@@ -143,14 +143,12 @@ export function FunnelRings() {
 
                 {/* center count-up */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="flex flex-col items-center rounded-2xl bg-background/85 px-4 py-2 backdrop-blur-sm">
-                    <span className="text-4xl font-bold font-heading tracking-tight text-foreground">
-                      <CountUp to={220} duration={1.8} />
-                    </span>
-                    <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      DMs this week
-                    </span>
-                  </div>
+                  <span className="text-4xl font-bold font-heading tracking-tight text-foreground">
+                    <CountUp to={220} duration={1.8} />
+                  </span>
+                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    DMs this week
+                  </span>
                 </div>
               </div>
 
