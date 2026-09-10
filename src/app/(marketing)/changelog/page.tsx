@@ -11,6 +11,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import PageHero from "@/components/marketing/page-hero";
+import Reveal from "@/components/motion/reveal";
 
 export const metadata: Metadata = {
   title: "Changelog — ChirplyMint",
@@ -187,46 +189,38 @@ const changelog: ChangelogEntry[] = [
 
 export default function ChangelogPage() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-16">
-      {/* Header */}
-      <div className="text-center mb-16">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[oklch(0.52_0.19_162/10%)] border border-[oklch(0.52_0.19_162/20%)] text-sm font-medium text-[oklch(0.52_0.19_162)] mb-4">
-          <Sparkles className="w-4 h-4" />
-          What&apos;s New
-        </div>
-        <h1 className="text-4xl font-bold text-foreground tracking-tight">
-          Changelog
-        </h1>
-        <p className="text-lg text-muted-foreground mt-3 max-w-lg mx-auto">
-          Every feature, improvement, and fix we ship. Stay up to date with
-          what&apos;s happening at ChirplyMint.
-        </p>
-      </div>
+    <div className="pb-24">
+      <PageHero
+        kicker="What's new"
+        title={<>Changelog</>}
+        subtitle="Every feature, improvement, and fix we ship. Shipped fast, shipped openly."
+      />
+      <div className="max-w-3xl mx-auto px-6">
 
       {/* Timeline */}
       <div className="relative">
         {/* Vertical line */}
-        <div className="absolute left-[19px] top-0 bottom-0 w-px bg-border" />
+        <div className="absolute left-[19px] top-0 bottom-0 w-px bg-gradient-to-b from-mint/50 via-border to-transparent" />
 
-        <div className="space-y-10">
+        <div className="space-y-8">
           {changelog.map((entry, i) => {
             const style = tagStyles[entry.tag];
             return (
-              <div key={i} className="relative pl-14">
+              <Reveal key={i} delay={Math.min(i * 0.04, 0.2)}>
+              <div className="relative pl-14">
                 {/* Timeline dot */}
-                <div className="absolute left-0 top-1 w-10 h-10 rounded-xl bg-card border border-border shadow-sm flex items-center justify-center z-10">
-                  <entry.icon className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
+                <div className="absolute left-0 top-1 w-10 h-10 rounded-2xl bg-card border border-mint/25 shadow-md shadow-mint/10 flex items-center justify-center z-10">
+                  <entry.icon className="w-5 h-5 text-mint" />
                 </div>
 
                 {/* Content */}
-                <div className="rounded-2xl bg-card border border-border shadow-sm p-6 hover:shadow-md transition-shadow">
+                <div className="rounded-3xl card-elevated card-lift p-6">
                   {/* Meta */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <time className="text-xs font-medium text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2.5 mb-3">
+                    <time className="text-xs font-semibold text-muted-foreground">
                       {entry.date}
                     </time>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-mint/10 border border-mint/20 text-mint-dark dark:text-mint-light font-bold">
                       v{entry.version}
                     </span>
                     <span
@@ -237,7 +231,7 @@ export default function ChangelogPage() {
                   </div>
 
                   {/* Title + Description */}
-                  <h2 className="text-lg font-semibold text-foreground mb-1.5">
+                  <h2 className="text-lg font-bold text-foreground mb-1.5">
                     {entry.title}
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">
@@ -249,36 +243,40 @@ export default function ChangelogPage() {
                     {entry.highlights.map((h, j) => (
                       <li
                         key={j}
-                        className="flex items-start gap-2 text-sm text-foreground/80"
+                        className="flex items-start gap-2.5 text-sm text-foreground/80"
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-[oklch(0.52_0.19_162)] mt-1.5 shrink-0" />
+                        <div className="w-4 h-4 rounded-full bg-mint/15 flex items-center justify-center shrink-0 mt-0.5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-mint" />
+                        </div>
                         {h}
                       </li>
                     ))}
                   </ul>
                 </div>
               </div>
+              </Reveal>
             );
           })}
         </div>
       </div>
 
       {/* CTA */}
-      <div className="mt-16 text-center">
-        <div className="rounded-2xl bg-gradient-to-br from-[oklch(0.52_0.19_162/8%)] to-[oklch(0.45_0.2_158/5%)] border border-[oklch(0.52_0.19_162/15%)] p-8">
-          <h3 className="text-xl font-semibold text-foreground mb-2">
-            Ready to automate your Instagram DMs?
+      <Reveal className="mt-16 text-center">
+        <div className="rounded-3xl bg-gradient-to-br from-mint/10 to-emerald/5 border border-mint/20 p-8 md:p-10">
+          <h3 className="text-2xl font-bold text-foreground mb-2">
+            Like what you see? It&apos;s live already.
           </h3>
-          <p className="text-sm text-muted-foreground mb-5">
-            Join thousands of creators and businesses using ChirplyMint.
+          <p className="text-sm text-muted-foreground mb-6">
+            Every feature above is waiting in your free account.
           </p>
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-lg shadow-[oklch(0.52_0.19_162/20%)] hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-mint text-white text-sm font-semibold btn-shine glow-mint hover:scale-[1.02] active:scale-[0.98] transition-transform"
           >
             Get Started Free <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+      </Reveal>
       </div>
     </div>
   );

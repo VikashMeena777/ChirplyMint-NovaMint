@@ -1,113 +1,57 @@
 import type { Metadata } from "next";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Database, KeyRound, FileCheck, Ban, Gauge, Lock, Trash2, Mail } from "lucide-react";
+import PageHero from "@/components/marketing/page-hero";
+import Reveal from "@/components/motion/reveal";
 
 export const metadata: Metadata = {
   title: "Security — ChirplyMint",
-  description:
-    "How ChirplyMint protects your account and data: row-level security, hashed API keys, webhook signature verification, and more.",
+  description: "How ChirplyMint protects your Instagram account, tokens, and customer data.",
 };
 
 const measures = [
-  {
-    title: "Row-Level Security on every table",
-    description:
-      "Database access is scoped per workspace at the database level, with least-privilege column grants. No client can read another workspace's rows.",
-  },
-  {
-    title: "Hashed API keys",
-    description:
-      "Public API keys are stored as SHA-256 hashes and shown to you exactly once at creation. We can never display a key again — only revoke and reissue.",
-  },
-  {
-    title: "Webhook signature verification",
-    description:
-      "Every inbound webhook is verified with HMAC signatures — Meta for Instagram events, Cashfree for payment events. Invalid signatures are rejected fail-closed.",
-  },
-  {
-    title: "CSRF-protected OAuth",
-    description:
-      "Instagram connect flows use the official Meta OAuth with a state parameter to prevent cross-site request forgery and authorization injection.",
-  },
-  {
-    title: "Rate limiting on all API routes",
-    description:
-      "Every API endpoint is rate-limited to protect the platform and your account from abuse and runaway automations.",
-  },
-  {
-    title: "Encrypted secrets",
-    description:
-      "All credentials and tokens are stored as encrypted environment variables on Vercel — never in the codebase or the client bundle.",
-  },
-  {
-    title: "One-click data deletion",
-    description:
-      "You can delete your account and all associated data from Settings at any time, meeting Meta's data-deletion requirements.",
-  },
-  {
-    title: "Service-role isolation",
-    description:
-      "Admin-level database keys live exclusively on the server. The browser client never touches them — it only ever talks to row-level-secured endpoints.",
-  },
+  { icon: Database, title: "Row-level security", desc: "Every database row is locked to its owner. Users can only ever read their own leads, DMs, and settings — enforced by Postgres itself, not app code." },
+  { icon: KeyRound, title: "Hashed API keys", desc: "API keys are stored as hashes. Even we can't see your secret — only its prefix for identification." },
+  { icon: FileCheck, title: "Signed webhooks", desc: "Every Cashfree, Resend, and Meta webhook signature is verified with HMAC before a single row changes. Forged events are rejected." },
+  { icon: Ban, title: "CSRF + abuse guards", desc: "State-changing routes carry origin checks and rate limits. Retry queues back off exponentially instead of hammering." },
+  { icon: Gauge, title: "Rate limiting", desc: "Per-user DM and API limits with Redis-backed governors. One viral spike can't burn your account or ours." },
+  { icon: Lock, title: "Encrypted secrets", desc: "OAuth tokens and credentials live encrypted at rest. Service-role access never reaches the browser." },
+  { icon: Trash2, title: "Real deletion", desc: "Delete a lead, a message thread, or your whole account — associated data is permanently removed, not soft-hidden." },
+  { icon: ShieldCheck, title: "Official APIs only", desc: "Instagram via Meta's reviewed Messaging API. No scraping, no password storage, no grey-area automation that risks bans." },
 ];
 
 export default function SecurityPage() {
   return (
-    <div className="py-20 px-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-sm font-medium mb-4">
-            <ShieldCheck className="w-4 h-4" />
-            Security
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">
-            Security at ChirplyMint
-          </h1>
-          <p className="text-lg text-muted-foreground mt-4 max-w-xl mx-auto">
-            The concrete measures we take to protect your account, your
-            audience, and your data. No hand-waving — just what&apos;s actually
-            implemented.
-          </p>
-        </div>
-
-        {/* Measures grid */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {measures.map((measure) => (
-            <div
-              key={measure.title}
-              className="rounded-2xl border border-border bg-card shadow-sm p-6"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
+    <div className="pb-24">
+      <PageHero
+        kicker="Security"
+        title={<>Paranoid so <span className="text-gradient">you don't have to be.</span></>}
+        subtitle="Your Instagram account is your business. Here's every layer standing between it and the bad guys."
+      />
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid sm:grid-cols-2 gap-5">
+          {measures.map((m, i) => (
+            <Reveal key={m.title} delay={(i % 2) * 0.07}>
+              <div className="group h-full p-6 md:p-7 rounded-3xl card-elevated card-lift flex gap-4">
+                <span className="w-12 h-12 rounded-2xl bg-mint/10 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110">
+                  <m.icon className="w-5.5 h-5.5 text-mint" />
+                </span>
+                <div>
+                  <h3 className="font-bold mb-1.5">{m.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{m.desc}</p>
                 </div>
-                <h2 className="text-base font-bold text-foreground">
-                  {measure.title}
-                </h2>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {measure.description}
-              </p>
-            </div>
+            </Reveal>
           ))}
         </div>
-
-        {/* Reporting note */}
-        <div className="mt-16 rounded-2xl border border-border bg-card shadow-sm p-6 text-center">
-          <h2 className="text-base font-bold text-foreground mb-2">
-            Report a vulnerability
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Found something we should know about? Email{" "}
-            <a
-              href="mailto:security@novamintnetworks.in"
-              className="text-[oklch(0.52_0.19_162)] font-semibold hover:underline"
-            >
-              security@novamintnetworks.in
-            </a>{" "}
-            and we&apos;ll take it seriously.
-          </p>
-        </div>
+        <Reveal className="mt-10 rounded-3xl glass p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <span className="w-12 h-12 rounded-2xl bg-gradient-mint flex items-center justify-center shrink-0 shadow-lg shadow-mint/25">
+            <Mail className="w-5 h-5 text-white" />
+          </span>
+          <div className="flex-1">
+            <h3 className="font-bold">Found a vulnerability?</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">Email <b className="text-foreground">security@novamintnetworks.in</b> — we respond within 48 hours and credit responsible reporters.</p>
+          </div>
+        </Reveal>
       </div>
     </div>
   );
