@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -54,12 +54,18 @@ export function Navbar() {
       <motion.nav
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled ? "py-3 nav-scrolled" : "py-5 bg-transparent"
+        transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+        className={`fixed top-0 inset-x-0 z-50 flex justify-center px-4 transition-all duration-500 ${
+          isScrolled ? "pt-3" : "pt-5"
         }`}
       >
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
+        <div
+          className={`flex items-center justify-between gap-6 w-full transition-all duration-500 ${
+            isScrolled
+              ? "max-w-4xl rounded-2xl border border-border/70 bg-card/70 px-5 py-2.5 shadow-[0_8px_32px_-12px_oklch(0_0_0/40%)] backdrop-blur-xl"
+              : "max-w-6xl bg-transparent px-6 py-2"
+          }`}
+        >
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/logo.png" alt="ChirplyMint" width={36} height={36} className="w-9 h-9 rounded-xl" />
@@ -74,9 +80,10 @@ export function Navbar() {
               <Link
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {link.label}
+                <span className="absolute -bottom-1 left-1/2 h-px w-0 -translate-x-1/2 bg-gradient-to-r from-transparent via-mint to-transparent transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </div>
@@ -134,11 +141,11 @@ export function Navbar() {
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-x-0 top-16 z-40 p-4 md:hidden"
+            initial={{ opacity: 0, y: -12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed inset-x-0 top-20 z-40 p-4 md:hidden"
           >
             <div className="bg-card rounded-2xl p-6 space-y-4 shadow-xl border border-border">
               {navLinks.map((link) => (

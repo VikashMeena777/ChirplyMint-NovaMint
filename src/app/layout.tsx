@@ -1,9 +1,24 @@
 import type { Metadata } from "next";
+import { Inter, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+// Premium pairing: Space Grotesk for display, Inter for everything else.
+// Loaded via next/font (self-hosted, zero layout shift, no CSS name-drops).
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-grotesk",
+  display: "swap",
+});
 
 
 export const metadata: Metadata = {
@@ -61,7 +76,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="font-sans font-mono h-full antialiased"
+      className={`${inter.variable} ${spaceGrotesk.variable} font-sans h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider

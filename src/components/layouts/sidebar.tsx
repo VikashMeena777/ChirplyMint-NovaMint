@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "motion/react";
+
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -129,13 +131,20 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
               isActive(item.href)
-                ? "bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]"
+                ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
-            <item.icon className="w-5 h-5 shrink-0" />
+            {isActive(item.href) && (
+              <motion.span
+                layoutId="sidebar-active-rail"
+                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-gradient-to-b from-[oklch(0.62_0.19_162)] to-[oklch(0.48_0.17_162)]"
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              />
+            )}
+            <item.icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`} />
             {!collapsed && <span>{item.label}</span>}
           </Link>
         ))}
@@ -148,9 +157,9 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
               isActive(item.href)
-                ? "bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)]"
+                ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >

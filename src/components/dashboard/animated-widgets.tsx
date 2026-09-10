@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { AnimatedCard, CountUp } from "@/components/motion/kit";
 import { isUnlimitedDM } from "@/lib/utils/plan-limits";
 
 /**
@@ -21,30 +22,31 @@ export function AnimatedStatGrid({ stats }: { stats: StatItem[] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, i) => (
-        <div
-          key={stat.label}
-          className="animate-fade-up rounded-2xl bg-card border border-border p-5 shadow-sm hover:shadow-md hover:border-[oklch(0.52_0.19_162/20%)] transition-all duration-300"
-          style={{ animationDelay: `${i * 100}ms` }}
-        >
-          <div className="flex items-center justify-between">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: stat.bgColor }}
-            >
-              {stat.icon}
+        <AnimatedCard key={stat.label} className="rounded-2xl">
+          <div
+            className="animate-fade-up rounded-2xl bg-card border border-border p-5 shadow-sm hover:border-[oklch(0.52_0.19_162/25%)]"
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                style={{ backgroundColor: stat.bgColor }}
+              >
+                {stat.icon}
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-2xl font-bold font-heading tracking-tight text-foreground">
+                {typeof stat.value === "number" ? (
+                  <CountUp to={stat.value} />
+                ) : (
+                  stat.value
+                )}
+              </p>
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
             </div>
           </div>
-          <div className="mt-4">
-            <p className="text-2xl font-bold text-foreground">
-              {typeof stat.value === "number" ? (
-                <AnimatedCounter value={stat.value} />
-              ) : (
-                stat.value
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-          </div>
-        </div>
+        </AnimatedCard>
       ))}
     </div>
   );
