@@ -261,4 +261,151 @@
   .animate-fade-in {
     animation: fade-in 300ms ease-out both;
   }
+
+  /* ─── Premium motion + surface system ─── */
+  .glass {
+    background: oklch(1 0 0 / 72%);
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid oklch(0 0 0 / 6%);
+  }
+  .dark .glass {
+    background: oklch(0.14 0.005 265 / 66%);
+    border: 1px solid oklch(1 0 0 / 9%);
+  }
+
+  .marquee-mask {
+    mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+  }
+
+  .animate-marquee {
+    animation: marquee 32s linear infinite;
+  }
+  .animate-marquee-fast {
+    animation: marquee 22s linear infinite;
+  }
+  .marquee-paused:hover .animate-marquee,
+  .marquee-paused:hover .animate-marquee-fast {
+    animation-play-state: paused;
+  }
+
+  .animate-float-slow {
+    animation: float-y 7s ease-in-out infinite;
+  }
+  .animate-twinkle {
+    animation: twinkle 2.6s ease-in-out infinite;
+  }
+  .animate-shine {
+    animation: shine 3.2s linear infinite;
+  }
+
+  .icon-ring:hover {
+    animation: ring 0.7s ease-in-out;
+    transform-origin: top center;
+  }
+  .icon-send-fly:hover {
+    animation: send-fly 0.5s ease-out;
+  }
+  .icon-pop {
+    animation: pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, oklch(1 0 0 / 35%) 50%, transparent 60%);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  .btn-shine:hover::after {
+    animation: shine-sweep 0.9s ease;
+  }
+
+  .card-lift {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px oklch(0 0 0 / 10%), 0 0 40px oklch(0.52 0.19 162 / 12%);
+    border-color: oklch(0.52 0.19 162 / 35%);
+  }
+
+  ::selection {
+    background: oklch(0.52 0.19 162 / 25%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.52 0.19 162 / 30%);
+    border-radius: 8px;
+    border: 2px solid var(--background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.52 0.19 162 / 55%);
+  }
+}
+
+/* Keyframes live outside layers so reduced-motion overrides stay predictable */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes twinkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(0.8) rotate(14deg); opacity: 0.65; }
+}
+@keyframes shine {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+@keyframes shine-sweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
+@keyframes ring {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(2deg); }
+}
+@keyframes send-fly {
+  0% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(3px, -3px) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes pop-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-fast,
+  .animate-float-slow,
+  .animate-twinkle,
+  .animate-shine {
+    animation: none !important;
+  }
 }
