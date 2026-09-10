@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  Signal,
+  Wifi,
   FileText,
   ImageIcon,
   Heart,
@@ -32,11 +34,12 @@ import {
 const TIMELINE = [
   { ms: 2000 }, // 0: comment notification
   { ms: 1300 }, // 1: typing dots
-  { ms: 2200 }, // 2: opener DM
-  { ms: 1900 }, // 3: PDF
-  { ms: 1900 }, // 4: carousel
-  { ms: 2400 }, // 5: lead captured chip
-  { ms: 1600 }, // 6: hold → fade + restart
+  { ms: 2100 }, // 2: opener DM (with button)
+  { ms: 1600 }, // 3: the LEAD taps "Send it to me"
+  { ms: 1900 }, // 4: PDF arrives
+  { ms: 1900 }, // 5: carousel arrives
+  { ms: 2400 }, // 6: lead captured chip
+  { ms: 1600 }, // 7: hold → fade + restart
 ];
 
 const bubbleAnim = {
@@ -105,9 +108,12 @@ export function LiveDemoCard() {
                 {/* status bar */}
                 <div className="flex items-center justify-between px-7 pt-3 text-[11px] font-semibold text-neutral-900 dark:text-white">
                   <span>9:41</span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block h-2 w-3 rounded-[2px] border border-current" />
-                    <span className="inline-block h-2 w-4 rounded-[2px] bg-current opacity-80" />
+                  <span className="flex items-center gap-1.5">
+                    <Signal className="h-3 w-3" strokeWidth={2.5} />
+                    <Wifi className="h-3 w-3" strokeWidth={2.5} />
+                    <span className="relative inline-block h-2.5 w-5 rounded-[3px] border border-current">
+                      <span className="absolute inset-y-[2px] left-[2px] w-3 rounded-[1px] bg-current opacity-80" />
+                    </span>
                   </span>
                 </div>
 
@@ -123,7 +129,7 @@ export function LiveDemoCard() {
                     <BadgeCheck className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white fill-sky-500 text-white dark:bg-neutral-900" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-neutral-900 dark:text-white">chirplymint.demo</p>
+                    <p className="truncate text-[13px] font-semibold text-neutral-900 dark:text-white">chirplymint</p>
                     <p className="text-[10px] text-neutral-400">active now</p>
                   </div>
                   <Phone className="h-4 w-4 text-neutral-900 dark:text-white" />
@@ -186,14 +192,29 @@ export function LiveDemoCard() {
                           <div className="rounded-[20px] rounded-br-md bg-gradient-to-br from-[#5B51D8] via-[#833AB4] to-[#C13584] px-3.5 py-2.5 text-[12px] leading-relaxed text-white shadow-md">
                             <p>Here&apos;s the 7-day shred guide 📩</p>
                             <div className="mt-1.5 flex">
-                              <span className="rounded-lg bg-white/20 px-2.5 py-1 text-[11px] font-semibold">Send it to me</span>
+                              <span
+                                className={`relative rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all duration-200 ${
+                                  step === 3 ? "scale-95 bg-white/45" : "bg-white/20"
+                                }`}
+                              >
+                                Send it to me
+                                {step === 3 && (
+                                  <motion.span
+                                    aria-hidden
+                                    className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90"
+                                    initial={{ scale: 0.3, opacity: 0.9 }}
+                                    animate={{ scale: 1.8, opacity: 0 }}
+                                    transition={{ duration: 0.8, repeat: Infinity, ease: "easeOut" }}
+                                  />
+                                )}
+                              </span>
                             </div>
                           </div>
-                          <p className="mt-1 pr-1 text-right text-[9px] text-neutral-400">Delivered</p>
+                          <p className="mt-1 pr-1 text-right text-[9px] text-neutral-400">{step >= 3 ? "Seen" : "Delivered"}</p>
                         </motion.div>
                       )}
 
-                      {step >= 3 && (
+                      {step >= 4 && (
                         <motion.div {...bubbleAnim} className="ml-auto w-fit max-w-[85%]">
                           <div className="rounded-[20px] rounded-br-md bg-neutral-200 px-3 py-2.5 dark:bg-neutral-800">
                             <div className="flex items-center gap-2.5">
@@ -209,7 +230,7 @@ export function LiveDemoCard() {
                         </motion.div>
                       )}
 
-                      {step >= 4 && (
+                      {step >= 6 && (
                         <motion.div {...bubbleAnim} className="ml-auto w-[236px] max-w-full">
                           <div className="rounded-[20px] rounded-br-md bg-neutral-200 p-2 dark:bg-neutral-800">
                             {/* IG-style carousel: square tiles, roomy, dots */}

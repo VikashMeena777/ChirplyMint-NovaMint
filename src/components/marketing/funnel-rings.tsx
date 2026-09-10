@@ -28,7 +28,7 @@ const RINGS = [
     label: "Taps received",
     value: 158,
     pct: 0.72,
-    r: 68,
+    r: 74,
     icon: MousePointerClick,
     stroke: "url(#fr-middle)",
     note: "button card CTA",
@@ -37,7 +37,7 @@ const RINGS = [
     label: "Leads captured",
     value: 90,
     pct: 0.41,
-    r: 48,
+    r: 58,
     icon: UserPlus,
     stroke: "url(#fr-inner)",
     note: "tagged + exportable",
@@ -143,12 +143,14 @@ export function FunnelRings() {
 
                 {/* center count-up */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-bold font-heading tracking-tight text-foreground">
-                    <CountUp to={220} duration={1.8} />
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    DMs this week
-                  </span>
+                  <div className="flex flex-col items-center rounded-2xl bg-background/85 px-4 py-2 backdrop-blur-sm">
+                    <span className="text-4xl font-bold font-heading tracking-tight text-foreground">
+                      <CountUp to={220} duration={1.8} />
+                    </span>
+                    <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      DMs this week
+                    </span>
+                  </div>
                 </div>
               </div>
 
