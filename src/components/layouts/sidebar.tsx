@@ -32,11 +32,14 @@ import {
 } from "lucide-react";
 
 import { HomeIcon } from "@/components/icons/home/home";
+import { BrainIcon } from "@/components/icons/brain/brain";
+import { BotMessageSquareIcon } from "@/components/icons/bot-message-square/bot-message-square";
+import { Link2Icon } from "@/components/icons/link-2/link-2";
+import { PartyPopperIcon } from "@/components/icons/party-popper/party-popper";
+import { LogoutIcon } from "@/components/icons/logout/logout";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { MessageCircleIcon } from "@/components/icons/message-circle/message-circle";
 import { UsersIcon } from "@/components/icons/users/users";
-import { SparklesIcon } from "@/components/icons/sparkles/sparkles";
-import { LinkIcon } from "@/components/icons/link/link";
 import { ChartLineIcon } from "@/components/icons/chart-line/chart-line";
 import { ChartPieIcon } from "@/components/icons/chart-pie/chart-pie";
 import { BellIcon } from "@/components/icons/bell/bell";
@@ -76,18 +79,19 @@ const navItems = [
     label: "AI Agent",
     href: "/dashboard/ai-agent",
     icon: BrainCircuit,
-    animated: SparklesIcon,
+    animated: BrainIcon,
   },
   {
     label: "AI Inbox",
     href: "/dashboard/ai-agent/conversations",
     icon: MessagesSquare,
+    animated: BotMessageSquareIcon,
   },
   {
     label: "Link-in-Bio",
     href: "/dashboard/bio",
     icon: Link2,
-    animated: LinkIcon,
+    animated: Link2Icon,
   },
   {
     label: "Analytics",
@@ -105,6 +109,7 @@ const navItems = [
     label: "Referrals",
     href: "/dashboard/referrals",
     icon: Gift,
+    animated: PartyPopperIcon,
   },
 ];
 
@@ -227,7 +232,7 @@ export function Sidebar() {
             setTimeout(() => { void signOut(); }, 1100);
           }}
         >
-          <LogOut className="w-5 h-5 shrink-0" />
+          <LogoutIcon size={20} className="shrink-0" />
           {!collapsed && <span>Sign Out</span>}
         </button>
 

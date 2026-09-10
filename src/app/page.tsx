@@ -19,6 +19,9 @@ import { LiveActivityFeed } from "@/components/marketing/live-activity-feed";
 import { getLiveFeedItems } from "@/lib/actions/live-feed";
 import { getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { SplitHeadline } from "@/components/motion/split-headline";
+import { HeroHeadline } from "@/components/marketing/hero-headline";
+import { GrowthChart } from "@/components/marketing/growth-chart";
+import { GenZCard } from "@/components/marketing/genz-card";
 import { SmoothScroll } from "@/components/motion/smooth-scroll";
 import {
   FadeIn,
@@ -35,7 +38,6 @@ import { UsersIcon } from "@/components/icons/users/users";
 import { TrendingUpIcon } from "@/components/icons/trending-up/trending-up";
 import { InstagramIcon } from "@/components/icons/instagram/instagram";
 import { LiveDemoCard } from "@/components/marketing/live-demo-card";
-import { FunnelChart } from "@/components/marketing/funnel-chart";
 import { IntroOverlay } from "@/components/motion/intro-overlay";
 
 /* ─── Data (real product facts — no fabricated metrics) ─── */
@@ -77,7 +79,7 @@ function Hero() {
     <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-28 pb-16">
       {/* Living aurora backdrop — drifting gradient blobs, grid, vignette */}
       <div aria-hidden className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.15_0.02_160/40%),transparent)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.15_0.025_250/35%),transparent)]" />
         <div
           className="absolute inset-0 opacity-[0.35]"
           style={{
@@ -90,16 +92,22 @@ function Hero() {
               "radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 70%)",
           }}
         />
+        {/* ── colour psychology: ink-navy depth (trust) · emerald (growth/money)
+             · teal (calm) · indigo (premium) — layered, never flat black ── */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,oklch(0.22_0.05_235/60%),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.17_0.03_240/50%)_0%,transparent_35%,oklch(0.15_0.025_250/60%)_100%)]" />
         {/* aurora blobs — slow drift, transform-only */}
-        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-mint/12 blur-[140px]" />
-        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-emerald/10 blur-[150px]" />
-        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[360px] w-[360px] rounded-full bg-teal-400/8 blur-[130px]" />
+        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-emerald/14 blur-[140px]" />
+        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-teal-500/12 blur-[150px]" />
+        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[380px] w-[380px] rounded-full bg-indigo-500/10 blur-[130px]" />
+        {/* soft top beam */}
+        <div className="absolute left-1/2 top-0 h-[280px] w-[720px] -translate-x-1/2 rounded-full bg-mint/8 blur-[120px]" />
         {/* floating particles */}
-        <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-mint/50" />
-        <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-emerald/60" />
-        <div className="animate-float-3 absolute left-[55%] top-[64%] h-1.5 w-1.5 rounded-full bg-mint/40" />
+        <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-emerald/55" />
+        <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-teal-400/60" />
+        <div className="animate-float-3 absolute left-[55%] top-[64%] h-1.5 w-1.5 rounded-full bg-indigo-400/45" />
         <div className="animate-float-2 absolute left-[30%] top-[72%] h-1 w-1 rounded-full bg-emerald/50" />
-        <div className="animate-float-1 absolute left-[85%] top-[55%] h-1 w-1 rounded-full bg-mint/50" />
+        <div className="animate-float-1 absolute left-[85%] top-[55%] h-1 w-1 rounded-full bg-mint/55" />
       </div>
 
       <div className="relative w-full max-w-7xl mx-auto px-6">
@@ -118,11 +126,7 @@ function Hero() {
               </div>
             </FadeIn>
 
-            <SplitHeadline
-              as="h1"
-              text="Turn every comment into a customer"
-              className="text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.02] bg-gradient-to-r from-foreground via-foreground to-mint bg-clip-text text-transparent"
-            />
+            <HeroHeadline />
 
             <FadeIn delay={0.35}>
               <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
@@ -275,42 +279,9 @@ function FeatureBento() {
         </FadeIn>
 
         <Stagger className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-[minmax(240px,auto)]" amount={0.1}>
-          {/* Hero card — Smart Comment Triggers */}
-          <StaggerItem className="md:col-span-2 md:row-span-2">
-            <div className="group relative h-full overflow-hidden rounded-3xl border border-mint/20 bg-gradient-to-br from-mint/15 via-card to-card p-10 flex flex-col justify-between">
-              <div aria-hidden className="absolute -right-20 -top-20 size-64 rounded-full bg-mint/15 blur-3xl transition-transform duration-700 group-hover:scale-125" />
-              <div className="relative">
-                <div className="inline-flex items-center gap-2 rounded-full bg-mint/15 px-3.5 py-1.5 text-xs font-medium text-mint-light backdrop-blur-sm">
-                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Comment triggers
-                </div>
-                <h3 className="mt-6 text-3xl md:text-4xl font-bold font-heading tracking-tight text-foreground">
-                  They comment.
-                  <br />
-                  You deliver.
-                </h3>
-                <p className="mt-4 max-w-md text-muted-foreground leading-relaxed">
-                  Keyword matching with typo tolerance and comment-edit support.
-                  The first DM opens the window with a button — the full stack
-                  (PDFs, carousels, albums) plays the moment they tap.
-                </p>
-              </div>
-              {/* illustrative comment→DM flow */}
-              <div className="relative mt-8 space-y-2.5 max-w-sm">
-                <div className="w-fit rounded-2xl rounded-bl-md border border-border bg-card/80 px-4 py-2.5 text-sm text-foreground backdrop-blur-sm">
-                  <span className="text-mint font-medium">@fan</span> SEND 🙌
-                </div>
-                <motion.div
-                  initial={{ opacity: 0, x: -12 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.8, duration: 0.5 }}
-                  className="ml-auto w-fit rounded-2xl rounded-br-md bg-gradient-mint px-4 py-2.5 text-sm text-white"
-                >
-                  Here&apos;s the guide you asked for 📩
-                </motion.div>
-              </div>
-            </div>
+          {/* Gen-Z hero card — comments in, customers out */}
+          <StaggerItem className="md:col-span-2">
+            <GenZCard />
           </StaggerItem>
 
           {/* AI Persona */}
@@ -549,7 +520,7 @@ export default function Home() {
         <NicheMarquee />
         <HowItWorks />
         <FeatureBento />
-        <FunnelChart />
+        <GrowthChart />
         <Pricing />
         <FinalCTA />
         <Footer />
