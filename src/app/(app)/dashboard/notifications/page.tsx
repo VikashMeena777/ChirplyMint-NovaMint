@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { NotificationsSkeleton } from "@/components/ui/page-skeleton";
+import EmptyState from "@/components/dashboard/empty-state";
 import {
   getNotifications,
   markAsRead,
@@ -170,16 +171,14 @@ export default function NotificationsPage() {
       )}
 
       {notifications.length === 0 ? (
-        <div className="rounded-2xl bg-card border border-border shadow-sm p-12 text-center">
-          <div className="w-14 h-14 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center mx-auto mb-4">
-            <Bell className="w-6 h-6 text-[oklch(0.52_0.19_162)]" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">
-            No notifications yet
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-            You&apos;ll see DM alerts, weekly reports, and product updates here.
-          </p>
+        <div className="rounded-3xl bg-card border border-border shadow-sm overflow-hidden">
+          <EmptyState
+            icon={<Bell className="w-7 h-7 text-white" />}
+            title="All quiet here"
+            copy="DM alerts, weekly reports, and product updates will land here."
+            actionLabel="Create your first automation"
+            actionHref="/dashboard/automations"
+          />
         </div>
       ) : (
         <div className="space-y-6">
@@ -204,10 +203,10 @@ export default function NotificationsPage() {
                       }`}
                     >
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                        className="group w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
                         style={{ backgroundColor: `color-mix(in oklch, ${color}, transparent 88%)` }}
                       >
-                        <Icon className="w-5 h-5" style={{ color }} />
+                        <Icon className="w-5 h-5 group-hover:animate-[ring_.7s_ease-in-out] origin-top" style={{ color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">

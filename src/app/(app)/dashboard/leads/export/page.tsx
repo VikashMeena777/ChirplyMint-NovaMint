@@ -296,7 +296,7 @@ export default function LeadExportPage() {
           display: inline-flex;
           align-items: center;
           gap: 0.4rem;
-          color: #8b5cf6;
+          color: #REDACTED_SECRETS;
           font-size: 0.85rem;
           text-decoration: none;
           margin-bottom: 1rem;
@@ -308,11 +308,11 @@ export default function LeadExportPage() {
         .header-content h1 {
           font-size: 1.75rem;
           font-weight: 700;
-          color: #f1f5f9;
+          color: var(--foreground);
           margin: 0 0 0.4rem;
         }
         .header-content p {
-          color: #94a3b8;
+          color: var(--muted-foreground);
           font-size: 0.9rem;
           margin: 0;
         }
@@ -331,14 +331,14 @@ export default function LeadExportPage() {
         }
 
         .export-card {
-          background: rgba(15, 23, 42, 0.6);
-          border: 1px solid rgba(139, 92, 246, 0.15);
+          background: var(--card);
+          border: 1px solid oklch(0.52 0.19 162 / 15%);
           border-radius: 1rem;
           padding: 1.75rem;
           transition: border-color 0.3s;
         }
         .export-card:hover {
-          border-color: rgba(139, 92, 246, 0.35);
+          border-color: oklch(0.52 0.19 162 / 35%);
         }
 
         .card-icon {
@@ -355,17 +355,17 @@ export default function LeadExportPage() {
           color: #22c55e;
         }
         .card-icon.webhook {
-          background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
-          color: #8b5cf6;
+          background: linear-gradient(135deg, oklch(0.52 0.19 162 / 15%), oklch(0.52 0.19 162 / 5%));
+          color: #REDACTED_SECRETS;
         }
 
         .export-card h3 {
           margin: 0 0 0.5rem;
           font-size: 1.1rem;
-          color: #e2e8f0;
+          color: var(--foreground);
         }
         .export-card > p {
-          color: #94a3b8;
+          color: var(--muted-foreground);
           font-size: 0.82rem;
           line-height: 1.5;
           margin: 0 0 1rem;
@@ -384,7 +384,7 @@ export default function LeadExportPage() {
           align-items: center;
           gap: 0.4rem;
           font-size: 0.78rem;
-          color: #94a3b8;
+          color: var(--muted-foreground);
         }
         .features-list li :global(svg) {
           color: #22c55e;
@@ -404,12 +404,12 @@ export default function LeadExportPage() {
           transition: all 0.2s;
         }
         .export-btn.primary {
-          background: linear-gradient(135deg, #8b5cf6, #a855f7);
+          background: linear-gradient(135deg, #REDACTED_SECRETS, oklch(0.45 0.2 158));
           color: white;
         }
         .export-btn.primary:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 4px 15px oklch(0.52 0.19 162 / 30%);
         }
         .export-btn:disabled {
           opacity: 0.5;
@@ -422,16 +422,16 @@ export default function LeadExportPage() {
           align-items: center;
           gap: 0.4rem;
           padding: 0.5rem 1rem;
-          border: 1px solid rgba(139, 92, 246, 0.3);
+          border: 1px solid oklch(0.52 0.19 162 / 30%);
           border-radius: 0.5rem;
           background: transparent;
-          color: #8b5cf6;
+          color: #REDACTED_SECRETS;
           font-size: 0.82rem;
           cursor: pointer;
           transition: all 0.2s;
         }
         .test-btn:hover:not(:disabled) {
-          background: rgba(139, 92, 246, 0.1);
+          background: oklch(0.52 0.19 162 / 10%);
         }
         .test-btn:disabled {
           opacity: 0.4;
@@ -447,24 +447,24 @@ export default function LeadExportPage() {
         .webhook-form label {
           font-size: 0.75rem;
           font-weight: 600;
-          color: #94a3b8;
+          color: var(--muted-foreground);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         .webhook-form input {
           width: 100%;
           padding: 0.6rem 0.85rem;
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          border: 1px solid oklch(0.52 0.19 162 / 20%);
           border-radius: 0.5rem;
-          background: rgba(15, 23, 42, 0.6);
-          color: #e2e8f0;
+          background: var(--card);
+          color: var(--foreground);
           font-size: 0.85rem;
           font-family: 'JetBrains Mono', monospace;
         }
         .webhook-form input:focus {
           outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+          border-color: #REDACTED_SECRETS;
+          box-shadow: 0 0 0 2px oklch(0.52 0.19 162 / 15%);
         }
         .webhook-actions {
           display: flex;
@@ -476,7 +476,7 @@ export default function LeadExportPage() {
           align-items: flex-start;
           gap: 0.4rem;
           font-size: 0.72rem;
-          color: #64748b;
+          color: var(--muted-foreground);
           margin-top: 0.25rem;
         }
         .webhook-info :global(svg) {
@@ -494,7 +494,7 @@ export default function LeadExportPage() {
           align-items: center;
           gap: 0.5rem;
           font-size: 1.15rem;
-          color: #e2e8f0;
+          color: var(--foreground);
           margin: 0 0 1.25rem;
         }
         .history-loading {
@@ -504,7 +504,7 @@ export default function LeadExportPage() {
         }
         .skeleton-bar {
           height: 2rem;
-          background: rgba(139, 92, 246, 0.1);
+          background: oklch(0.52 0.19 162 / 10%);
           border-radius: 0.5rem;
           animation: pulse 1.5s ease-in-out infinite;
         }
@@ -523,18 +523,18 @@ export default function LeadExportPage() {
         .history-empty {
           text-align: center;
           padding: 2rem;
-          border: 1px dashed rgba(139, 92, 246, 0.2);
+          border: 1px dashed oklch(0.52 0.19 162 / 20%);
           border-radius: 0.75rem;
         }
         .history-empty p {
-          color: #64748b;
+          color: var(--muted-foreground);
           font-size: 0.85rem;
           margin: 0;
         }
 
         .history-table {
           overflow-x: auto;
-          border: 1px solid rgba(139, 92, 246, 0.15);
+          border: 1px solid oklch(0.52 0.19 162 / 15%);
           border-radius: 0.75rem;
         }
         table {
@@ -546,17 +546,17 @@ export default function LeadExportPage() {
           text-align: left;
           font-size: 0.72rem;
           font-weight: 600;
-          color: #64748b;
+          color: var(--muted-foreground);
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          border-bottom: 1px solid rgba(139, 92, 246, 0.1);
-          background: rgba(15, 23, 42, 0.4);
+          border-bottom: 1px solid oklch(0.52 0.19 162 / 10%);
+          background: var(--muted);
         }
         td {
           padding: 0.65rem 1rem;
           font-size: 0.82rem;
-          color: #cbd5e1;
-          border-bottom: 1px solid rgba(139, 92, 246, 0.06);
+          color: var(--foreground);
+          border-bottom: 1px solid oklch(0.52 0.19 162 / 6%);
         }
         tr:last-child td {
           border-bottom: none;
@@ -564,11 +564,11 @@ export default function LeadExportPage() {
         .destination-cell {
           font-family: 'JetBrains Mono', monospace;
           font-size: 0.75rem;
-          color: #94a3b8;
+          color: var(--muted-foreground);
         }
         .date-cell {
           white-space: nowrap;
-          color: #64748b;
+          color: var(--muted-foreground);
           font-size: 0.78rem;
         }
         .type-badge {
@@ -585,8 +585,8 @@ export default function LeadExportPage() {
           color: #22c55e;
         }
         .type-badge.webhook {
-          background: rgba(139, 92, 246, 0.1);
-          color: #8b5cf6;
+          background: oklch(0.52 0.19 162 / 10%);
+          color: #REDACTED_SECRETS;
         }
         .status-badge {
           display: inline-flex;

@@ -68,7 +68,7 @@ export default function AIConversationsPage() {
         <h1 className="text-2xl font-bold text-foreground">AI Inbox</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Every conversation your AI agent handled. Tune its personality in{" "}
-          <a href="/dashboard/ai-agent" className="text-violet-400 hover:underline font-medium">
+          <a href="/dashboard/ai-agent" className="text-mint hover:underline font-medium">
             AI Agent settings
           </a>.
         </p>

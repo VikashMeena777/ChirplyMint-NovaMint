@@ -5,7 +5,8 @@ import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
   Loader2, Webhook, ExternalLink, MessageCircle, Tag, StickyNote,
   Check, X, Filter, CheckSquare, Square, Lock, ArrowUpRight,
-  Mail, Phone, Flame, ChevronDown, Rows3,
+  Mail, Phone, Flame, ChevronDown, Rows3, Eye, Crown, Sun,
+  Snowflake, BadgeCheck, Zap, MousePointerClick,
 } from "lucide-react";
 import {
   getLeads, exportLeadsCSV, deleteLead, updateLeadTags,
@@ -31,9 +32,9 @@ function getTagStyle(tag: string) {
   return preset?.color || "bg-muted text-muted-foreground border-border";
 }
 
-function getTagEmoji(tag: string) {
-  const map: Record<string, string> = { hot: "🔥", warm: "🟡", cold: "🔵", customer: "✅", vip: "⭐" };
-  return map[tag] || "🏷️";
+function getTagIcon(tag: string) {
+  const map: Record<string, typeof Flame> = { hot: Flame, warm: Sun, cold: Snowflake, customer: BadgeCheck, vip: Crown };
+  return map[tag] || Tag;
 }
 
 // ─── Engagement badge ────────────────────────────────────
@@ -41,7 +42,7 @@ function EngagementBadge({ level }: { level: string }) {
   if (level === "active") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
-        👀 Active
+        <Eye className="w-2.5 h-2.5" /> Active
       </span>
     );
   }
@@ -55,7 +56,7 @@ function EngagementBadge({ level }: { level: string }) {
   if (level === "converted") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-        💰 Customer
+        <Crown className="w-2.5 h-2.5" /> Customer
       </span>
     );
   }
@@ -105,7 +106,10 @@ function TagPicker({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
                 ) : (
                   <div className="w-3.5 h-3.5" />
                 )}
-                <span>{getTagEmoji(tag.value)}</span>
+                {(() => {
+                  const TagIcon = getTagIcon(tag.value);
+                  return <TagIcon className="w-3.5 h-3.5 text-muted-foreground" />;
+                })()}
                 <span>{tag.label}</span>
               </button>
             ))}
@@ -372,7 +376,7 @@ export default function LeadsPage() {
             >
               <option value="">All tags</option>
               {allTags.map((tag) => (
-                <option key={tag} value={tag}>{getTagEmoji(tag)} {tag}</option>
+                <option key={tag} value={tag}>{tag}</option>
               ))}
             </select>
           </div>
@@ -396,16 +400,19 @@ export default function LeadsPage() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setBulkMenuOpen(false)} />
                 <div className="absolute left-0 top-9 z-50 w-40 rounded-xl bg-card border border-border shadow-xl p-2 space-y-1">
-                  {PRESET_TAGS.map((tag) => (
-                    <button
-                      key={tag.value}
-                      onClick={() => handleBulkTag(tag.value)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:bg-muted/30 transition-colors"
-                    >
-                      <span>{getTagEmoji(tag.value)}</span>
-                      <span>{tag.label}</span>
-                    </button>
-                  ))}
+                  {PRESET_TAGS.map((tag) => {
+                    const BulkIcon = getTagIcon(tag.value);
+                    return (
+                      <button
+                        key={tag.value}
+                        onClick={() => handleBulkTag(tag.value)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:bg-muted/30 transition-colors"
+                      >
+                        <BulkIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>{tag.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -537,14 +544,17 @@ export default function LeadsPage() {
 
                     {/* Tags */}
                     <div className="flex items-center gap-1 min-w-0 col-span-2 lg:col-span-1" onClick={(e) => e.stopPropagation()}>
-                      {tags.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${getTagStyle(tag)}`}
-                        >
-                          {getTagEmoji(tag)} {tag}
-                        </span>
-                      ))}
+                      {tags.slice(0, 2).map((tag) => {
+                        const PillIcon = getTagIcon(tag);
+                        return (
+                          <span
+                            key={tag}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${getTagStyle(tag)}`}
+                          >
+                            <PillIcon className="w-2.5 h-2.5" /> {tag}
+                          </span>
+                        );
+                      })}
                       {tags.length > 2 && (
                         <span className="text-[10px] text-muted-foreground shrink-0">+{tags.length - 2}</span>
                       )}
@@ -655,8 +665,14 @@ export default function LeadsPage() {
                             <div className="space-y-1.5">
                               {(lead.interactions as Record<string, unknown>[]).slice().reverse().map((it, i) => (
                                 <div key={i} className="flex items-center gap-2 text-xs bg-background rounded-lg px-3 py-2 border border-border/60">
-                                  <span className="shrink-0">
-                                    {it.type === "quick_reply" ? "⚡" : it.type === "button_tap" ? "🔘" : "🎯"}
+                                  <span className="shrink-0 text-mint">
+                                    {it.type === "quick_reply" ? (
+                                      <Zap className="w-3.5 h-3.5" />
+                                    ) : it.type === "button_tap" ? (
+                                      <MousePointerClick className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Tag className="w-3.5 h-3.5" />
+                                    )}
                                   </span>
                                   <span className="font-medium text-foreground capitalize">{String(it.type || "").replace(/_/g, " ")}</span>
                                   <span className="text-muted-foreground">— {(it.label as string) || "(no label)"}</span>
