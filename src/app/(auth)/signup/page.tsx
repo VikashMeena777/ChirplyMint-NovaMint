@@ -7,6 +7,7 @@ import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Loader2, Check, Gift } from 
 import { signup, signInWithGoogle } from "@/lib/actions/auth";
 import { applyReferralCode } from "@/lib/actions/referral";
 import { toast } from "sonner";
+import { getPasswordChecks } from "@/lib/utils/password-policy";
 
 export default function SignupPage() {
   return (
@@ -29,11 +30,7 @@ function SignupContent() {
     if (ref) setRefCode(ref);
   }, [searchParams]);
 
-  const passwordChecks = [
-    { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "One uppercase letter", met: /[A-Z]/.test(password) },
-    { label: "One number", met: /\d/.test(password) },
-  ];
+  const passwordChecks = getPasswordChecks(password);
 
   const passwordValid = passwordChecks.every((c) => c.met);
 

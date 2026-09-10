@@ -30,7 +30,7 @@ export function getConnectInstagramHtml(name: string): string {
       </ul>
 
       <div style="text-align:center;margin-top:24px;">
-        <a href="${appUrl}/dashboard/settings?tab=instagram" 
+        <a href="${appUrl}/dashboard/settings/instagram" 
            style="display:inline-block;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:14px;">
           Connect Instagram Now →
         </a>

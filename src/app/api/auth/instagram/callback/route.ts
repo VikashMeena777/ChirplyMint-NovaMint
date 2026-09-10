@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.redirect(
-      `${APP_URL}/dashboard/settings?error=instagram_denied&detail=${encodeURIComponent(errorDescription)}`
+      `${APP_URL}/dashboard/settings/instagram?error=instagram_denied&detail=${encodeURIComponent(errorDescription)}`
     );
   }
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   if (!expectedState || state !== expectedState) {
     console.error("[IG OAuth] State mismatch — possible forged callback");
     return NextResponse.redirect(
-      `${APP_URL}/dashboard/settings?error=instagram_state_mismatch`
+      `${APP_URL}/dashboard/settings/instagram?error=instagram_state_mismatch`
     );
   }
   const userId = user.id;
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         tokenData.error?.message ||
         "Token exchange failed";
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=token_exchange_failed&detail=${encodeURIComponent(errorMsg)}`
+        `${APP_URL}/dashboard/settings/instagram?error=token_exchange_failed&detail=${encodeURIComponent(errorMsg)}`
       );
     }
 
@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
         `[IG OAuth] ❌ IG account @${igUsername} (${igProfessionalId}) is already connected to user ${existingAccount.user_id}`
       );
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=ig_already_linked&detail=${encodeURIComponent(
+        `${APP_URL}/dashboard/settings/instagram?error=ig_already_linked&detail=${encodeURIComponent(
           `@${igUsername} is already connected to another ChirplyMint account. Disconnect it there first.`
         )}`
       );
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
         `[IG OAuth] ❌ User ${userId} has reached IG account limit (${activeAccountCount}/${planConfig.igAccountLimit}) on ${userPlan} plan`
       );
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=ig_account_limit_reached&detail=${encodeURIComponent(
+        `${APP_URL}/dashboard/settings/instagram?error=ig_account_limit_reached&detail=${encodeURIComponent(
           `You've reached your ${planConfig.name} plan limit of ${planConfig.igAccountLimit} Instagram account(s). Upgrade to connect more.`
         )}`
       );
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
     if (dbError) {
       console.error("[IG OAuth] DB save failed:", dbError);
       return NextResponse.redirect(
-        `${APP_URL}/dashboard/settings?error=save_failed`
+        `${APP_URL}/dashboard/settings/instagram?error=save_failed`
       );
     }
 
@@ -394,12 +394,12 @@ export async function GET(request: NextRequest) {
     trackServerEvent(userId, "ig.connected", { username: igUsername });
 
     return NextResponse.redirect(
-      `${APP_URL}/dashboard/settings?success=instagram_connected`
+      `${APP_URL}/dashboard/settings/instagram?success=instagram_connected`
     );
   } catch (err) {
     console.error("[IG OAuth] Unexpected error:", err);
     return NextResponse.redirect(
-      `${APP_URL}/dashboard/settings?error=oauth_failed`
+      `${APP_URL}/dashboard/settings/instagram?error=oauth_failed`
     );
   }
 }

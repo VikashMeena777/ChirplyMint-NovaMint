@@ -436,7 +436,7 @@ function Pricing() {
                   </ul>
                   <motion.div whileTap={{ scale: 0.97 }} transition={springTap} className="mt-8">
                     <Link
-                      href={plan.key === "free" ? "/signup" : "/dashboard/settings?tab=billing"}
+                      href={plan.key === "free" ? "/signup" : "/dashboard/settings/billing"}
                       className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold transition-all ${
                         plan.key === "pro"
                           ? "bg-gradient-mint text-white shadow-sm"

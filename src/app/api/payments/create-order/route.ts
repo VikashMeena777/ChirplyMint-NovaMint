@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       customerPhone: "9999999999", // Fallback — Cashfree requires phone
       customerId: user.id,
       customerName: (profile?.full_name as string) || "Customer",
-      returnUrl: `${appUrl}/dashboard/settings?payment=success&order_id={order_id}`,
+      returnUrl: `${appUrl}/dashboard/settings/billing?payment=success&order_id={order_id}`,
     });
 
     if (!result.success) {

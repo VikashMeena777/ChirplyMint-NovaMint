@@ -2,6 +2,7 @@
 
 import { logInfo } from "@/lib/utils/logger";
 import { getPasswordResetHtml } from "@/lib/email/templates/password-reset";
+import { validatePasswordPolicy } from "@/lib/utils/password-policy";
 import { sendEmail } from "@/lib/email/send";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
@@ -14,22 +15,6 @@ import { headers } from "next/headers";
 import { getWelcomeOnboardingHtml } from "@/lib/email/templates/onboarding-day1";
 import { trackServerEvent, identifyServerUser } from "@/lib/analytics/posthog-server";
 
-/**
- * Shared password policy: 8+ chars, one uppercase, one number.
- * Returns an error message, or null when the password is acceptable.
- */
-function validatePasswordPolicy(password: string | null | undefined): string | null {
-  if (!password || password.length < 8) {
-    return "Password must be at least 8 characters";
-  }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must contain at least one uppercase letter";
-  }
-  if (!/\d/.test(password)) {
-    return "Password must contain at least one number";
-  }
-  return null;
-}
 
 /**
  * Get client IP for rate limiting.
@@ -201,9 +186,8 @@ export async function changePassword(newPassword: string): Promise<{ error?: str
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  if (newPassword.length < 8) {
-    return { error: "Password must be at least 8 characters" };
-  }
+  const policyError = validatePasswordPolicy(newPassword);
+  if (policyError) return { error: policyError };
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) return { error: error.message };
@@ -281,4 +265,26 @@ export async function requestPasswordReset(
     console.error("[Reset] Unexpected error:", err);
     return { error: "Something went wrong. Please try again." };
   }
+}
+
+/**
+ * Set a new password from the reset-email flow (user arrives with a
+ * session via /auth/confirm). Policy enforced SERVER-side — the client
+ * checklist is only a hint.
+ */
+export async function setNewPassword(
+  newPassword: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Your reset link expired — request a new one." };
+
+  const policyError = validatePasswordPolicy(newPassword);
+  if (policyError) return { error: policyError };
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { error: error.message };
+  return {};
 }

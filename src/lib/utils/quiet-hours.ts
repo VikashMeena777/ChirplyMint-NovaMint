@@ -21,10 +21,11 @@ export function isQuietHoursIST(): boolean {
 
 /**
  * Should a (non-critical) email be sent right now for this user?
- * Respects the user's quiet_hours preference (default: ON).
+ * Respects the user's quiet_hours preference (default: OFF — emails send
+ * around the clock unless the user explicitly enables quiet hours).
  * Critical email (payment, security, failure alerts) should not call this.
  */
 export function shouldSendNonCriticalEmail(prefs: Record<string, boolean> | null | undefined): boolean {
-  if (prefs?.quiet_hours === false) return true; // user opted out of quiet hours
+  if (prefs?.quiet_hours !== true) return true; // quiet hours disabled (default)
   return !isQuietHoursIST();
 }

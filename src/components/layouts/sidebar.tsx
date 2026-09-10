@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 import { useState, useRef } from "react";
 import Link from "next/link";
@@ -118,6 +118,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+
+  const confirmSignOut = () => {
+    setSigningOut(true);
+    setShowSignOutConfirm(false);
+    setTimeout(() => { void signOut(); }, 400);
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
   const iconRefs = useRef<Record<string, AnimatedIconHandle>>({});
 
@@ -215,10 +222,7 @@ export function Sidebar() {
         {/* Logout */}
         <button
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-          onClick={() => {
-            setSigningOut(true);
-            setTimeout(() => { void signOut(); }, 1100);
-          }}
+          onClick={() => setShowSignOutConfirm(true)}
         >
           <LogoutIcon size={20} className="shrink-0" />
           {!collapsed && <span>Sign Out</span>}
@@ -315,6 +319,50 @@ export function Sidebar() {
           `}</style>
         </div>
       )}
+      {/* Sign-out confirmation */}
+      <AnimatePresence>
+        {showSignOutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowSignOutConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xs p-5 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10">
+                <LogOut className="h-5 w-5 text-red-500" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">Sign out?</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Your automations keep running while you&apos;re away.
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmSignOut}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                >
+                  Sign out
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
+
   );
 }

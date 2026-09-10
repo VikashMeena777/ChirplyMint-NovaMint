@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Loader2, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { setNewPassword } from "@/lib/actions/auth";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { validatePasswordPolicy } from "@/lib/utils/password-policy";
 
 /**
  * Dedicated reset-password page. The email link logs the user in via the
@@ -21,8 +24,9 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    const policyError = validatePasswordPolicy(password);
+    if (policyError) {
+      toast.error(policyError);
       return;
     }
     if (password !== confirm) {
@@ -31,18 +35,12 @@ export default function ResetPasswordPage() {
     }
 
     setBusy(true);
-    const { createBrowserClient } = await import("@supabase/ssr");
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { error } = await supabase.auth.updateUser({ password });
+    // Server action — policy re-enforced server-side
+    const result = await setNewPassword(password);
     setBusy(false);
 
-    if (error) {
-      toast.error(error.message.includes("session")
-        ? "Your reset link expired — request a new one from the login page."
-        : error.message);
+    if (result.error) {
+      toast.error(result.error);
       return;
     }
 
@@ -78,10 +76,11 @@ export default function ResetPasswordPage() {
               type={show ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="New password (min 8 characters)"
+              placeholder="New password"
               autoFocus
               className="w-full h-12 px-4 pr-11 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
             />
+            {password.length > 0 && <PasswordChecklist password={password} />}
             <button
               type="button"
               onClick={() => setShow(!show)}

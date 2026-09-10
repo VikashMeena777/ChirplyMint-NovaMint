@@ -184,7 +184,7 @@ export async function getNotificationPreferences() {
     ab_test_results: true,
     product_updates: true,
     email_digest: false,
-    quiet_hours: true,
+    quiet_hours: false,
   };
 
   return {
