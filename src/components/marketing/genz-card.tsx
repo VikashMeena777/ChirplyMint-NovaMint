@@ -60,13 +60,18 @@ export function GenZCard() {
               <AnimatePresence mode="wait">
                 <motion.span
                   key={current.word}
-                  className="col-start-1 row-start-1 inline-block whitespace-nowrap bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text pb-0.5 text-transparent"
+                  className="col-start-1 row-start-1 inline-block whitespace-nowrap pb-0.5"
                   initial={{ y: 14, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -14, opacity: 0 }}
                   transition={{ duration: 0.32, ease: [0.21, 0.47, 0.32, 0.98] }}
                 >
-                  {current.word} {current.emoji}
+                  {/* gradient on the WORD only — the emoji needs its own
+                      colors, bg-clip-text would paint it solid green */}
+                  <span className="bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text text-transparent">
+                    {current.word}
+                  </span>{" "}
+                  <span aria-hidden>{current.emoji}</span>
                 </motion.span>
               </AnimatePresence>
             </span>{" "}

@@ -20,7 +20,7 @@ import { getLiveFeedItems } from "@/lib/actions/live-feed";
 import { getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { SplitHeadline } from "@/components/motion/split-headline";
 import { HeroHeadline } from "@/components/marketing/hero-headline";
-import { GrowthChart } from "@/components/marketing/growth-chart";
+import { FunnelRings } from "@/components/marketing/funnel-rings";
 import { GenZCard } from "@/components/marketing/genz-card";
 import { SmoothScroll } from "@/components/motion/smooth-scroll";
 import {
@@ -412,7 +412,7 @@ function Pricing() {
                 <div
                   className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm ${
                     plan.key === "pro"
-                      ? "border-mint/40 bg-gradient-to-b from-mint/10 to-card shadow-[0_0_60px_-20px_oklch(0.62_0.19_162/35%)]"
+                      ? "border-mint/40 ring-1 ring-mint/25 bg-gradient-to-b from-mint/10 to-card shadow-[0_8px_30px_-12px_oklch(0.62_0.19_162/28%)]"
                       : "border-border bg-card/60"
                   }`}
                 >
@@ -523,7 +523,7 @@ export default function Home() {
         <NicheMarquee />
         <HowItWorks />
         <FeatureBento />
-        <GrowthChart />
+        <FunnelRings />
         <Pricing />
         <FinalCTA />
         <Footer />

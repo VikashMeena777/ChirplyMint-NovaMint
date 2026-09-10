@@ -1,6 +1,8 @@
 "use client";
 
 import { Globe, Send } from "lucide-react";
+import { InstagramIcon } from "@/components/icons/instagram/instagram";
+import { TwitterIcon } from "@/components/icons/twitter/twitter";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -29,7 +31,7 @@ export function Footer() {
                 className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
                 aria-label="Instagram"
               >
-                <Globe className="w-4 h-4" />
+                <InstagramIcon size={18} />
               </a>
               <a
                 href="https://twitter.com/chirplymint"
@@ -38,7 +40,7 @@ export function Footer() {
                 className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
                 aria-label="Twitter"
               >
-                <Send className="w-4 h-4" />
+                <TwitterIcon size={18} />
               </a>
             </div>
           </div>

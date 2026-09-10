@@ -165,7 +165,7 @@ export function LiveDemoCard() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="w-fit rounded-2xl rounded-bl-md bg-neutral-200 px-3.5 py-2.5 dark:bg-neutral-800"
+                          className="ml-auto w-fit rounded-2xl rounded-br-md bg-neutral-200 px-3.5 py-2.5 dark:bg-neutral-800"
                         >
                           <div className="flex gap-1.5">
                             {[0, 1, 2].map((i) => (
