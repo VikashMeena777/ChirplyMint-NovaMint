@@ -466,7 +466,7 @@ export default function LeadsPage() {
         ) : (
           <>
             {/* Desktop table header */}
-            <div className={`flex items-center gap-3 px-4 ${dense ? "py-1.5" : "py-2.5"} bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden`}>
+            <div className={`hidden lg:grid grid-cols-[32px_minmax(0,1.7fr)_90px_minmax(0,1fr)_120px_170px] items-center gap-3 px-4 ${dense ? "py-1.5" : "py-2.5"} bg-muted/30 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider`}>
               <button onClick={toggleSelectAll} className="p-0.5 shrink-0">
                 {selected.size === leads.length ? (
                   <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -474,11 +474,11 @@ export default function LeadsPage() {
                   <Square className="w-4 h-4" />
                 )}
               </button>
-              <div className="w-[26%] min-w-0">Lead</div>
-              <div className="w-[70px] shrink-0">Source</div>
-              <div className="w-[18%] min-w-0">Tags</div>
-              <div className="w-[110px] shrink-0">Captured</div>
-              <div className="ml-auto text-right shrink-0">Actions</div>
+              <div className="min-w-0">Lead</div>
+              <div>Source</div>
+              <div className="min-w-0">Tags</div>
+              <div>Captured</div>
+              <div className="text-right">Actions</div>
             </div>
 
             <div className="divide-y divide-border">
@@ -490,10 +490,10 @@ export default function LeadsPage() {
                 return (
                   <div
                     key={lead.id as string}
-                    className={`flex flex-wrap xl:flex-nowrap items-center gap-3 px-4 ${dense ? "py-1" : "py-2"} hover:bg-muted/20 transition-colors whitespace-nowrap ${isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[32px_minmax(0,1.7fr)_90px_minmax(0,1fr)_120px_170px] items-center gap-x-3 gap-y-2 px-4 ${dense ? "py-1.5" : "py-2.5"} hover:bg-muted/20 transition-colors ${isSelected ? "bg-[oklch(0.52_0.19_162/5%)]" : ""}`}
                   >
                     {/* Checkbox */}
-                    <div className="hidden xl:flex items-center shrink-0">
+                    <div className="hidden lg:flex items-center shrink-0">
                       <button onClick={() => toggleSelect(lead.id as string)} className="p-0.5">
                         {isSelected ? (
                           <CheckSquare className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
@@ -503,27 +503,27 @@ export default function LeadsPage() {
                       </button>
                     </div>
 
-                    {/* Username + engagement + contacts — single line */}
+                    {/* Username + engagement + contacts — wraps instead of overlapping */}
                     <div
-                      className="flex items-center gap-2 w-[26%] min-w-0 cursor-pointer"
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 cursor-pointer"
                       onClick={() => setExpandedId(expandedId === lead.id ? null : (lead.id as string))}
                       title="Click to see full lead details"
                     >
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[oklch(0.52_0.19_162/15%)] to-[oklch(0.45_0.2_158/10%)] flex items-center justify-center shrink-0">
                         <span className="text-[10px] font-bold text-[oklch(0.52_0.19_162)]">{username[0].toUpperCase()}</span>
                       </div>
-                      <a href={`https://instagram.com/${username}`} target="_blank" rel="noopener noreferrer" className={`${dense ? "text-[13px]" : "text-sm"} font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] truncate shrink-0`}>
+                      <a href={`https://instagram.com/${username}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={`${dense ? "text-[13px]" : "text-sm"} font-semibold text-foreground hover:text-[oklch(0.52_0.19_162)] truncate max-w-[160px] sm:max-w-[200px]`}>
                         @{username}
                       </a>
                       <EngagementBadge level={(lead.engagement as string) || "new"} />
                       {(lead.email as string) && (
-                        <a href={`mailto:${lead.email}`} className="hidden lg:inline-flex items-center gap-1 text-[11px] text-sky-400 min-w-0" title={lead.email as string}>
+                        <a href={`mailto:${lead.email}`} onClick={(e) => e.stopPropagation()} className="hidden md:inline-flex items-center gap-1 text-[11px] text-sky-400 min-w-0 max-w-[190px]" title={lead.email as string}>
                           <Mail className="w-3 h-3 shrink-0" />
                           <span className="truncate">{lead.email as string}</span>
                         </a>
                       )}
                       {(lead.phone as string) && (
-                        <a href={`tel:${lead.phone}`} className="hidden lg:inline-flex items-center gap-1 text-[11px] text-emerald-400 min-w-0" title={lead.phone as string}>
+                        <a href={`tel:${lead.phone}`} onClick={(e) => e.stopPropagation()} className="hidden md:inline-flex items-center gap-1 text-[11px] text-emerald-400 min-w-0 max-w-[150px]" title={lead.phone as string}>
                           <Phone className="w-3 h-3 shrink-0" />
                           <span className="truncate">{lead.phone as string}</span>
                         </a>
@@ -531,12 +531,12 @@ export default function LeadsPage() {
                       <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground/50 shrink-0 transition-transform ${expandedId === lead.id ? "rotate-180" : ""}`} />
                     </div>
                     {/* Source */}
-                    <div className="w-[70px] shrink-0 overflow-hidden">
+                    <div className="hidden lg:block min-w-0">
                       <span className="text-xs text-muted-foreground capitalize truncate block">{(lead.source as string) || "—"}</span>
                     </div>
 
                     {/* Tags */}
-                    <div className="flex items-center gap-1 w-[18%] min-w-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 min-w-0 col-span-2 lg:col-span-1" onClick={(e) => e.stopPropagation()}>
                       {tags.slice(0, 2).map((tag) => (
                         <span
                           key={tag}
@@ -552,7 +552,7 @@ export default function LeadsPage() {
                     </div>
 
                     {/* Captured date */}
-                    <div className="w-[110px] shrink-0 text-xs text-muted-foreground overflow-hidden">
+                    <div className="hidden sm:block text-xs text-muted-foreground">
                       <span className="text-xs text-muted-foreground">
                         {new Date(lead.captured_at as string).toLocaleDateString("en-IN", {
                           day: "numeric", month: "short",
@@ -560,8 +560,8 @@ export default function LeadsPage() {
                       </span>
                     </div>
 
-                    {/* Actions — one tight row of icon buttons, never wraps */}
-                    <div className="lg:col-span-3 flex items-center justify-end gap-0.5">
+                    {/* Actions — tight icon row, never wraps internally */}
+                    <div className="flex items-center justify-end gap-0.5 shrink-0">
                       <a
                         href={`https://ig.me/m/${username}`}
                         target="_blank"
@@ -595,7 +595,7 @@ export default function LeadsPage() {
 
                     {/* ── Expanded detail: full timeline + every field ── */}
                     {expandedId === lead.id && (
-                      <div className="w-full mt-1 rounded-xl bg-muted/30 border border-border p-4 space-y-3">
+                      <div className="col-span-full rounded-xl bg-muted/30 border border-border p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-bold text-foreground uppercase tracking-wider">
                             Lead details
