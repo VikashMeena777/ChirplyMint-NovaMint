@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import Image from "next/image";
 
 /**
  * IntroOverlay — one-time opening animation for the landing page.
@@ -42,12 +43,12 @@ export function IntroOverlay() {
               transition={{ duration: 1, repeat: Infinity, ease: "easeOut" }}
             />
             <motion.div
-              className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-mint text-2xl font-bold text-white shadow-[0_0_50px_-8px_oklch(0.62_0.19_162/60%)]"
+              className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-mint/20 to-emerald/10 ring-1 ring-mint/30 shadow-[0_0_60px_-10px_oklch(0.62_0.19_162/55%)]"
               initial={{ scale: 0.4, opacity: 0, rotate: -8 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 18 }}
             >
-              ✨
+              <Image src="/logo.png" alt="ChirplyMint" width={56} height={56} className="h-14 w-14 rounded-2xl" priority />
             </motion.div>
             <motion.div
               className="overflow-hidden"

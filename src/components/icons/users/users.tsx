@@ -90,8 +90,26 @@ const UsersIcon = forwardRef<UsersIconHandle, UsersIconProps>(
           width={size}
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
+          <motion.path
+            animate={controls}
+            d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.5 } },
+            }}
+          />
+          <motion.circle
+            animate={controls}
+            cx="9"
+            cy="7"
+            r="4"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.45, delay: 0.15 } },
+            }}
+          />
           <motion.path
             animate={controls}
             d="M22 21v-2a4 4 0 0 0-3-3.87"

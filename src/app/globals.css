@@ -275,3 +275,34 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer { animation: none; }
 }
+/* Aurora — slow drifting gradient blobs (transform-only, GPU-cheap) */
+@keyframes aurora-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 40px) scale(1.12); }
+  66% { transform: translate(-40px, 70px) scale(0.94); }
+}
+@keyframes aurora-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, -50px) scale(1.15); }
+}
+@keyframes aurora-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(50px, -60px) scale(1.08); opacity: 1; }
+}
+.animate-aurora-1 { animation: aurora-1 26s ease-in-out infinite; }
+.animate-aurora-2 { animation: aurora-2 32s ease-in-out infinite; }
+.animate-aurora-3 { animation: aurora-3 22s ease-in-out infinite; }
+
+/* Floating particles — gentle vertical drift + twinkle */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-26px); opacity: 1; }
+}
+.animate-float-1 { animation: float-y 7s ease-in-out infinite; }
+.animate-float-2 { animation: float-y 9s ease-in-out infinite 1.2s; }
+.animate-float-3 { animation: float-y 8s ease-in-out infinite 0.6s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-1, .animate-aurora-2, .animate-aurora-3,
+  .animate-float-1, .animate-float-2, .animate-float-3 { animation: none; }
+}

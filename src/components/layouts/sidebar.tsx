@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -42,7 +42,10 @@ import { ChartPieIcon } from "@/components/icons/chart-pie/chart-pie";
 import { BellIcon } from "@/components/icons/bell/bell";
 import { SettingsIcon } from "@/components/icons/settings/settings";
 
-type AnimatedIconType = React.ComponentType<{ size?: number; className?: string }>;
+type AnimatedIconHandle = {
+  startAnimation: () => void;
+  stopAnimation: () => void;
+};
 
 const navItems = [
   {
@@ -116,6 +119,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const iconRefs = useRef<Record<string, AnimatedIconHandle>>({});
 
   const cycleTheme = () => {
     if (theme === "dark") setTheme("light");
@@ -152,6 +156,8 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setMobileOpen(false)}
+            onMouseEnter={() => iconRefs.current[item.href]?.startAnimation()}
+            onMouseLeave={() => iconRefs.current[item.href]?.stopAnimation()}
             className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
               isActive(item.href)
                 ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
@@ -167,7 +173,12 @@ export function Sidebar() {
             )}
             {item.animated ? (
               <span className={`shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`}>
-                <item.animated size={20} />
+                <item.animated
+                  ref={(h: AnimatedIconHandle | null) => {
+                    if (h) iconRefs.current[item.href] = h;
+                  }}
+                  size={20}
+                />
               </span>
             ) : (
               <item.icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`} />
@@ -184,6 +195,8 @@ export function Sidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setMobileOpen(false)}
+            onMouseEnter={() => iconRefs.current[item.href]?.startAnimation()}
+            onMouseLeave={() => iconRefs.current[item.href]?.stopAnimation()}
             className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
               isActive(item.href)
                 ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
@@ -192,7 +205,12 @@ export function Sidebar() {
           >
             {item.animated ? (
               <span className="shrink-0">
-                <item.animated size={20} />
+                <item.animated
+                  ref={(h: AnimatedIconHandle | null) => {
+                    if (h) iconRefs.current[item.href] = h;
+                  }}
+                  size={20}
+                />
               </span>
             ) : (
               <item.icon className="w-5 h-5 shrink-0" />

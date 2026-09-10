@@ -28,6 +28,7 @@ import {
 } from "@/components/motion/kit";
 import { springSnappy, springTap } from "@/components/motion/transitions";
 import { SendIcon } from "@/components/icons/send/send";
+import { IconDrawCard } from "@/components/motion/icon-draw";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { ZapIcon } from "@/components/icons/zap/zap";
 import { UsersIcon } from "@/components/icons/users/users";
@@ -74,8 +75,8 @@ const STEPS = [
 function Hero() {
   return (
     <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-28 pb-16">
-      {/* Parallax glow + grid backdrop */}
-      <div aria-hidden className="absolute inset-0">
+      {/* Living aurora backdrop — drifting gradient blobs, grid, vignette */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.15_0.02_160/40%),transparent)]" />
         <div
           className="absolute inset-0 opacity-[0.35]"
@@ -89,8 +90,16 @@ function Hero() {
               "radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 70%)",
           }}
         />
-        <div className="absolute top-1/3 left-1/4 w-[560px] h-[560px] bg-mint/10 blur-[160px] rounded-full" />
-        <div className="absolute bottom-0 right-1/4 w-[380px] h-[380px] bg-emerald/8 blur-[140px] rounded-full" />
+        {/* aurora blobs — slow drift, transform-only */}
+        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-mint/12 blur-[140px]" />
+        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-emerald/10 blur-[150px]" />
+        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[360px] w-[360px] rounded-full bg-teal-400/8 blur-[130px]" />
+        {/* floating particles */}
+        <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-mint/50" />
+        <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-emerald/60" />
+        <div className="animate-float-3 absolute left-[55%] top-[64%] h-1.5 w-1.5 rounded-full bg-mint/40" />
+        <div className="animate-float-2 absolute left-[30%] top-[72%] h-1 w-1 rounded-full bg-emerald/50" />
+        <div className="animate-float-1 absolute left-[85%] top-[55%] h-1 w-1 rounded-full bg-mint/50" />
       </div>
 
       <div className="relative w-full max-w-7xl mx-auto px-6">
@@ -112,7 +121,7 @@ function Hero() {
             <SplitHeadline
               as="h1"
               text="Turn every comment into a customer"
-              className="animate-shimmer text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.02] bg-gradient-to-r from-foreground via-foreground to-mint bg-clip-text text-transparent"
+              className="text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.02] bg-gradient-to-r from-foreground via-foreground to-mint bg-clip-text text-transparent"
             />
 
             <FadeIn delay={0.35}>
@@ -306,10 +315,11 @@ function FeatureBento() {
 
           {/* AI Persona */}
           <StaggerItem>
-            <div className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-violet-400/30">
-              <div className="rounded-2xl w-fit bg-violet-500/10 p-3 mb-4 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6">
-                <BotIcon />
-              </div>
+            <IconDrawCard
+              icon={BotIcon}
+              iconBoxClass="bg-violet-500/10 group-hover:-rotate-6"
+              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-violet-400/30"
+            >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">AI Persona Engine</h4>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -317,15 +327,16 @@ function FeatureBento() {
                   emails and phones, and hands off when a human matters.
                 </p>
               </div>
-            </div>
+            </IconDrawCard>
           </StaggerItem>
 
           {/* Button DMs */}
           <StaggerItem>
-            <div className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-mint/30">
-              <div className="rounded-2xl w-fit bg-mint/10 p-3 mb-4 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
-                <ZapIcon />
-              </div>
+            <IconDrawCard
+              icon={ZapIcon}
+              iconBoxClass="bg-mint/10 group-hover:rotate-6"
+              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-mint/30"
+            >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Interactive Button DMs</h4>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -333,15 +344,16 @@ function FeatureBento() {
                   Message Stack blocks, not plain-text bots.
                 </p>
               </div>
-            </div>
+            </IconDrawCard>
           </StaggerItem>
 
           {/* Lead capture */}
           <StaggerItem>
-            <div className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-sky-400/30">
-              <div className="rounded-2xl w-fit bg-sky-500/10 p-3 mb-4 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6">
-                <UsersIcon />
-              </div>
+            <IconDrawCard
+              icon={UsersIcon}
+              iconBoxClass="bg-sky-500/10 group-hover:-rotate-6"
+              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-sky-400/30"
+            >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Lead Capture &amp; Tagging</h4>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -349,15 +361,16 @@ function FeatureBento() {
                   scoring, notes and CSV export.
                 </p>
               </div>
-            </div>
+            </IconDrawCard>
           </StaggerItem>
 
           {/* Analytics */}
           <StaggerItem>
-            <div className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-amber-400/30">
-              <div className="rounded-2xl w-fit bg-amber-500/10 p-3 mb-4 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
-                <TrendingUpIcon />
-              </div>
+            <IconDrawCard
+              icon={TrendingUpIcon}
+              iconBoxClass="bg-amber-500/10 group-hover:rotate-6"
+              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-amber-400/30"
+            >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Real-Time Analytics</h4>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -365,7 +378,7 @@ function FeatureBento() {
                   automation — with smart send-times.
                 </p>
               </div>
-            </div>
+            </IconDrawCard>
           </StaggerItem>
 
           {/* CTA card */}

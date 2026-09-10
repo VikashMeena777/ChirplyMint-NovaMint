@@ -69,10 +69,46 @@ const BotIcon = forwardRef<BotIconHandle, BotIconProps>(
           width={size}
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M12 8V4H8" />
-          <rect height="12" rx="2" width="16" x="4" y="8" />
-          <path d="M2 14h2" />
-          <path d="M20 14h2" />
+          <motion.path
+            animate={controls}
+            d="M12 8V4H8"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.4 } },
+            }}
+          />
+          <motion.rect
+            animate={controls}
+            height="12"
+            rx="2"
+            width="16"
+            x="4"
+            y="8"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.55, delay: 0.1 } },
+            }}
+          />
+          <motion.path
+            animate={controls}
+            d="M2 14h2"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.3, delay: 0.25 } },
+            }}
+          />
+          <motion.path
+            animate={controls}
+            d="M20 14h2"
+            initial="normal"
+            variants={{
+              normal: { pathLength: 1, opacity: 1 },
+              animate: { pathLength: [0, 1], opacity: [0, 1], transition: { duration: 0.3, delay: 0.35 } },
+            }}
+          />
 
           <motion.line
             animate={controls}
