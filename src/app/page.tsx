@@ -410,10 +410,10 @@ function Pricing() {
             <StaggerItem key={plan.key} className="h-full">
               <AnimatedCard className="h-full rounded-3xl">
                 <div
-                  className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm ${
+                  className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm transition-[border-color,box-shadow] duration-300 group-hover:border-mint/50 ${
                     plan.key === "pro"
-                      ? "border-mint/40 ring-1 ring-mint/25 bg-gradient-to-b from-mint/10 to-card shadow-[inset_0_1px_0_oklch(0.72_0.15_162/25%)]"
-                      : "border-border bg-card/85"
+                      ? "border-mint/50 ring-1 ring-mint/30 bg-gradient-to-b from-mint/10 to-card shadow-[inset_0_1px_0_oklch(0.72_0.15_162/25%)] group-hover:border-mint/80 group-hover:ring-mint/50 group-hover:shadow-[inset_0_0_48px_-6px_oklch(0.62_0.19_162/45%),inset_0_1px_0_oklch(0.72_0.15_162/25%)]"
+                      : "border-border bg-card/85 group-hover:border-mint/45 group-hover:shadow-[inset_0_0_40px_-8px_oklch(0.62_0.19_162/32%)]"
                   }`}
                 >
                   {plan.key === "pro" && (
