@@ -67,7 +67,7 @@ export function GrowthChart() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
                 </span>
-                <span className="text-xs font-semibold text-mint-dark">
+                <span className="text-xs font-semibold text-mint-dark dark:text-mint-light">
                   <CountUp to={220} duration={2} /> DMs this week
                 </span>
               </div>
@@ -177,7 +177,7 @@ export function GrowthChart() {
 
             <div className="mt-4 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Hover the points — every metric is tracked per automation</p>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-mint/25 bg-mint/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-mint-dark">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-mint/25 bg-mint/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-mint-dark dark:text-mint-light">
                 Live in dashboard
               </span>
             </div>

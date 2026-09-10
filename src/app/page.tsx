@@ -123,7 +123,7 @@ function Hero() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-mint" />
                 </span>
-                <span className="text-xs font-semibold tracking-wide text-mint-dark">
+                <span className="text-xs font-semibold tracking-wide text-mint-dark dark:text-mint-light">
                   New: AI Agent with your persona &amp; FAQs
                 </span>
               </div>
@@ -417,7 +417,7 @@ function Pricing() {
                   }`}
                 >
                   {plan.key === "pro" && (
-                    <span className="mb-4 w-fit rounded-full bg-mint/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-mint-dark">
+                    <span className="mb-4 w-fit rounded-full bg-mint/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-mint-dark dark:text-mint-light">
                       Most popular
                     </span>
                   )}
@@ -517,7 +517,7 @@ export default function Home() {
   return (
     <SmoothScroll>
       <IntroOverlay />
-      <main className="force-light relative overflow-hidden bg-background">
+      <main className="relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
         <NicheMarquee />

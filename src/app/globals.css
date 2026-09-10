@@ -306,27 +306,3 @@
   .animate-aurora-1, .animate-aurora-2, .animate-aurora-3,
   .animate-float-1, .animate-float-2, .animate-float-3 { animation: none; }
 }
-/* Force-light subtree: marketing pages render white even when the app
-   theme is dark (the dashboard keeps its theme). Re-declares the light
-   token set for descendants — every bg-background/text-foreground/etc.
-   utility follows automatically. */
-.force-light {
-  color-scheme: light;
-  --background: oklch(0.995 0 0);
-  --foreground: oklch(0.13 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.02 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.02 260);
-  --primary: oklch(0.52 0.19 162);
-  --primary-foreground: oklch(0.995 0 0);
-  --secondary: oklch(0.96 0.015 162);
-  --secondary-foreground: oklch(0.3 0.1 162);
-  --muted: oklch(0.96 0.005 260);
-  --muted-foreground: oklch(0.46 0.02 260);
-  --accent: oklch(0.94 0.025 162);
-  --accent-foreground: oklch(0.28 0.1 162);
-  --border: oklch(0.91 0.005 260);
-  --input: oklch(0.93 0.005 260);
-  --ring: oklch(0.52 0.19 162);
-}

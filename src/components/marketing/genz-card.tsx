@@ -54,15 +54,17 @@ export function GenZCard() {
           <h3 className="text-3xl font-bold font-heading tracking-tight text-foreground md:text-4xl">
             comments in.
             <br />
-            <span className="inline-flex h-[1.45em] items-center overflow-hidden align-bottom">
+            {/* grid-stack swap: no overflow-hidden anywhere, so the emoji
+                and descenders can NEVER be clipped */}
+            <span className="inline-grid align-bottom">
               <AnimatePresence mode="wait">
                 <motion.span
                   key={current.word}
-                  className="inline-block whitespace-nowrap bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text pb-1 text-transparent"
-                  initial={{ y: "110%" }}
-                  animate={{ y: 0 }}
-                  exit={{ y: "-110%" }}
-                  transition={{ duration: 0.35, ease: [0.21, 0.47, 0.32, 0.98] }}
+                  className="col-start-1 row-start-1 inline-block whitespace-nowrap bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text pb-0.5 text-transparent"
+                  initial={{ y: 14, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -14, opacity: 0 }}
+                  transition={{ duration: 0.32, ease: [0.21, 0.47, 0.32, 0.98] }}
                 >
                   {current.word} {current.emoji}
                 </motion.span>
