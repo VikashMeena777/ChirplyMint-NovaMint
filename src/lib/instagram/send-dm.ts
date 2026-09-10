@@ -997,21 +997,14 @@ export interface QuickReply {
 }
 
 /**
- * Quick Replies DM — up to 13 tappable options under a text prompt.
- * user_email / user_phone_number types open the keyboard pre-filled for
- * one-tap lead capture. Taps arrive on the messages webhook as
- * message.quick_reply.payload with the typed value as message.text.
+ * Quick Replies DM — one message with tappable options under a text prompt.
  *
- * Meta rules (verified by live API probe, subcode 2534015):
- * - Native capture chips (user_email / user_phone_number) CANNOT be mixed
- *   with each other — only ONE special type per message.
- * - Every quick-replies message MUST contain at least one TEXT chip.
- *   A message with ONLY special chips is rejected ("Invalid message data").
- *   So each native message also carries an always-visible "Type Email/Phone"
- *   text chip (tapping it asks the lead to type it — saved by typed-capture).
- *   Native buttons only display when the lead has that contact in their
- *   profile; the text chip displays always, so there is never "text with no
- *   button".
+ * Every option goes out as a plain TEXT chip with the owner's label, no
+ * matter how it was configured (text / email / phone). No native capture
+ * chips, no split messages — Meta rejects messages without text chips and
+ * the split doubled texts. When a lead taps an "Ask Email/Phone" button the
+ * webhook asks them to type it once; their typed reply is saved to the lead
+ * by typed-capture. One question, one message, always.
  */
 export async function sendQuickRepliesDM(
   igUserId: string,
@@ -1020,15 +1013,15 @@ export async function sendQuickRepliesDM(
   promptText: string,
   quickReplies: QuickReply[]
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  // Meta rule: native capture chips (user_email / user_phone_number) CANNOT
-  // be mixed with each other in one message — only ONE special type per
-  // message. So we split into sequential messages:
-  //   1. prompt + all text chips
-  //   2. email prompt + "type it" text chip + the single email chip
-  //   3. phone prompt + "type it" text chip + the single phone chip
-  const textChips = quickReplies.filter((q) => (q.content_type || "text") === "text").slice(0, 12);
-  const emailChip = quickReplies.find((q) => q.content_type === "user_email");
-  const phoneChip = quickReplies.find((q) => q.content_type === "user_phone_number");
+  const chips = quickReplies.slice(0, 13).map((q) => ({
+    content_type: "text" as const,
+    title: (q.title || "").slice(0, 20),
+    payload: q.payload,
+  }));
+  if (chips.length === 0) {
+    return { success: false, error: "Quick replies block has no options" };
+  }
+  return sendOne(promptText, chips);
 
   async function sendOne(text: string, chips: QuickReply[]): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
@@ -1060,56 +1053,20 @@ export async function sendQuickRepliesDM(
   let anySuccess = false;
   let lastError: string | undefined;
 
-  if (textChips.length > 0) {
-    // No fake twins: text buttons only. Native email/phone chips go out as
-    // their own separate messages below. A twin looked identical to the real
-    // button but carried no email value and handed to the AI (which often
-    // never replied) — pure dead end, so removed.
-    const r = await sendOne(promptText, textChips);
-    if (r.success) anySuccess = true; else lastError = r.error;
-    await new Promise((res) => setTimeout(res, 600));
+  // Single message: prompt + every option exactly as the owner labeled it.
+  const r = await sendOne(promptText, chips);
+  if (r.success) {
+    anySuccess = true;
+  } else {
+    lastError = r.error;
+    console.error(`[Quick Replies] Send failed: ${r.error} — falling back to plain text prompt`);
+    // Fallback: plain text prompt so the step still delivers. A typed
+    // email/phone is captured by the webhook's typed-contact saver.
+    const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, `${promptText} (just type your answer here)`);
+    if (fb.success) anySuccess = true;
   }
 
-  if (emailChip) {
-    // Always paired with an always-visible text chip: the native button only
-    // renders when the lead has an email in their profile, but this chip
-    // renders for everyone. Its tap asks them to type it (saved by
-    // typed-capture) with zero AI dependency.
-    const emailChips: QuickReply[] = [
-      { content_type: "text", title: "✉️ Type Email", payload: "qr_typein_email" },
-      emailChip,
-    ];
-    const r = await sendOne("Share your email — tap it below or just type it here 📧", emailChips);
-    if (r.success) {
-      anySuccess = true;
-    } else {
-      lastError = r.error;
-      console.error(`[Quick Replies] Email chips send failed: ${r.error} — falling back to plain text prompt`);
-      // Fallback: plain text prompt so the step still delivers. A typed
-      // email is captured by the webhook's typed-contact saver.
-      const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your email here and I'll save it 📧");
-      if (fb.success) anySuccess = true;
-    }
-    await new Promise((res) => setTimeout(res, 600));
-  }
-
-  if (phoneChip) {
-    const phoneChips: QuickReply[] = [
-      { content_type: "text", title: "📱 Type Phone", payload: "qr_typein_phone" },
-      phoneChip,
-    ];
-    const r = await sendOne("Share your phone number — tap it below or just type it here 📱", phoneChips);
-    if (r.success) {
-      anySuccess = true;
-    } else {
-      lastError = r.error;
-      console.error(`[Quick Replies] Phone chips send failed: ${r.error} — falling back to plain text prompt`);
-      const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your phone number here and I'll save it 📱");
-      if (fb.success) anySuccess = true;
-    }
-  }
-
-  if (!textChips.length && !emailChip && !phoneChip) {
+  if (!chips.length) {
     return { success: false, error: "Quick replies block has no options" };
   }
   return anySuccess ? { success: true } : { success: false, error: lastError };

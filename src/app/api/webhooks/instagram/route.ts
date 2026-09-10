@@ -2009,6 +2009,31 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
     return;
   }
 
+  // "Ask Email/Phone" buttons are plain text chips: tapping one carries no
+  // value, so ask the lead to type it — exactly once. Skipped when a flow
+  // already answers this payload (avoids double replies). Their typed reply
+  // is saved to the lead by the typed-contact saver in handleIncomingDM.
+  // NOTE: payloads are usually opaque (qr_...) so detect intent from the
+  // button title text first, payload second.
+  if (contentType === "text") {
+    const tapTitle = (((quickReply as { title?: string }).title || "") + " " + capturedText).toLowerCase();
+    const tapPayload = (quickReply.payload || "").toLowerCase();
+    const wantsEmailBtn = /e-?mail/.test(tapTitle) || /e-?mail|ask_email/.test(tapPayload);
+    const wantsPhoneBtn =
+      /phone|mobile|whatsapp/.test(tapTitle) || /phone|mobile|ask_phone/.test(tapPayload);
+    if ((wantsEmailBtn || wantsPhoneBtn) && (!flows || flows.length === 0)) {
+      const askText =
+        wantsEmailBtn && wantsPhoneBtn
+          ? "Sure — just type your email or phone number here and I'll save it 📧"
+          : wantsEmailBtn
+            ? "Sure — just type your email here and I'll save it 📧"
+            : "Sure — just type your phone number here and I'll save it 📱";
+      console.log("[Meta Webhook] Ask-contact chip tapped by " + senderId + " — asking to type it once");
+      await sendInstagramDM(recipientId, accessToken, senderId, askText).catch(() => {});
+      return;
+    }
+  }
+
   // Structured lead capture: email / phone quick replies write straight
   // onto the lead row. Triggered by the TEXT content (real email/phone),
   // not by content_type which Meta never sends.
