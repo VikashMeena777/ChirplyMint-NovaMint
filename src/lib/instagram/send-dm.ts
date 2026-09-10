@@ -1060,14 +1060,22 @@ export async function sendQuickRepliesDM(
   }
 
   if (emailChip) {
-    const r = await sendOne("Also - drop your email so we can reach you 📧", [emailChip]);
-    if (r.success) anySuccess = true; else lastError = r.error;
+    const r = await sendOne("Tap below to share your email 📧 — or just type it here", [emailChip]);
+    if (r.success) anySuccess = true;
+    else {
+      lastError = r.error;
+      console.error(`[Quick Replies] Native email chip send failed: ${r.error} (user may only see text buttons)`);
+    }
     await new Promise((res) => setTimeout(res, 600));
   }
 
   if (phoneChip) {
-    const r = await sendOne("And your phone number, if that's easier 📱", [phoneChip]);
-    if (r.success) anySuccess = true; else lastError = r.error;
+    const r = await sendOne("Tap below to share your phone 📱 — or just type it here", [phoneChip]);
+    if (r.success) anySuccess = true;
+    else {
+      lastError = r.error;
+      console.error(`[Quick Replies] Native phone chip send failed: ${r.error} (user may only see text buttons)`);
+    }
   }
 
   if (!textChips.length && !emailChip && !phoneChip) {

@@ -953,6 +953,18 @@ async function deliverPendingStack(params: {
   const stackRow = pendingStack as Record<string, unknown> | null;
   if (!stackRow) return "none";
 
+  // Claim-first: concurrent double-taps / Meta postback retries must not both
+  // send the full stack. Only the tap that flips waiting→delivering owns it;
+  // the loser sees no waiting row and gets "none" (no resend).
+  const { data: claimed } = await supabase
+    .from("stack_pending")
+    .update({ status: "delivering" })
+    .eq("id", stackRow.id as string)
+    .eq("status", "waiting")
+    .select("id")
+    .maybeSingle();
+  if (!claimed) return "none";
+
   const { data: stackAutomation } = await supabase
     .from("automations")
     .select("*")
@@ -1008,17 +1020,22 @@ async function deliverPendingStack(params: {
       .update({ status: "delivered", delivered_at: new Date().toISOString() })
       .eq("id", stackRow.id as string);
   } else if (stackResult.sentBlocks > 0) {
-    // Partial: advance the resume cursor, keep waiting for the remainder.
+    // Partial: advance the resume cursor, release the claim back to waiting
+    // so the next tap/message resumes the remainder.
     await supabase
       .from("stack_pending")
-      .update({ pre_sent_count: skipCount + stackResult.sentBlocks })
+      .update({ pre_sent_count: skipCount + stackResult.sentBlocks, status: "waiting" })
       .eq("id", stackRow.id as string);
     console.error(
       `[Meta Webhook] Stack PARTIAL -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} sent, ${stackResult.totalBlocks - stackResult.sentBlocks} remaining (resumes next message)`
     );
   } else {
-    // Zero blocks sent — keep waiting so a retry can replay; the failure is
-    // already in dm_logs for debugging.
+    // Zero blocks sent — release the claim back to waiting so a retry can
+    // replay; the failure is already in dm_logs for debugging.
+    await supabase
+      .from("stack_pending")
+      .update({ status: "waiting" })
+      .eq("id", stackRow.id as string);
     console.error(
       `[Meta Webhook] Stack FAILED -> @${(stackRow.recipient_username as string) || senderId}: 0/${stackResult.totalBlocks} sent: ${stackResult.errors.join("; ").slice(0, 200)}`
     );
@@ -1367,10 +1384,30 @@ async function handlePostback(event: Record<string, unknown>) {
     });
 
     if (delivered === "none") {
-      // No pending stack (already delivered / stale tap) — be polite anyway
-      await sendInstagramDM(recipientId, accessToken, senderId,
-        "You're all set! ✅ Your content was already sent above — scroll up to grab it."
-      ).catch(() => {});
+      // No pending stack (already delivered / stale tap). Stay silent if we
+      // delivered in the last 5 minutes — otherwise every double-tap spams
+      // the "already sent" DM. Only answer truly stale taps.
+      try {
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: recent } = await supabase
+          .from("dm_logs")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("recipient_ig_id", senderId)
+          .like("message_text", "[STACK DELIVERED]%")
+          .gte("created_at", fiveMinAgo)
+          .limit(1)
+          .maybeSingle();
+        if (!recent) {
+          await sendInstagramDM(recipientId, accessToken, senderId,
+            "You're all set! ✅ Your content was already sent above — scroll up to grab it."
+          ).catch(() => {});
+        } else {
+          console.log(`[Meta Webhook] Stale STACK_DELIVER tap from ${senderId} ignored (delivered <5min ago, staying silent)`);
+        }
+      } catch {
+        // Polite message must never break the webhook.
+      }
     }
     return; // Stack tap fully handled
   }
