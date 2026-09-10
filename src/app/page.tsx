@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import {
   MessageCircle,
@@ -31,6 +31,7 @@ import {
 } from "@/components/motion/kit";
 import { springSnappy, springTap } from "@/components/motion/transitions";
 import { IconDrawCard } from "@/components/motion/icon-draw";
+import { SendIcon, type SendIconHandle } from "@/components/icons/send/send";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { ZapIcon } from "@/components/icons/zap/zap";
 import { UsersIcon } from "@/components/icons/users/users";
@@ -464,6 +465,8 @@ function Pricing() {
 
 /* ─── Final CTA ─── */
 function FinalCTA() {
+  const sendRef = useRef<SendIconHandle>(null);
+
   return (
     <section className="relative py-24 md:py-32 overflow-hidden">
       <div aria-hidden className="absolute inset-0 bg-gradient-section" />
@@ -482,7 +485,13 @@ function FinalCTA() {
           your next customer.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6">
-          <motion.div whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }} transition={springSnappy}>
+          <motion.div
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            transition={springSnappy}
+            onMouseEnter={() => sendRef.current?.startAnimation()}
+            onMouseLeave={() => sendRef.current?.stopAnimation()}
+          >
             <Link
               href="/signup"
               className="group inline-flex items-center gap-2.5 rounded-2xl bg-gradient-mint px-9 py-4 text-base font-semibold text-white glow-mint"
@@ -491,6 +500,8 @@ function FinalCTA() {
               <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
           </motion.div>
+          {/* linked to the button: hovering 'Get started' draws the plane */}
+          <SendIcon ref={sendRef} />
         </div>
         <p className="mt-6 text-xs text-muted-foreground">
           Free forever plan · No credit card · Official Meta API integration
@@ -518,21 +529,31 @@ export default function Home() {
       <main className="relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
-        {/* everything below the hero, wrapped for the dark-mode ambience */}
+        {/* everything below the hero — the HERO'S background language
+            extended down the page (same aurora/grid/vignette style),
+            dark-mode only, ending above the footer */}
         <div className="relative">
-          {/* dark-only premium ambience: greenise glow — hero stays untouched */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0 hidden dark:block"
-            style={{
-              background: [
-                "radial-gradient(720px 480px at 88% 12%, oklch(0.45 0.12 162 / 14%), transparent 60%)",
-                "radial-gradient(680px 520px at 8% 42%, oklch(0.42 0.1 178 / 12%), transparent 62%)",
-                "radial-gradient(900px 620px at 50% 96%, oklch(0.45 0.12 162 / 10%), transparent 60%)",
-                "linear-gradient(180deg, oklch(0.22 0.03 168 / 30%) 0%, transparent 18%, transparent 82%, oklch(0.2 0.03 168 / 35%) 100%)",
-              ].join(", "),
-            }}
-          />
+          <div aria-hidden className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden dark:block">
+            {/* continuous base wash — picks up where the hero's wash ends */}
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.15_0.025_250/55%)_0%,transparent_10%,transparent_90%,oklch(0.13_0.03_250/65%)_100%)]" />
+            {/* the hero's grid, continued at a whisper */}
+            <div
+              className="absolute inset-0 opacity-[0.16]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(oklch(0.62 0.19 162/6%) 1px, transparent 1px), linear-gradient(90deg, oklch(0.62 0.19 162/6%) 1px, transparent 1px)",
+                backgroundSize: "72px 72px",
+              }}
+            />
+            {/* the hero's aurora blobs — same style, distributed down the page,
+                CALMER than the hero so sections stay readable */}
+            <div className="animate-aurora-1 absolute top-[6%] left-[4%] h-[440px] w-[440px] rounded-full bg-emerald/8 blur-[150px]" />
+            <div className="animate-aurora-2 absolute top-[38%] right-[0%] h-[480px] w-[480px] rounded-full bg-teal-500/7 blur-[160px]" />
+            <div className="animate-aurora-3 absolute top-[70%] left-[38%] h-[420px] w-[420px] rounded-full bg-indigo-500/6 blur-[140px]" />
+            <div className="animate-aurora-1 absolute top-[92%] left-[10%] h-[380px] w-[380px] rounded-full bg-emerald/7 blur-[140px]" />
+            {/* soft green-tinted edge vignette (the "greenise") */}
+            <div className="absolute inset-0 bg-[radial-gradient(115%_85%_at_50%_50%,transparent_58%,oklch(0.2_0.05_162/22%)_100%)]" />
+          </div>
           <div className="relative z-10">
             <NicheMarquee />
             <HowItWorks />
@@ -541,8 +562,9 @@ export default function Home() {
             <Pricing />
             <FinalCTA />
           </div>
-          <Footer />
         </div>
+        {/* footer stays OUTSIDE the ambience — background ends above it */}
+        <Footer />
         {feedItems.length > 0 && <LiveActivityFeed initialItems={feedItems} />}
       </main>
     </SmoothScroll>
