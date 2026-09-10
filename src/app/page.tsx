@@ -534,25 +534,23 @@ export default function Home() {
             dark-mode only, ending above the footer */}
         <div className="relative">
           <div aria-hidden className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden dark:block">
-            {/* continuous base wash — picks up where the hero's wash ends */}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.15_0.025_250/55%)_0%,transparent_10%,transparent_90%,oklch(0.13_0.03_250/65%)_100%)]" />
-            {/* the hero's grid, continued at a whisper */}
+            {/* ONE continuous world: a uniform green-navy wash (the hero's
+                palette) covers everything evenly — no localized blobs that
+                read as glow behind a specific section */}
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.16_0.025_250/60%)_0%,oklch(0.14_0.035_168/45%)_25%,oklch(0.14_0.035_168/45%)_75%,oklch(0.16_0.025_250/60%)_100%)]" />
+            {/* the hero's grid, continued */}
             <div
-              className="absolute inset-0 opacity-[0.16]"
+              className="absolute inset-0 opacity-[0.18]"
               style={{
                 backgroundImage:
-                  "linear-gradient(oklch(0.62 0.19 162/6%) 1px, transparent 1px), linear-gradient(90deg, oklch(0.62 0.19 162/6%) 1px, transparent 1px)",
+                  "linear-gradient(oklch(0.62 0.19 162/7%) 1px, transparent 1px), linear-gradient(90deg, oklch(0.62 0.19 162/7%) 1px, transparent 1px)",
                 backgroundSize: "72px 72px",
               }}
             />
-            {/* the hero's aurora blobs — same style, distributed down the page,
-                CALMER than the hero so sections stay readable */}
-            <div className="animate-aurora-1 absolute top-[6%] left-[4%] h-[440px] w-[440px] rounded-full bg-emerald/8 blur-[150px]" />
-            <div className="animate-aurora-2 absolute top-[38%] right-[0%] h-[480px] w-[480px] rounded-full bg-teal-500/7 blur-[160px]" />
-            <div className="animate-aurora-3 absolute top-[70%] left-[38%] h-[420px] w-[420px] rounded-full bg-indigo-500/6 blur-[140px]" />
-            <div className="animate-aurora-1 absolute top-[92%] left-[10%] h-[380px] w-[380px] rounded-full bg-emerald/7 blur-[140px]" />
-            {/* soft green-tinted edge vignette (the "greenise") */}
-            <div className="absolute inset-0 bg-[radial-gradient(115%_85%_at_50%_50%,transparent_58%,oklch(0.2_0.05_162/22%)_100%)]" />
+            {/* drifting auroras — evenly spaced down the page, diffuse */}
+            <div className="animate-aurora-1 absolute top-[10%] left-[0%] h-[540px] w-[540px] rounded-full bg-emerald/10 blur-[170px]" />
+            <div className="animate-aurora-2 absolute top-[45%] right-[-2%] h-[580px] w-[580px] rounded-full bg-teal-500/9 blur-[180px]" />
+            <div className="animate-aurora-3 absolute top-[80%] left-[28%] h-[540px] w-[540px] rounded-full bg-indigo-500/8 blur-[160px]" />
           </div>
           <div className="relative z-10">
             <NicheMarquee />
