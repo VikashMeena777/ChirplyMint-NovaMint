@@ -280,24 +280,25 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
   }
 
   // Cross-instance duplicate guard: serverless instances don't share the
-  // in-memory Map above, so check recent dm_logs for the same
-  // recipient + comment text. Prevents double DMs on Meta retries.
-  try {
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: recent } = await supabase
-      .from("dm_logs")
-      .select("id")
-      .eq("recipient_ig_id", commenterId)
-      .eq("comment_text", commentText)
-      .gte("created_at", fiveMinAgo)
-      .limit(1)
-      .maybeSingle();
-    if (recent) {
-      console.log(`[Meta Webhook] Skipping cross-instance duplicate for comment ${commentId || commentText.slice(0, 30)}`);
-      return;
+  // in-memory Map above, so check dm_logs for this EXACT comment id.
+  // Matched on comment_id (unique per comment), never on text — two comments
+  // saying "good" on two different reels must both get DMs.
+  if (commentId) {
+    try {
+      const { data: recent } = await supabase
+        .from("dm_logs")
+        .select("id")
+        .eq("recipient_ig_id", commenterId)
+        .eq("comment_id", commentId)
+        .limit(1)
+        .maybeSingle();
+      if (recent) {
+        console.log(`[Meta Webhook] Skipping cross-instance duplicate for comment ${commentId}`);
+        return;
+      }
+    } catch {
+      // Guard must never block a genuine first send — fail open.
     }
-  } catch {
-    // Guard must never block a genuine first send — fail open.
   }
 
   // ═══════════════════════════════════════════════
@@ -745,6 +746,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       recipient_username: commenterUsername,
       message_text: typeof logMessageText === "string" ? logMessageText : String(logMessageText),
       comment_text: commentText,
+      ...(commentId ? { comment_id: commentId } : {}),
       status: dmStatus,
       // C1: store Meta message id so manual retries can detect duplicates
       ...(sendResult.messageId ? { meta_message_id: sendResult.messageId } : {}),
@@ -1384,18 +1386,20 @@ async function handlePostback(event: Record<string, unknown>) {
     });
 
     if (delivered === "none") {
-      // No pending stack (already delivered / stale tap). Stay silent if we
-      // delivered in the last 5 minutes — otherwise every double-tap spams
-      // the "already sent" DM. Only answer truly stale taps.
+      // No pending stack (already delivered / stale tap). Suppress ONLY rapid
+      // accidental double-taps (<60s after a delivery) — anything later gets
+      // the polite "already sent" reply, so no real tap is ever swallowed.
+      // NOTE: this never blocks NEW comments — every new comment arms a fresh
+      // waiting stack and delivers normally, even within seconds.
       try {
-        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const sixtySecAgo = new Date(Date.now() - 60 * 1000).toISOString();
         const { data: recent } = await supabase
           .from("dm_logs")
           .select("id")
           .eq("user_id", userId)
           .eq("recipient_ig_id", senderId)
           .like("message_text", "[STACK DELIVERED]%")
-          .gte("created_at", fiveMinAgo)
+          .gte("created_at", sixtySecAgo)
           .limit(1)
           .maybeSingle();
         if (!recent) {
@@ -1403,7 +1407,7 @@ async function handlePostback(event: Record<string, unknown>) {
             "You're all set! ✅ Your content was already sent above — scroll up to grab it."
           ).catch(() => {});
         } else {
-          console.log(`[Meta Webhook] Stale STACK_DELIVER tap from ${senderId} ignored (delivered <5min ago, staying silent)`);
+          console.log(`[Meta Webhook] Stale STACK_DELIVER tap from ${senderId} ignored (delivered <60s ago, likely double-tap)`);
         }
       } catch {
         // Polite message must never break the webhook.

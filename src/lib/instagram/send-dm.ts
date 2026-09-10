@@ -1029,11 +1029,19 @@ export async function sendQuickRepliesDM(
           recipient: { id: recipientIgScopedId },
           message: {
             text: text.slice(0, 1000),
-            quick_replies: chips.map((q) => ({
-              content_type: q.content_type || "text",
-              title: q.title.slice(0, 20),
-              payload: q.payload,
-            })),
+            // Title is required ONLY for text chips. Native capture chips
+            // (user_email / user_phone_number) must not carry a custom title
+            // like "Ask Email" — Meta rejects the message ("Invalid message
+            // data"). Instagram pre-fills those buttons itself.
+            quick_replies: chips.map((q) =>
+              q.content_type && q.content_type !== "text"
+                ? { content_type: q.content_type, payload: q.payload }
+                : {
+                    content_type: "text",
+                    title: q.title.slice(0, 20),
+                    payload: q.payload,
+                  }
+            ),
           },
         }),
       });
@@ -1061,20 +1069,28 @@ export async function sendQuickRepliesDM(
 
   if (emailChip) {
     const r = await sendOne("Tap below to share your email 📧 — or just type it here", [emailChip]);
-    if (r.success) anySuccess = true;
-    else {
+    if (r.success) {
+      anySuccess = true;
+    } else {
       lastError = r.error;
-      console.error(`[Quick Replies] Native email chip send failed: ${r.error} (user may only see text buttons)`);
+      console.error(`[Quick Replies] Native email chip send failed: ${r.error} — falling back to plain text prompt`);
+      // Fallback: plain text prompt so the step still delivers. A typed
+      // email is captured by the webhook's typed-contact saver.
+      const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your email here and I'll save it 📧");
+      if (fb.success) anySuccess = true;
     }
     await new Promise((res) => setTimeout(res, 600));
   }
 
   if (phoneChip) {
     const r = await sendOne("Tap below to share your phone 📱 — or just type it here", [phoneChip]);
-    if (r.success) anySuccess = true;
-    else {
+    if (r.success) {
+      anySuccess = true;
+    } else {
       lastError = r.error;
-      console.error(`[Quick Replies] Native phone chip send failed: ${r.error} (user may only see text buttons)`);
+      console.error(`[Quick Replies] Native phone chip send failed: ${r.error} — falling back to plain text prompt`);
+      const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your phone number here and I'll save it 📱");
+      if (fb.success) anySuccess = true;
     }
   }
 
