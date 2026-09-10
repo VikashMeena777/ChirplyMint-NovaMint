@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createInvoiceForPaidOrder } from "@/lib/billing/invoice";
+import { fulfillPaidOrder } from "@/lib/billing/fulfill";
 import { verifyPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
@@ -86,62 +86,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // Payment confirmed — upgrade the user
-    const plan = order.plan as PlanKey;
-    const planConfig = PLANS[plan] || PLANS.free;
+    // Payment confirmed — fulfil through the shared path (handles monthly,
+    // annual and top-ups identically to the webhook, idempotently).
+    const fulfilment = await fulfillPaidOrder({
+      orderId,
+      paymentId: (successfulPayment.cf_payment_id as string) || null,
+    });
 
-    // Update payment order
-    await adminSupabase
-      .from("payment_orders")
-      .update({
-        status: "paid",
-        cashfree_payment_id: (successfulPayment.cf_payment_id as string) || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("order_id", orderId);
-
-    // Upgrade user's plan
-    await adminSupabase
-      .from("profiles")
-      .update({
-        plan,
-        dm_limit: planConfig.dmLimit,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    // Upsert subscription record
-    await adminSupabase.from("subscriptions").upsert(
-      {
-        user_id: user.id,
-        plan,
-        status: "active",
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(
-          Date.now() + 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-
-    // Invoice (sequential, only on confirmed payment)
-    void createInvoiceForPaidOrder({
-      userId: user.id,
-      orderId: orderId,
-      amount: (order as Record<string, unknown>).amount as number ?? 0,
-      plan: order.plan as string,
-      description: `${planConfig.name} plan`,
-    }).catch((e) => console.error("[Payment Verify] Invoice creation failed:", e));
+    if (!fulfilment.ok) {
+      console.error(`[Payment Verify] Fulfilment failed for ${orderId}:`, fulfilment.error);
+      return NextResponse.json(
+        { error: fulfilment.error || "Could not apply your purchase — contact support" },
+        { status: 500 }
+      );
+    }
 
     console.log(
-      `[Payment Verify] User ${user.id} upgraded to ${plan} via API verification`
+      `[Payment Verify] Order ${orderId} fulfilled (${fulfilment.kind ?? "already done"})`
     );
 
     return NextResponse.json({
       status: "paid",
-      plan,
-      planName: planConfig.name,
+      plan: order.plan,
+      kind: fulfilment.kind ?? null,
     });
   } catch (err) {
     console.error("[Payment Verify] Error:", err);

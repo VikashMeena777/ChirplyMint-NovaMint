@@ -35,8 +35,18 @@ function SignupContent() {
     { label: "One number", met: /\d/.test(password) },
   ];
 
+  const passwordValid = passwordChecks.every((c) => c.met);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Mirror of the server-side policy (the server is authoritative)
+    if (!passwordValid) {
+      const missing = passwordChecks.find((c) => !c.met);
+      toast.error(`Password needs: ${missing?.label.toLowerCase()}`);
+      return;
+    }
+
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -173,7 +183,7 @@ function SignupContent() {
           </div>
         </div>
 
-        <button type="submit" disabled={isLoading} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none shadow-sm">
+        <button type="submit" disabled={isLoading || (password.length > 0 && !passwordValid)} className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none shadow-sm">
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><span>Create Account</span><ArrowRight className="w-4 h-4" /></>}
         </button>
       </form>

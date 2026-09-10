@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { requestPasswordReset } from "@/lib/actions/auth";
 import Link from "next/link";
 import { Mail, ArrowLeft, Loader2, Check } from "lucide-react";
-import { createBrowserClient } from "@supabase/ssr";
 import { toast } from "sonner";
 
 export default function ForgotPasswordPage() {
@@ -15,17 +15,13 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // Sent through our own domain (see requestPasswordReset) so the sender
+    // and the link match — Supabase's built-in mail linked to supabase.co
+    // and Gmail flagged it as phishing.
+    const result = await requestPasswordReset(email);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (error) {
-      toast.error(error.message);
+    if ("error" in result) {
+      toast.error(result.error);
     } else {
       setIsSent(true);
     }

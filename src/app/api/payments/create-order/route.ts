@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createPaymentOrder } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { PURCHASES } from "@/lib/billing/fulfill";
 import { checkRateLimit, getApiLimiter } from "@/lib/utils/rate-limiter";
 
 function getAdminSupabase() {
@@ -31,16 +32,8 @@ export async function POST(request: Request) {
 
     const { plan: rawPlan } = (await request.json()) as { plan: string };
 
-    // Supported purchases: pro / business / pro_annual / business_annual / topup_500
-    const PRICES: Record<string, { amount: number; label: string }> = {
-      pro: { amount: PLANS.pro.price, label: "Pro (monthly)" },
-      business: { amount: PLANS.business.price, label: "Business (monthly)" },
-      pro_annual: { amount: PLANS.pro.price * 10, label: "Pro (annual — 2 months free)" },
-      business_annual: { amount: PLANS.business.price * 10, label: "Business (annual — 2 months free)" },
-      topup_500: { amount: 99, label: "+500 DM top-up" },
-    };
-
-    const entry = PRICES[rawPlan];
+    // Single catalogue shared with fulfilment — they can never drift apart.
+    const entry = PURCHASES[rawPlan];
     if (!entry) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }

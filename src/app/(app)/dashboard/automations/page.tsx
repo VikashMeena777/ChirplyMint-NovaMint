@@ -114,7 +114,7 @@ export default function AutomationsPage() {
     if (result.error) {
       toast.error(result.error, { duration: 8000 });
     } else {
-      toast.success("Test DM sent to YOUR Instagram — check your DMs! (nothing was public)");
+      toast.success(result.message || "Test DM sent to YOUR Instagram — check your DMs! (nothing was public)", { duration: 9000 });
     }
   }
 

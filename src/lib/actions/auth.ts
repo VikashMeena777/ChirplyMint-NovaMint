@@ -1,17 +1,35 @@
 "use server";
 
 import { logInfo } from "@/lib/utils/logger";
+import { getPasswordResetHtml } from "@/lib/email/templates/password-reset";
+import { sendEmail } from "@/lib/email/send";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { checkRateLimit, getAuthLimiter } from "@/lib/utils/rate-limiter";
 import { headers } from "next/headers";
-import { sendEmail } from "@/lib/email/send";
 import { getWelcomeOnboardingHtml } from "@/lib/email/templates/onboarding-day1";
 import { trackServerEvent, identifyServerUser } from "@/lib/analytics/posthog-server";
+
+/**
+ * Shared password policy: 8+ chars, one uppercase, one number.
+ * Returns an error message, or null when the password is acceptable.
+ */
+function validatePasswordPolicy(password: string | null | undefined): string | null {
+  if (!password || password.length < 8) {
+    return "Password must be at least 8 characters";
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter";
+  }
+  if (!/\d/.test(password)) {
+    return "Password must contain at least one number";
+  }
+  return null;
+}
 
 /**
  * Get client IP for rate limiting.
@@ -65,10 +83,17 @@ export async function signup(formData: FormData) {
 
   const email = formData.get("email") as string;
   const name = formData.get("name") as string;
+  const password = formData.get("password") as string;
+
+  // Password policy enforced HERE — the signup form's checklist is only a
+  // hint and can be bypassed (devtools, curl, disabled JS). This is the
+  // authoritative gate; keep it in sync with the checklist copy.
+  const policyError = validatePasswordPolicy(password);
+  if (policyError) return { error: policyError };
 
   const { error } = await supabase.auth.signUp({
     email,
-    password: formData.get("password") as string,
+    password,
     options: {
       data: {
         full_name: name,
@@ -183,4 +208,77 @@ export async function changePassword(newPassword: string): Promise<{ error?: str
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) return { error: error.message };
   return {};
+}
+
+/**
+ * Send a password-reset email FROM OUR DOMAIN with a link ON OUR DOMAIN.
+ *
+ * Supabase's built-in reset mail links to <project>.supabase.co while our
+ * SMTP sender is novamintnetworks.in. Gmail treats that sender/link domain
+ * mismatch on a password page as phishing — the mail landed in spam with a
+ * warning banner. We generate the recovery token via the admin API and mail
+ * it ourselves through Resend, so both domains match.
+ *
+ * Always returns success: never reveal whether an address is registered.
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: true } | { error: string }> {
+  const ip = await getClientIp();
+  const authLimiter = getAuthLimiter();
+  const rateCheck = await checkRateLimit(authLimiter, `auth:reset:${ip}`);
+  if (!rateCheck.allowed) {
+    return { error: "Too many reset attempts. Please try again in a few minutes." };
+  }
+
+  const clean = (email || "").trim().toLowerCase();
+  if (!clean || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
+    return { error: "Enter a valid email address" };
+  }
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: clean,
+    });
+
+    // Unknown address → say nothing (account-enumeration protection)
+    if (error || !data?.properties?.hashed_token) {
+      if (error && !/not found|User not found/i.test(error.message)) {
+        console.error("[Reset] generateLink error:", error.message);
+      }
+      return { success: true };
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const resetUrl =
+      `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}` +
+      `&type=recovery&next=${encodeURIComponent("/reset-password")}`;
+
+    const name =
+      (data.user?.user_metadata?.full_name as string) ||
+      clean.split("@")[0] ||
+      "there";
+
+    const sent = await sendEmail({
+      to: clean,
+      subject: "Reset your ChirplyMint password",
+      html: getPasswordResetHtml({ name, resetUrl, expiresMinutes: 60 }),
+    });
+
+    if (!sent.success) {
+      console.error("[Reset] Email send failed:", sent.error);
+      return { error: "Could not send the reset email. Please try again shortly." };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[Reset] Unexpected error:", err);
+    return { error: "Something went wrong. Please try again." };
+  }
 }

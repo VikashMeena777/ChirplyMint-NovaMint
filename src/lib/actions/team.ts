@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email/send";
+import { getTeamInviteHtml } from "@/lib/email/templates/team-invite";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
@@ -71,7 +73,7 @@ export async function getTeam(): Promise<{
 
 export async function inviteTeamMember(
   email: string
-): Promise<{ inviteUrl?: string; error?: string }> {
+): Promise<{ inviteUrl?: string; error?: string; emailSent?: boolean; emailError?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -81,7 +83,7 @@ export async function inviteTeamMember(
   // Business plan only
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan, email")
+    .select("plan, email, full_name")
     .eq("id", user.id)
     .single();
   const p = profile as Record<string, string> | null;
@@ -128,9 +130,32 @@ export async function inviteTeamMember(
   });
   if (error) return { error: error.message };
 
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}/invite/${token}`;
+
+  // Actually email the invitee — this used to only return a link for the
+  // owner to copy, so invitees never heard anything (user-reported).
+  const emailResult = await sendEmail({
+    to: cleanEmail,
+    subject: `${p?.email || "A teammate"} invited you to their ChirplyMint team`,
+    html: getTeamInviteHtml({
+      inviterName: (p?.full_name as string) || (p?.email as string) || "A teammate",
+      inviterEmail: (p?.email as string) || "",
+      inviteUrl,
+      seatLimit: SEAT_LIMIT,
+    }),
+  });
+
+  if (!emailResult.success) {
+    console.error("[Team] Invite email failed:", emailResult.error);
+  }
+
   logActivity(user.id, "team.invited", { email: cleanEmail }).catch(() => {});
   revalidatePath("/dashboard/settings");
-  return { inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL || ""}/invite/${token}` };
+  return {
+    inviteUrl,
+    emailSent: emailResult.success,
+    emailError: emailResult.success ? undefined : emailResult.error,
+  };
 }
 
 export async function revokeInvite(id: string): Promise<{ error?: string }> {

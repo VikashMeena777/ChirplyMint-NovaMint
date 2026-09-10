@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { verifyWebhookSignature } from "@/lib/cashfree/client";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { sendEmail } from "@/lib/email/send";
-import { createInvoiceForPaidOrder } from "@/lib/billing/invoice";
+import { fulfillPaidOrder } from "@/lib/billing/fulfill";
 import { getPlanUpgradedHtml } from "@/lib/email/templates/plan-upgraded";
 
 function getAdminSupabase() {
@@ -48,133 +48,56 @@ export async function POST(request: Request) {
     const orderId = orderData.order_id;
 
     if (eventType === "PAYMENT_SUCCESS_WEBHOOK") {
-      // Update payment order status
-      const { data: order } = await supabase
-        .from("payment_orders")
-        .update({
-          status: "paid",
-          cashfree_payment_id: paymentData?.cf_payment_id || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("order_id", orderId)
-        .select("user_id, plan")
-        .single();
+      // Shared fulfilment: monthly / annual / top-up, idempotent (the verify
+      // route calls the exact same function when the user returns from checkout).
+      const result = await fulfillPaidOrder({
+        orderId,
+        paymentId: (paymentData?.cf_payment_id as string) || null,
+        cashfreeCustomerId: orderData.customer_details?.customer_id || null,
+      });
 
-      if (order) {
-        const rawPlan = order.plan as string;
-        const plan = rawPlan as PlanKey;
-        const planConfig = PLANS[plan] || PLANS.free;
+      if (!result.ok) {
+        console.error(`[Cashfree Webhook] Fulfilment failed for ${orderId}:`, result.error);
+        return NextResponse.json({ status: "ok" });
+      }
 
-        // ── Top-up pack: add DMs, don't change plan ──
-        if (rawPlan === "topup_500") {
-          // Top-up = +500 on the ACTUAL limit (they paid for 500 DMs).
-          // dm-reset only clears the counter monthly, never dm_limit, so
-          // the purchase persists. Counter resets so the room is usable now.
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("dm_limit, dm_topup_balance")
-            .eq("id", order.user_id)
-            .single();
-          const cur = prof as Record<string, number> | null;
-          const currentLimit = cur?.dm_limit ?? 50;
-          const purchased = (cur?.dm_topup_balance ?? 0) + 500;
-          await supabase
-            .from("profiles")
-            .update({
-              dm_limit: currentLimit + 500,
-              dm_topup_balance: purchased,
-              dm_count_this_month: 0,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", order.user_id);
-
-          void createInvoiceForPaidOrder({
-            userId: order.user_id as string,
-            orderId: orderId,
-            amount: 99,
-            plan: "topup_500",
-            description: "+500 DM top-up",
-          }).catch((e) => console.error("[Cashfree Webhook] Invoice creation failed:", e));
-
-          await supabase.from("notifications").insert({
-            user_id: order.user_id,
-            type: "payment_success",
-            title: "⚡ +500 DMs added!",
-            body: "Your DM top-up is active — your monthly counter was reset. Happy automating!",
-            metadata: { order_id: orderId },
-          });
-          return NextResponse.json({ status: "ok" });
-        }
-
-        // ── Plan purchase (monthly or annual) ──
-        const periodDays = rawPlan.endsWith("_annual") ? 365 : 30;
-        const effectivePlan = rawPlan.replace("_annual", "") as PlanKey;
-        const effConfig = PLANS[effectivePlan] || PLANS.free;
-
-        await supabase
-          .from("profiles")
-          .update({
-            plan: effectivePlan,
-            dm_limit: effConfig.dmLimit,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", order.user_id);
-
-        // Upsert subscription record
-        await supabase
-          .from("subscriptions")
-          .upsert({
-            user_id: order.user_id,
-            plan: effectivePlan,
-            status: "active",
-            cashfree_customer_id: orderData.customer_details?.customer_id || null,
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(
-              Date.now() + periodDays * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "user_id" });
-
-        // Invoice (sequential, only on confirmed payment)
-        void createInvoiceForPaidOrder({
-          userId: order.user_id as string,
-          orderId: orderId,
-          amount: (orderData as Record<string, unknown>).order_amount as number ?? 0,
-          plan: rawPlan,
-          description: rawPlan.endsWith("_annual")
-            ? `${effConfig.name} plan (annual)`
-            : rawPlan === "topup_500"
-            ? "+500 DM top-up"
-            : `${effConfig.name} plan (monthly)`,
-        }).catch((e) => console.error("[Cashfree Webhook] Invoice creation failed:", e));
-
-        // Send success notification
-        await supabase.from("notifications").insert({
-          user_id: order.user_id,
-          type: "payment_success",
-          title: "🎉 Plan Upgraded!",
-          body: `You've been upgraded to the ${effConfig.name} plan${periodDays === 365 ? " (annual)" : ""}. Enjoy your new features!`,
-          metadata: { plan, order_id: orderId },
-        });
-
-        // Send Plan Upgraded email (fire-and-forget)
+      // Plan-upgrade email (top-ups get an in-app notification instead)
+      if (!result.alreadyFulfilled && result.kind !== "topup") {
         void (async () => {
           try {
-            const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
+            const { data: ord } = await supabase
+              .from("payment_orders")
+              .select("user_id, plan")
+              .eq("order_id", orderId)
+              .single();
+            const o = ord as Record<string, string> | null;
+            if (!o) return;
+
+            const planKey = o.plan.replace("_annual", "") as PlanKey;
+            const planConfig = PLANS[planKey] || PLANS.free;
+            const { data: authUser } = await supabase.auth.admin.getUserById(o.user_id);
             const userEmail = authUser?.user?.email;
-            const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", order.user_id).single();
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", o.user_id)
+              .single();
+
             if (userEmail) {
               await sendEmail({
                 to: userEmail,
-                subject: `💎 Welcome to ${planConfig.name} — Your Plan is Upgraded!`,
+                subject: `Welcome to ${planConfig.name} — your plan is active`,
                 html: getPlanUpgradedHtml({
-                  name: (prof as Record<string, unknown>)?.full_name as string || "there",
+                  name: ((prof as Record<string, unknown>)?.full_name as string) || "there",
                   planName: planConfig.name,
                   dmLimit: planConfig.dmLimit === -1 ? "Unlimited" : String(planConfig.dmLimit),
                   features: planConfig.features.slice(0, 5) as unknown as string[],
                 }),
               });
-              await supabase.from("profiles").update({ plan_upgraded_email_sent: true }).eq("id", order.user_id);
+              await supabase
+                .from("profiles")
+                .update({ plan_upgraded_email_sent: true })
+                .eq("id", o.user_id);
             }
           } catch (e) {
             console.error("[Cashfree Webhook] Email error:", e);

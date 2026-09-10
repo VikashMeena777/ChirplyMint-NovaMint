@@ -526,7 +526,12 @@ export default function SettingsPage() {
                     const r = await inviteTeamMember(teamInviteEmail);
                     setTeamBusy(false);
                     if (r.error) { toast.error(r.error); } else {
-                      toast.success("Invite ready - link copied to clipboard!");
+                      toast.success(
+                        r.emailSent
+                          ? "Invitation emailed! Link also copied to your clipboard."
+                          : `Invite link copied to clipboard${r.emailError ? " (email couldn't send: " + r.emailError + ")" : ""}`,
+                        { duration: 7000 }
+                      );
                       if (r.inviteUrl) navigator.clipboard.writeText(r.inviteUrl).catch(() => {});
                       setTeamInviteEmail("");
                       loadTeam();

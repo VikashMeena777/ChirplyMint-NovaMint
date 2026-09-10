@@ -1,5 +1,7 @@
 "use server";
 
+import { sendGenericTemplateDM } from "@/lib/instagram/send-dm";
+
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canCreateAutomation, type PlanKey } from "@/lib/utils/plan-limits";
@@ -618,7 +620,7 @@ export async function bulkSetAutomationStatus(
 export async function testAutomation(
   id: string,
   testKeyword: string
-): Promise<{ success?: boolean; error?: string }> {
+): Promise<{ success?: boolean; error?: string; message?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -664,21 +666,117 @@ export async function testAutomation(
     };
   }
 
-  // Build the message from the automation's content (mirror of stack/DM logic)
-  const blocks = (a.template_blocks as { type: string; text?: string }[] | null) || [];
-  let message: string;
-  if (blocks.length > 0) {
-    const firstText = blocks.find((b) => b.type === "text" && (b.text || "").trim());
-    message = (firstText?.text || `Test from "${a.name}"`).replace(/\{name\}/gi, `@${ig.ig_username}`);
-  } else if (a.template_type === "button") {
-    message = (a.template_title as string) || `Test from "${a.name}"`;
-  } else {
-    message = (a.dm_template as string) || `Test from "${a.name}"`;
-    message = message.replace(/\{name\}/gi, `@${ig.ig_username}`);
+  // ── Mirror PRODUCTION exactly ──
+  // A real comment gets a phase-1 button card ("Send it to me 📩"); tapping it
+  // opens the 24h window and plays the rest of the stack. The test used to send
+  // only plain text, so PDFs/carousels/quick-replies never appeared. Now the
+  // test arms the same two-phase flow.
+  const blocks =
+    (a.template_blocks as { type: string; text?: string; image_url?: string }[] | null) || [];
+  const templateType = (a.template_type as string) || "text";
+  const me = `@${ig.ig_username}`;
+
+  if (templateType === "stack" && blocks.length > 0) {
+    const first = blocks[0];
+    let cardTitle: string;
+    let captionConsumed = false;
+
+    if (first.type === "text" && (first.text || "").trim()) {
+      cardTitle = first.text!.replace(/\{name\}/gi, me).replace(/\{keyword\}/gi, testKeyword || (a.keyword as string));
+      captionConsumed = true;
+    } else if (first.type === "button_card" && (first.text || "").trim()) {
+      cardTitle = first.text!.replace(/\{name\}/gi, me);
+      captionConsumed = true;
+    } else if ((a.dm_template as string || "").trim()) {
+      cardTitle = (a.dm_template as string).replace(/\{name\}/gi, me);
+    } else {
+      cardTitle = `Hey ${me}! 👋 Thanks for commenting!`;
+    }
+    cardTitle = `[TEST] ${cardTitle}`.slice(0, 80);
+
+    const cardRes = await sendGenericTemplateDM(ig.ig_user_id as string, accessToken, ownId, {
+      title: cardTitle,
+      subtitle: "Tap the button below to receive it instantly",
+      image_url: first.type === "button_card" ? first.image_url || undefined : undefined,
+      buttons: [{ type: "postback", title: "Send it to me 📩", payload: `STACK_DELIVER:${id}` }],
+    });
+
+    if (!cardRes.success) {
+      const msg = cardRes.error || "Send failed";
+      if (/window|24/i.test(msg)) {
+        return {
+          error:
+            "Test needs an open conversation: send ANY DM to your own account from the Instagram app first, then run the test again.",
+        };
+      }
+      return { error: msg };
+    }
+
+    // Arm delivery so tapping the button plays the full stack — same table and
+    // same pre_sent_count maths the webhook uses.
+    const preSentCount = captionConsumed && cardTitle.length <= 80 && blocks.length > 1 ? 1 : 0;
+    await supabase.from("stack_pending").insert({
+      user_id: user.id,
+      automation_id: id,
+      instagram_account_id: a.instagram_account_id as string,
+      recipient_ig_id: ownId,
+      recipient_username: ig.ig_username,
+      pre_sent_count: preSentCount,
+      status: "waiting",
+    });
+
+    await supabase.from("dm_logs").insert({
+      user_id: user.id,
+      automation_id: id,
+      instagram_account_id: a.instagram_account_id as string,
+      recipient_ig_id: ownId,
+      recipient_username: ig.ig_username,
+      message_text: `[TEST MODE] ${cardTitle}`,
+      comment_text: `[SIMULATED] keyword: ${testKeyword || a.keyword}`,
+      status: "sent",
+      trigger_type: "test",
+    });
+
+    return {
+      success: true,
+      message: `Button card sent to your DMs — tap "Send it to me 📩" and the full stack (${blocks.length} block${blocks.length === 1 ? "" : "s"}) plays exactly like production.`,
+    };
   }
 
-  // Send the test DM to the owner themselves (window may not be open if they
-  // never DM'd the account — that's expected; the error tells them to DM first)
+  if (templateType === "button" && (a.template_title as string)) {
+    const buttons = (a.template_buttons as { type: string; title: string; url?: string; payload?: string }[]) || [];
+    const cardRes = await sendGenericTemplateDM(ig.ig_user_id as string, accessToken, ownId, {
+      title: `[TEST] ${(a.template_title as string).replace(/\{name\}/gi, me)}`.slice(0, 80),
+      subtitle: (a.template_subtitle as string) || undefined,
+      buttons: buttons.slice(0, 3) as never,
+    });
+    if (!cardRes.success) {
+      const msg = cardRes.error || "Send failed";
+      if (/window|24/i.test(msg)) {
+        return {
+          error:
+            "Test needs an open conversation: send ANY DM to your own account from the Instagram app first, then run the test again.",
+        };
+      }
+      return { error: msg };
+    }
+
+    await supabase.from("dm_logs").insert({
+      user_id: user.id,
+      automation_id: id,
+      instagram_account_id: a.instagram_account_id as string,
+      recipient_ig_id: ownId,
+      recipient_username: ig.ig_username,
+      message_text: `[TEST MODE] ${a.template_title}`,
+      comment_text: `[SIMULATED] keyword: ${testKeyword || a.keyword}`,
+      status: "sent",
+      trigger_type: "test",
+    });
+    return { success: true, message: "Button card sent to your DMs — check Instagram!" };
+  }
+
+  // Plain-text automation: nothing to stage, send it as-is
+  const message = ((a.dm_template as string) || `Test from "${a.name}"`).replace(/\{name\}/gi, me);
   const sendRes = await fetch(`https://graph.instagram.com/v26.0/${ig.ig_user_id}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -694,7 +792,7 @@ export async function testAutomation(
     if (/window|24/i.test(msg)) {
       return {
         error:
-          "Test message needs an open conversation: send ANY DM to your own account from the Instagram app first, then run the test again.",
+          "Test needs an open conversation: send ANY DM to your own account from the Instagram app first, then run the test again.",
       };
     }
     return { error: msg };
@@ -712,5 +810,5 @@ export async function testAutomation(
     trigger_type: "test",
   });
 
-  return { success: true };
+  return { success: true, message: "Test DM sent to your Instagram!" };
 }
