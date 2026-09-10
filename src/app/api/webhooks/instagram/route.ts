@@ -1066,6 +1066,45 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     (igAccount.page_access_token as string) ||
     (igAccount.access_token as string);
 
+  // Typed contact capture: if the user TYPES their email/phone as a plain DM
+  // (e.g. after tapping the twin fallback button), save it to the lead.
+  // Never blocks the main reply flow.
+  try {
+    const typed = messageText.trim();
+    const isTypedEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(typed);
+    const typedDigits = typed.replace(/\D/g, "");
+    const isTypedPhone =
+      !isTypedEmail && /^[+]?[\d][\d\s\-().]{6,18}\d$/.test(typed) &&
+      typedDigits.length >= 7 && typedDigits.length <= 15;
+    if (isTypedEmail || isTypedPhone) {
+      const { data: exLead } = await supabase
+        .from("leads")
+        .select("ig_username, username")
+        .eq("user_id", userId)
+        .eq("ig_user_id", senderId)
+        .maybeSingle();
+      const keepName =
+        ((exLead as Record<string, string> | null)?.ig_username as string) ||
+        ((exLead as Record<string, string> | null)?.username as string) ||
+        senderId;
+      await supabase.from("leads").upsert(
+        {
+          user_id: userId,
+          ig_user_id: senderId,
+          ig_username: keepName,
+          [isTypedEmail ? "email" : "phone"]: isTypedEmail ? typed.toLowerCase() : typed,
+          source: "dm_text",
+          notes: "Captured from typed " + (isTypedEmail ? "email" : "phone number") + " in DM",
+        },
+        { onConflict: "user_id,ig_user_id" }
+      );
+      console.log("[Meta Webhook] Typed " + (isTypedEmail ? "email" : "phone") + " captured for " + senderId);
+      void markLeadEngaged(supabase, userId, senderId, "interested");
+    }
+  } catch {
+    // Contact capture must never break the reply flow.
+  }
+
   // ═══════════════════════════════════════════════
 
   // MESSAGE STACK, PHASE 2: this lead just replied after our phase-1
@@ -1840,7 +1879,19 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
   if (!senderId || !recipientId || !quickReply?.payload) return;
 
   const capturedText = (msg.text as string) || "";
-  const contentType = quickReply.content_type || "text";
+  // Meta NEVER sends content_type in the webhook quick_reply object — it only
+  // sends { payload }. The old code read quick_reply.content_type (always
+  // undefined → "text"), so native email/phone taps never hit the capture
+  // branch. Detect from the actual text instead: native taps carry the real
+  // email/phone as message.text; twin taps carry the button title ("Ask Email").
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const PHONE_RE = /^[+]?[\d][\d\s\-().]{6,18}\d$/;
+  const trimmedCapture = capturedText.trim();
+  const looksLikeEmail = EMAIL_RE.test(trimmedCapture);
+  // Avoid misreading short button titles ("Hii", "Yes") as phones.
+  const digitsOnly = trimmedCapture.replace(/\D/g, "");
+  const looksLikePhone = !looksLikeEmail && PHONE_RE.test(trimmedCapture) && digitsOnly.length >= 7 && digitsOnly.length <= 15;
+  const contentType = looksLikeEmail ? "user_email" : looksLikePhone ? "user_phone_number" : "text";
 
   // Resolve the IG account (recipient of the tap = our account)
   const { data: igAccount } = await supabase
@@ -1873,35 +1924,53 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
   const accessToken = await getAccountToken(recipientId);
   if (!accessToken) return;
 
-  // TWIN taps are text-type stand-ins for the native capture chips
-  // (payload ends "_twin"): no contact value arrives. Hand the tap to the
-  // AI agent as a normal message — it should ask for the email/phone in
-  // conversation, never claim something was sent.
+  // Stale twin taps (payload ends "_twin") come from buttons sent before the
+  // twin removal. Twins never carried an email value and handed to the AI,
+  // which often never replied — dead end. Answer directly: ask them to type
+  // it. No AI dependency, so this always replies.
+  // NOTE: payloads are opaque (qr_...) so detect kind from the button title
+  // text, not from the payload string.
   if (quickReply.payload.endsWith("_twin")) {
-    console.log("[Meta Webhook] Twin chip tapped by " + senderId + " - handing to AI agent");
-    await handleIncomingDM({
-      ...messagingEvent,
-      message: {
-        ...(messagingEvent.message as Record<string, unknown>),
-        // strip quick_reply so handleIncomingDM treats it as plain text
-        text: "I'd like to share my " + (quickReply.payload.includes("email") ? "email" : "phone number"),
-        quick_reply: undefined,
-      },
-    });
+    const wantsEmail = capturedText.toLowerCase().includes("email");
+    console.log("[Meta Webhook] Stale twin chip tapped by " + senderId + " — asking to type contact directly");
+    const accessTokenForTwin = await getAccountToken(recipientId);
+    if (accessTokenForTwin) {
+      await sendInstagramDM(
+        recipientId,
+        accessTokenForTwin,
+        senderId,
+        wantsEmail
+          ? "Sure — just type your email here and I'll save it 📧"
+          : "Sure — just type your phone number here and I'll save it 📱"
+      ).catch(() => {});
+    }
     return;
   }
 
   // Structured lead capture: email / phone quick replies write straight
-  // onto the lead row.
+  // onto the lead row. Triggered by the TEXT content (real email/phone),
+  // not by content_type which Meta never sends.
   if (contentType === "user_email" || contentType === "user_phone_number") {
     const isEmail = contentType === "user_email";
     const value = isEmail ? capturedText.trim().toLowerCase() : capturedText.trim();
+
+    // Preserve the real username — never overwrite ig_username with the numeric ID.
+    const { data: existingLead } = await supabase
+      .from("leads")
+      .select("ig_username, username")
+      .eq("user_id", userId)
+      .eq("ig_user_id", senderId)
+      .maybeSingle();
+    const keepUsername =
+      ((existingLead as Record<string, string> | null)?.ig_username as string) ||
+      ((existingLead as Record<string, string> | null)?.username as string) ||
+      senderId;
 
     await supabase.from("leads").upsert(
       {
         user_id: userId,
         ig_user_id: senderId,
-        ig_username: senderId,
+        ig_username: keepUsername,
         [isEmail ? "email" : "phone"]: value,
         source: "quick_reply",
         notes: "Captured via " + (isEmail ? "email" : "phone") + " quick reply",
