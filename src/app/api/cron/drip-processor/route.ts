@@ -123,7 +123,7 @@ export async function GET(request: Request) {
         const lp = limitProf as Record<string, unknown> | null;
         const lplan = ((lp?.plan as string) || "free") as PlanKey;
         const lcount = (lp?.dm_count_this_month as number) || 0;
-        const lcheck = canSendDM(lplan, lcount, lp?.dm_limit as number | null);
+        const lcheck = canSendDM(lplan, lcount, lp?.dm_limit as number | null, lp?.dm_topup_balance as number | null);
         if (!lcheck.allowed) {
           await supabase.from("dm_logs").insert({
             user_id: e.user_id as string,

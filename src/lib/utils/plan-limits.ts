@@ -127,12 +127,20 @@ export function isUnlimitedDM(limit: number | null | undefined): boolean {
  */
 export function getEffectiveDMLimit(
   plan: PlanKey,
-  storedLimit: number | null | undefined
+  storedLimit: number | null | undefined,
+  topupBalance?: number | null
 ): number {
+  // Unlimited stored (Business) or unlimited plan → unlimited
   if (isUnlimitedDM(storedLimit)) return -1;
-  if (typeof storedLimit === "number" && storedLimit > 0) return storedLimit;
   const planConfig = PLANS[plan] || PLANS.free;
-  return planConfig.dmLimit;
+  if (planConfig.dmLimit === -1) return -1;
+  // Entitlement = plan limit + purchased top-ups. The stored dm_limit column
+  // normally already equals this (fulfilment writes it), but legacy rows,
+  // plan-config changes, or renewal paths can drift — max() self-heals and
+  // never strands a paid top-up.
+  const planPlusBalance = planConfig.dmLimit + Math.max(0, topupBalance ?? 0);
+  const stored = typeof storedLimit === "number" && storedLimit > 0 ? storedLimit : 0;
+  return Math.max(stored, planPlusBalance);
 }
 
 /**
@@ -143,9 +151,10 @@ export function getEffectiveDMLimit(
 export function canSendDM(
   plan: PlanKey,
   currentCount: number,
-  storedLimit?: number | null
+  storedLimit?: number | null,
+  topupBalance?: number | null
 ): { allowed: boolean; limit: number; remaining: number } {
-  const effective = getEffectiveDMLimit(plan, storedLimit);
+  const effective = getEffectiveDMLimit(plan, storedLimit, topupBalance);
   if (isUnlimitedDM(effective)) {
     return { allowed: true, limit: -1, remaining: -1 };
   }

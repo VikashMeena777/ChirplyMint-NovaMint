@@ -86,7 +86,17 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+{data?.workspace?.isMember && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-500/25 bg-sky-500/8 px-4 py-3">
+            <Users className="h-4 w-4 shrink-0 text-sky-500" />
+            <p className="text-sm text-muted-foreground">
+              You&apos;re viewing <span className="font-semibold text-foreground">{data.workspace.ownerName}&apos;s workspace</span> — read-only.
+              Your own account stays separate in Settings.
+            </p>
+          </div>
+        )}
+
+                  <h1 className="text-2xl font-bold text-foreground">
             Welcome back{data?.user.name ? `, ${data.user.name.split(" ")[0]}` : ""} 👋
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

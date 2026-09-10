@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 
 export async function getDailyDMStats(days = 7) {
   const supabase = await createClient();
@@ -8,6 +9,11 @@ export async function getDailyDMStats(days = 7) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
+
+  // Shared workspace: members read the owner's analytics.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
 
   const results: { day: string; label: string; count: number }[] = [];
 
@@ -19,10 +25,10 @@ export async function getDailyDMStats(days = 7) {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const { count } = await supabase
+    const { count } = await dbClient
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .gte("sent_at", start.toISOString())
       .lt("sent_at", end.toISOString());
 
@@ -43,6 +49,11 @@ export async function getDailyLeadStats(days = 7) {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
+  // Shared workspace: members read the owner's analytics.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
   const results: { day: string; label: string; count: number }[] = [];
 
   for (let i = days - 1; i >= 0; i--) {
@@ -53,10 +64,10 @@ export async function getDailyLeadStats(days = 7) {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const { count } = await supabase
+    const { count } = await dbClient
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .gte("captured_at", start.toISOString())
       .lt("captured_at", end.toISOString());
 
@@ -77,11 +88,16 @@ export async function getTopAutomations(limit = 3) {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
+  // Shared workspace: members read the owner's analytics.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
   // Get active automations with their DM counts
-  const { data: automations } = await supabase
-    .from("automations")
+  const { data: automations } = await dbClient
+      .from("automations")
     .select("id, name, keyword, status")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .neq("status", "deleted")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -91,7 +107,7 @@ export async function getTopAutomations(limit = 3) {
   const results: { name: string; keyword: string; dmCount: number; status: string }[] = [];
 
   for (const auto of automations) {
-    const { count } = await supabase
+    const { count } = await dbClient
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
       .eq("automation_id", auto.id);

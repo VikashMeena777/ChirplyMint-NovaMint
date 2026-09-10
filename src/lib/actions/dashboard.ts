@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
-import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
+import { PLANS, getEffectiveDMLimit, type PlanKey } from "@/lib/utils/plan-limits";
+import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 
 export async function getUserPlan(): Promise<PlanKey> {
   const supabase = await createClient();
@@ -23,11 +24,17 @@ export async function getDashboardStats() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // Shared workspace: members read the OWNER's data (read-only).
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const isMember = ws?.isMember ?? false;
+  const data = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
   // Fetch profile
-  const { data: profile } = await supabase
+  const { data: profile } = await data
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("id", targetId)
     .single();
 
   // B1: dashboard visits count as activity (throttled to 1 write/hour so
@@ -48,7 +55,7 @@ export async function getDashboardStats() {
   const { count: automationCount } = await supabase
     .from("automations")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "active");
 
   // Count DMs sent this month
@@ -59,7 +66,7 @@ export async function getDashboardStats() {
   const { count: dmsSent } = await supabase
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "sent")
     .gte("sent_at", startOfMonth.toISOString());
 
@@ -67,24 +74,29 @@ export async function getDashboardStats() {
   const { count: leadsCount } = await supabase
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   // Recent activity
   const { data: recentActivity } = await supabase
     .from("activity_log")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: false })
     .limit(5);
 
   return {
+    workspace: isMember ? { isMember: true, ownerName: ws?.ownerName ?? "" } : { isMember: false, ownerName: "" },
     user: {
       id: user.id,
       email: user.email,
       name: (profile as Record<string, unknown>)?.full_name as string || "",
       avatar: (profile as Record<string, unknown>)?.avatar_url as string || "",
       plan: (profile as Record<string, unknown>)?.plan as string || "free",
-      dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
+      dmLimit: getEffectiveDMLimit(
+        ((profile as Record<string, unknown>)?.plan as PlanKey) || "free",
+        (profile as Record<string, unknown>)?.dm_limit as number | null,
+        (profile as Record<string, unknown>)?.dm_topup_balance as number | null
+      ),
     },
     stats: {
       activeAutomations: automationCount ?? 0,
@@ -135,7 +147,11 @@ export async function getProfile() {
     avatar: (profile as Record<string, unknown>)?.avatar_url as string || "",
     plan: (profile as Record<string, unknown>)?.plan as string || "free",
     dmCountThisMonth: dmsSentThisMonth ?? 0,
-    dmLimit: PLANS[((profile as Record<string, unknown>)?.plan as PlanKey) || "free"]?.dmLimit ?? PLANS.free.dmLimit,
+    dmLimit: getEffectiveDMLimit(
+        ((profile as Record<string, unknown>)?.plan as PlanKey) || "free",
+        (profile as Record<string, unknown>)?.dm_limit as number | null,
+        (profile as Record<string, unknown>)?.dm_topup_balance as number | null
+      ),
     authProvider,
   };
 }

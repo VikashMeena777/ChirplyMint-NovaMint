@@ -92,7 +92,7 @@ export async function GET(request: Request) {
       // the plan could have expired while the DM sat in the retry queue.
       const { data: prof } = await supabase
         .from("profiles")
-        .select("plan, dm_count_this_month, dm_limit")
+        .select("plan, dm_count_this_month, dm_limit, dm_topup_balance")
         .eq("id", dm.user_id as string)
         .maybeSingle();
       const p = prof as Record<string, unknown> | null;
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
       const subExpired =
         s && s.current_period_end && new Date(s.current_period_end).getTime() < Date.now() &&
         s.status !== "active";
-      if (subExpired || !canSendDM(plan, (p?.dm_count_this_month as number) || 0, p?.dm_limit as number | null).allowed) {
+      if (subExpired || !canSendDM(plan, (p?.dm_count_this_month as number) || 0, p?.dm_limit as number | null, p?.dm_topup_balance as number | null).allowed) {
         await supabase.from("dm_logs").update({
           status: "failed",
           error_message: subExpired ? "Subscription expired before retry" : "DM limit reached before retry",

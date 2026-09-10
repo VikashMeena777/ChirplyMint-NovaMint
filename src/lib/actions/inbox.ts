@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext } from "@/lib/workspace";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 /**
@@ -16,8 +17,9 @@ function getAdmin() {
   );
 }
 
-async function getAccount(userId: string) {
-  const supabase = await createClient();
+async function getAccount(userId: string, crossUserClient?: ReturnType<typeof getAdmin>) {
+  // Cross-user (team member → owner) reads need the service-role client.
+  const supabase = crossUserClient ?? (await createClient());
   const { data } = await supabase
     .from("instagram_accounts")
     .select("ig_user_id, page_access_token, access_token")
@@ -49,7 +51,12 @@ export async function getInboxThreads(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return { threads: [], error: "Not authenticated" };
 
-  const acc = await getAccount(user.id);
+  // Shared workspace: members read the owner's inbox.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const crossClient = targetId !== user.id ? getAdmin() : undefined;
+
+  const acc = await getAccount(targetId, crossClient);
   if (!acc) return { threads: [], error: "Connect Instagram first" };
 
   try {

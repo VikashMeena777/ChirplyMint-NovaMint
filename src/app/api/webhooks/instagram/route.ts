@@ -504,14 +504,15 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     // ═══════════════════════════════════════════════
     const { data: senderProfile } = await supabase
       .from("profiles")
-      .select("plan, dm_count_this_month, dm_limit")
+      .select("plan, dm_count_this_month, dm_limit, dm_topup_balance")
       .eq("id", userId)
       .single();
 
     const senderPlan = ((senderProfile?.plan as string) || "free") as PlanKey;
     const currentDmCount = (senderProfile?.dm_count_this_month as number) || 0;
     const storedDmLimit = (senderProfile as Record<string, unknown> | null)?.dm_limit as number | null;
-    const dmCheck = canSendDM(senderPlan, currentDmCount, storedDmLimit);
+    const storedTopupBalance = (senderProfile as Record<string, unknown> | null)?.dm_topup_balance as number | null;
+    const dmCheck = canSendDM(senderPlan, currentDmCount, storedDmLimit, storedTopupBalance);
 
     if (!dmCheck.allowed) {
       console.log(`[Meta Webhook] User ${userId} hit DM limit (${dmCheck.limit}) — skipping`);

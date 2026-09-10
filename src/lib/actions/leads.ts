@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 
@@ -16,12 +17,16 @@ export async function getLeads(
   } = await supabase.auth.getUser();
   if (!user) return { data: [], total: 0 };
 
+  // Shared workspace: members read the owner's leads.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+
   const offset = (page - 1) * limit;
 
-  let query = supabase
+  let query = (targetId !== user.id ? getWorkspaceAdminClient() : supabase)
     .from("leads")
     .select("*", { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("captured_at", { ascending: false });
 
   if (search) {

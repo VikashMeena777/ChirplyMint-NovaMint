@@ -45,14 +45,15 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
   // Check plan limits before retrying (honours purchased dm_limit top-ups)
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan, dm_count_this_month, dm_limit")
+    .select("plan, dm_count_this_month, dm_limit, dm_topup_balance")
     .eq("id", user.id)
     .single();
 
   const plan = ((profile as Record<string, unknown>)?.plan as PlanKey) || "free";
   const dmCount = ((profile as Record<string, unknown>)?.dm_count_this_month as number) || 0;
   const storedLimit = (profile as Record<string, unknown> | null)?.dm_limit as number | null;
-  const limitCheck = canSendDM(plan, dmCount, storedLimit);
+  const topupBalance = (profile as Record<string, unknown> | null)?.dm_topup_balance as number | null;
+  const limitCheck = canSendDM(plan, dmCount, storedLimit, topupBalance);
 
   if (!limitCheck.allowed) {
     return {

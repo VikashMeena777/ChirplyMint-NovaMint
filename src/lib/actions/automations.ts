@@ -1,6 +1,7 @@
 "use server";
 
 import { sendGenericTemplateDM } from "@/lib/instagram/send-dm";
+import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
@@ -15,10 +16,15 @@ export async function getAutomations() {
   } = await supabase.auth.getUser();
   if (!user) return { data: [], error: "Not authenticated" };
 
-  const { data, error } = await supabase
+  // Shared workspace: members read the owner's automations.
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const client = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
+  const { data, error } = await client
     .from("automations")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .neq("status", "deleted")
     .order("created_at", { ascending: false });
 

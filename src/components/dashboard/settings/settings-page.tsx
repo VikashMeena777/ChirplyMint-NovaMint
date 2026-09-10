@@ -22,6 +22,7 @@ import {
   Users,
   Mail,
   KeyRound,
+  BookOpen,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
@@ -564,6 +565,13 @@ export default function SettingsPage({ section }: { section: TabId }) {
               <div>
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-[oklch(0.52_0.19_162)]" /> Public API
+                  <Link
+                    href="/dashboard/api-docs"
+                    className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-[oklch(0.52_0.19_162)] hover:underline"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    API Docs
+                  </Link>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Read-only REST API for your data (Business plan). Endpoints:
