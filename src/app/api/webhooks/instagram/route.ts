@@ -1965,6 +1965,27 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
   const accessToken = await getAccountToken(recipientId);
   if (!accessToken) return;
 
+  // "Type Email/Phone" text-chip taps (payload qr_typein_email / qr_typein_phone):
+  // the lead chose typing over one-tap share. Answer directly asking them to
+  // type it — no AI dependency, so this always replies. Their typed reply is
+  // saved by the typed-contact saver in handleIncomingDM.
+  if (quickReply.payload === "qr_typein_email" || quickReply.payload === "qr_typein_phone") {
+    const wantsEmail = quickReply.payload === "qr_typein_email";
+    console.log("[Meta Webhook] Type-in chip tapped by " + senderId + " — asking to type contact directly");
+    const accessTokenForTypein = await getAccountToken(recipientId);
+    if (accessTokenForTypein) {
+      await sendInstagramDM(
+        recipientId,
+        accessTokenForTypein,
+        senderId,
+        wantsEmail
+          ? "Just type your email here and I'll save it 📧"
+          : "Just type your phone number here and I'll save it 📱"
+      ).catch(() => {});
+    }
+    return;
+  }
+
   // Stale twin taps (payload ends "_twin") come from buttons sent before the
   // twin removal. Twins never carried an email value and handed to the AI,
   // which often never replied — dead end. Answer directly: ask them to type

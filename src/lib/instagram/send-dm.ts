@@ -1001,6 +1001,17 @@ export interface QuickReply {
  * user_email / user_phone_number types open the keyboard pre-filled for
  * one-tap lead capture. Taps arrive on the messages webhook as
  * message.quick_reply.payload with the typed value as message.text.
+ *
+ * Meta rules (verified by live API probe, subcode 2534015):
+ * - Native capture chips (user_email / user_phone_number) CANNOT be mixed
+ *   with each other — only ONE special type per message.
+ * - Every quick-replies message MUST contain at least one TEXT chip.
+ *   A message with ONLY special chips is rejected ("Invalid message data").
+ *   So each native message also carries an always-visible "Type Email/Phone"
+ *   text chip (tapping it asks the lead to type it — saved by typed-capture).
+ *   Native buttons only display when the lead has that contact in their
+ *   profile; the text chip displays always, so there is never "text with no
+ *   button".
  */
 export async function sendQuickRepliesDM(
   igUserId: string,
@@ -1011,12 +1022,11 @@ export async function sendQuickRepliesDM(
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   // Meta rule: native capture chips (user_email / user_phone_number) CANNOT
   // be mixed with each other in one message — only ONE special type per
-  // message; mixing makes Instagram drop the chips (the "only one button
-  // shows" bug). So we split into sequential messages:
+  // message. So we split into sequential messages:
   //   1. prompt + all text chips
-  //   2. short email prompt + the single email chip (if present)
-  //   3. short phone prompt + the single phone chip (if present)
-  const textChips = quickReplies.filter((q) => (q.content_type || "text") === "text").slice(0, 13);
+  //   2. email prompt + "type it" text chip + the single email chip
+  //   3. phone prompt + "type it" text chip + the single phone chip
+  const textChips = quickReplies.filter((q) => (q.content_type || "text") === "text").slice(0, 12);
   const emailChip = quickReplies.find((q) => q.content_type === "user_email");
   const phoneChip = quickReplies.find((q) => q.content_type === "user_phone_number");
 
@@ -1029,19 +1039,12 @@ export async function sendQuickRepliesDM(
           recipient: { id: recipientIgScopedId },
           message: {
             text: text.slice(0, 1000),
-            // Title is required ONLY for text chips. Native capture chips
-            // (user_email / user_phone_number) must not carry a custom title
-            // like "Ask Email" — Meta rejects the message ("Invalid message
-            // data"). Instagram pre-fills those buttons itself.
-            quick_replies: chips.map((q) =>
-              q.content_type && q.content_type !== "text"
-                ? { content_type: q.content_type, payload: q.payload }
-                : {
-                    content_type: "text",
-                    title: q.title.slice(0, 20),
-                    payload: q.payload,
-                  }
-            ),
+            // Docs-exact shape: every chip carries title + payload.
+            quick_replies: chips.map((q) => ({
+              content_type: q.content_type || "text",
+              title: (q.title || "").slice(0, 20),
+              payload: q.payload,
+            })),
           },
         }),
       });
@@ -1068,12 +1071,20 @@ export async function sendQuickRepliesDM(
   }
 
   if (emailChip) {
-    const r = await sendOne("Tap below to share your email 📧 — or just type it here", [emailChip]);
+    // Always paired with an always-visible text chip: the native button only
+    // renders when the lead has an email in their profile, but this chip
+    // renders for everyone. Its tap asks them to type it (saved by
+    // typed-capture) with zero AI dependency.
+    const emailChips: QuickReply[] = [
+      { content_type: "text", title: "✉️ Type Email", payload: "qr_typein_email" },
+      emailChip,
+    ];
+    const r = await sendOne("Share your email — tap it below or just type it here 📧", emailChips);
     if (r.success) {
       anySuccess = true;
     } else {
       lastError = r.error;
-      console.error(`[Quick Replies] Native email chip send failed: ${r.error} — falling back to plain text prompt`);
+      console.error(`[Quick Replies] Email chips send failed: ${r.error} — falling back to plain text prompt`);
       // Fallback: plain text prompt so the step still delivers. A typed
       // email is captured by the webhook's typed-contact saver.
       const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your email here and I'll save it 📧");
@@ -1083,12 +1094,16 @@ export async function sendQuickRepliesDM(
   }
 
   if (phoneChip) {
-    const r = await sendOne("Tap below to share your phone 📱 — or just type it here", [phoneChip]);
+    const phoneChips: QuickReply[] = [
+      { content_type: "text", title: "📱 Type Phone", payload: "qr_typein_phone" },
+      phoneChip,
+    ];
+    const r = await sendOne("Share your phone number — tap it below or just type it here 📱", phoneChips);
     if (r.success) {
       anySuccess = true;
     } else {
       lastError = r.error;
-      console.error(`[Quick Replies] Native phone chip send failed: ${r.error} — falling back to plain text prompt`);
+      console.error(`[Quick Replies] Phone chips send failed: ${r.error} — falling back to plain text prompt`);
       const fb = await sendInstagramDM(igUserId, accessToken, recipientIgScopedId, "Drop your phone number here and I'll save it 📱");
       if (fb.success) anySuccess = true;
     }
