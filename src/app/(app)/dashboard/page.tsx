@@ -6,10 +6,6 @@ import {
   ArrowRight,
   Zap,
   Plus,
-  Send,
-  UserPlus,
-  Sparkles,
-  Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { getDashboardStats } from "@/lib/actions/dashboard";
@@ -88,48 +84,34 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
-        <div className="absolute inset-0 bg-gradient-to-r from-mint/[0.08] via-transparent to-emerald/[0.06] pointer-events-none" />
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-mint/10 blur-[80px] rounded-full pointer-events-none" />
-        <div className="relative flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-mint mb-1.5">
-              {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
-            </p>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              Welcome back{data?.user.name ? `, ${data.user.name.split(" ")[0]}` : ""}{" "}
-              <span className="text-gradient">👋</span>
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1.5 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-mint" />
-              Here&apos;s what&apos;s happening with your automations.
-            </p>
-          </div>
-          {/* API rate-limit gauge (BUC usage) — hidden until a reading exists */}
-          {rateLimit.callCount !== null && (
-            <span
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                rateLimit.level === "critical"
-                  ? "border-red-500/30 bg-red-500/10 text-red-600"
-                  : rateLimit.level === "warning"
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-              }`}
-            >
-              <span className="relative flex w-1.5 h-1.5">
-                {rateLimit.level !== "ok" && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-60" />
-                )}
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-current" />
-              </span>
-              {rateLimit.level === "critical"
-                ? "API usage critical — sending may pause"
-                : rateLimit.level === "warning"
-                ? "API usage 80%+"
-                : "API healthy"}
-            </span>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Welcome back{data?.user.name ? `, ${data.user.name.split(" ")[0]}` : ""} 👋
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Here&apos;s what&apos;s happening with your automations.
+          </p>
         </div>
+        {/* API rate-limit gauge (BUC usage) — hidden until a reading exists */}
+        {rateLimit.callCount !== null && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+              rateLimit.level === "critical"
+                ? "border-red-500/30 bg-red-500/10 text-red-600"
+                : rateLimit.level === "warning"
+                ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+            {rateLimit.level === "critical"
+              ? "API usage critical — sending may pause"
+              : rateLimit.level === "warning"
+              ? "API usage 80%+"
+              : "API healthy"}
+          </span>
+        )}
       </div>
 
       {/* Setup Checklist */}
@@ -176,50 +158,35 @@ export default async function DashboardPage() {
 
       {/* Recent Activity */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
-          <Link href="/dashboard/messages" className="group inline-flex items-center gap-1 text-xs font-semibold text-mint-dark dark:text-mint-light hover:underline">
-            View messages <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-        <div className="rounded-2xl bg-card border border-border shadow-sm divide-y divide-border overflow-hidden">
+        <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
+        <div className="rounded-2xl bg-card border border-border shadow-sm divide-y divide-border">
           {(data?.recentActivity ?? []).length > 0 ? (
             (data?.recentActivity ?? []).map(
-              (activity: Record<string, unknown>, i: number) => {
-                const action = (activity.action as string) || "";
-                const Icon = action.startsWith("dm.") ? Send : action.startsWith("lead") ? UserPlus : action.includes("automation") ? Bot : action.includes("instagram") ? Settings2 : Zap;
-                return (
-                  <div key={i} className="flex items-center gap-4 p-4 hover:bg-mint/[0.03] transition-colors">
-                    <div className="w-9 h-9 rounded-xl bg-mint/10 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-mint" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {action}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(activity.created_at as string).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
+              (activity: Record<string, unknown>, i: number) => (
+                <div key={i} className="flex items-center gap-4 p-4 hover:bg-muted/20 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4 text-[oklch(0.52_0.19_162)]" />
                   </div>
-                );
-              }
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {activity.action as string}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(activity.created_at as string).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )
             )
           ) : (
-            <div className="p-10 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-mint flex items-center justify-center mx-auto mb-4 shadow-lg shadow-mint/25">
-                <Zap className="w-6 h-6 text-white" />
+            <div className="p-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                <Zap className="w-5 h-5 text-muted-foreground" />
               </div>
-              <p className="font-semibold text-foreground">Quiet… for now</p>
-              <p className="text-xs text-muted-foreground mt-1 mb-5">
-                Create your first automation and watch this feed come alive.
+              <p className="text-sm font-medium text-foreground">No activity yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Start by creating your first automation!
               </p>
-              <Link
-                href="/dashboard/automations"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-mint text-white text-sm font-semibold btn-shine glow-mint-sm hover:scale-[1.02] transition-transform"
-              >
-                <Plus className="w-4 h-4" /> Create automation
-              </Link>
             </div>
           )}
         </div>

@@ -1,22 +1,10 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   manifest: "/manifest.json",
@@ -73,7 +61,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${jakarta.variable} ${jetbrains.variable} font-sans h-full antialiased`}
+      className="font-sans font-mono h-full antialiased"
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider

@@ -19,7 +19,6 @@ import {
   Workflow,
   Copy,
   Loader2,
-  MoreHorizontal,
 } from "lucide-react";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
 import ABTestPanel from "@/components/dashboard/ab-test-panel";
@@ -39,19 +38,21 @@ function DripToggle({ automationId, userPlan }: { automationId: string; userPlan
         <ChevronRight
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`}
         />
-        <GitBranch className="w-3.5 h-3.5 text-mint" />
+        <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
         <span>Drip Sequence</span>
         <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
       <div
-        className={`grid transition-all duration-300 ease-in-out ${open ? "[grid-template-rows:1fr] opacity-100" : "[grid-template-rows:0fr] opacity-0"}`}
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "2500px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
       >
-        <div className="overflow-hidden min-h-0">
-          <div className="pt-3 pb-1">
-            <DripSequenceBuilder automationId={automationId} userPlan={userPlan} />
-          </div>
+        <div className="pt-3 pb-1">
+          <DripSequenceBuilder automationId={automationId} userPlan={userPlan} />
         </div>
       </div>
     </div>
@@ -78,12 +79,14 @@ function ABTestToggle({ automationId, userPlan }: { automationId: string; userPl
         </span>
       </button>
       <div
-        className={`grid transition-all duration-300 ease-in-out ${open ? "[grid-template-rows:1fr] opacity-100" : "[grid-template-rows:0fr] opacity-0"}`}
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "2500px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
       >
-        <div className="overflow-hidden min-h-0">
-          <div className="pt-3 pb-1">
-            <ABTestPanel automationId={automationId} userPlan={userPlan} />
-          </div>
+        <div className="pt-3 pb-1">
+          <ABTestPanel automationId={automationId} userPlan={userPlan} />
         </div>
       </div>
     </div>
@@ -110,12 +113,14 @@ function PostbackFlowToggle({ automationId, userPlan }: { automationId: string; 
         </span>
       </button>
       <div
-        className={`grid transition-all duration-300 ease-in-out ${open ? "[grid-template-rows:1fr] opacity-100" : "[grid-template-rows:0fr] opacity-0"}`}
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "2500px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
       >
-        <div className="overflow-hidden min-h-0">
-          <div className="pt-3 pb-1">
-            <PostbackFlowPanel automationId={automationId} userPlan={userPlan} />
-          </div>
+        <div className="pt-3 pb-1">
+          <PostbackFlowPanel automationId={automationId} userPlan={userPlan} />
         </div>
       </div>
     </div>
@@ -144,7 +149,6 @@ export default function AutomationCard({
   onTest,
   testing,
 }: AutomationCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all group overflow-hidden">
       {/* ── Row 1: Title + Status + Actions ── */}
@@ -169,7 +173,7 @@ export default function AutomationCard({
         >
           {a.status === "active" ? "Active" : "Paused"}
         </span>
-        {/* Actions: primary inline, secondary in overflow menu */}
+        {/* Actions */}
         <div className="flex items-center gap-1.5 ml-2">
           <button
             onClick={() => onEdit(a)}
@@ -193,44 +197,28 @@ export default function AutomationCard({
               <Play className="w-3.5 h-3.5" />
             )}
           </button>
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              title="More actions"
-              aria-expanded={menuOpen}
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-9 z-50 w-44 rounded-xl bg-card border border-border shadow-xl p-1.5 space-y-0.5">
-                  <button
-                    onClick={() => { setMenuOpen(false); onClone(a.id); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-muted/40 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Clone
-                  </button>
-                  <button
-                    onClick={() => { setMenuOpen(false); onTest(a.id, a.keyword); }}
-                    disabled={testing}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-muted/40 transition-colors disabled:opacity-50"
-                  >
-                    {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" /> : <FlaskConical className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />}
-                    Test on myself
-                  </button>
-                  <div className="h-px bg-border my-1" />
-                  <button
-                    onClick={() => { setMenuOpen(false); onDelete(a.id); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <button
+            onClick={() => onClone(a.id)}
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Clone this automation"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onTest(a.id, a.keyword)}
+            disabled={testing}
+            className="p-1.5 rounded-lg border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors disabled:opacity-50"
+            title="Test mode — sends the DM to YOURSELF (never public)"
+          >
+            {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => onDelete(a.id)}
+            className="p-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -279,7 +267,7 @@ export default function AutomationCard({
         {a.ai_enabled && (
           <>
             <span className="text-muted-foreground/40">·</span>
-            <span className="inline-flex items-center gap-0.5 text-mint-dark dark:text-mint-light">
+            <span className="inline-flex items-center gap-0.5 text-purple-600 dark:text-purple-400">
               <Sparkles className="w-3 h-3" /> AI
             </span>
           </>

@@ -1,138 +1,195 @@
 "use client";
 
-import { ShieldCheck, ArrowUpRight } from "lucide-react";
-import { InstagramIcon, XIcon } from "./brand-icons";
+import { Globe, Send } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import Reveal from "@/components/motion/reveal";
-
-const columns = [
-  {
-    title: "Product",
-    links: [
-      { label: "Features", href: "/#features" },
-      { label: "How It Works", href: "/#demo" },
-      { label: "Pricing", href: "/pricing" },
-      { label: "Changelog", href: "/changelog" },
-      { label: "Roadmap", href: "/roadmap" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About", href: "/about" },
-      { label: "Help Center", href: "/help" },
-      { label: "Contact", href: "/contact" },
-      { label: "System Status", href: "/status" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
-      { label: "Security", href: "/security" },
-      { label: "Data Policy", href: "/data-policy" },
-    ],
-  },
-];
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden border-t border-border">
-      {/* ambient glow */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[300px] rounded-full bg-mint/10 blur-[130px]" />
-      <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-8">
-        <Reveal>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-14">
-            {/* Brand */}
-            <div className="col-span-2">
-              <Link href="/" className="flex items-center gap-2.5 mb-4 group w-fit">
-                <Image src="/logo.png" alt="ChirplyMint" width={36} height={36} className="w-9 h-9 rounded-xl transition-transform duration-300 group-hover:rotate-6" />
-                <span className="text-xl font-bold tracking-tight text-foreground">
-                  Chirply<span className="text-gradient">Mint</span>
-                </span>
-              </Link>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-                Turn every Instagram comment into a customer with AI-powered DM automation.
-              </p>
-              <div className="flex items-center gap-2.5 mt-5">
-                <a
-                  href="https://instagram.com/chirplymint"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-white hover:border-transparent hover:bg-gradient-to-tr hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7]"
-                  aria-label="Instagram"
-                >
-                  <InstagramIcon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
-                </a>
-                <a
-                  href="https://twitter.com/chirplymint"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground transition-all hover:-translate-y-0.5 hover:text-white hover:border-transparent hover:bg-black dark:hover:bg-white dark:hover:text-black"
-                  aria-label="Twitter / X"
-                >
-                  <XIcon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
-                </a>
-                <Link
-                  href="/status"
-                  className="ml-1 inline-flex items-center gap-1.5 px-3 h-10 rounded-xl border border-border bg-card text-xs font-medium text-muted-foreground hover:text-foreground hover:border-mint/30 transition-colors"
-                >
-                  <span className="relative flex w-2 h-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                  All systems live
-                </Link>
-              </div>
-              <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <ShieldCheck className="w-3.5 h-3.5 text-mint" />
-                100% Meta Approved API
-              </div>
-            </div>
-
-            {/* Link columns */}
-            {columns.map((col) => (
-              <div key={col.title}>
-                <h4 className="font-semibold text-xs uppercase tracking-[0.12em] text-muted-foreground mb-4">{col.title}</h4>
-                <ul className="space-y-2.5">
-                  {col.links.map((l) => (
-                    <li key={l.label}>
-                      <Link
-                        href={l.href}
-                        className="group inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {l.label}
-                        <ArrowUpRight className="w-3 h-3 opacity-0 -translate-x-1 translate-y-1 transition-all group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 text-mint" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-
-            {/* Preferences */}
-            <div>
-              <h4 className="font-semibold text-xs uppercase tracking-[0.12em] text-muted-foreground mb-4">Settings</h4>
-              <button
-                onClick={() => {
-                  document.cookie = "cookie_consent=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-                  window.location.reload();
-                }}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+    <footer className="relative border-t border-border bg-muted/30 py-16">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-1">
+            <Link href="/" className="flex items-center gap-2.5 mb-4">
+              <Image src="/logo.png" alt="ChirplyMint" width={32} height={32} className="w-8 h-8 rounded-lg" />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                Chirply<span className="text-mint">Mint</span>
+              </span>
+            </Link>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Turn every Instagram comment into a customer with AI-powered DM
+              automation.
+            </p>
+            <div className="flex items-center gap-3 mt-4">
+              <a
+                href="https://instagram.com/chirplymint"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
+                aria-label="Instagram"
               >
-                Cookie Preferences
-              </button>
+                <Globe className="w-4 h-4" />
+              </a>
+              <a
+                href="https://twitter.com/chirplymint"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
+                aria-label="Twitter"
+              >
+                <Send className="w-4 h-4" />
+              </a>
             </div>
           </div>
-        </Reveal>
+
+          {/* Product */}
+          <div>
+            <h4 className="font-semibold text-sm text-foreground mb-4">Product</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/#features"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Features
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/pricing"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/#demo"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  How It Works
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/changelog"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Changelog
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4 className="font-semibold text-sm text-foreground mb-4">Company</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/about"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  About
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/help"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Help Center
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/roadmap"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Roadmap
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/status"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  System Status
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4 className="font-semibold text-sm text-foreground mb-4">Legal</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/privacy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/security"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Security
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/data-policy"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Data Policy
+                </Link>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    // Clear consent cookie and show banner again
+                    document.cookie =
+                      "cookie_consent=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+                    window.location.reload();
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
+                >
+                  Manage Preferences
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
 
         {/* Bottom bar */}
-        <div className="pt-7 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ChirplyMint by NovaMint Networks. All rights reserved.</p>
-          <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-            Made with <span className="inline-block animate-twinkle">💚</span> in India
+        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} ChirplyMint by NovaMint Networks. All
+            rights reserved.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Made with 💚 in India
           </p>
         </div>
       </div>

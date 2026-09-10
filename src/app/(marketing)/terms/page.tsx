@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import LegalArticle from "@/components/marketing/legal-article";
 
 export const metadata: Metadata = {
   title: "Terms of Service — ChirplyMint",
@@ -10,7 +9,20 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalArticle kicker="Legal" title="Terms of Service" date="April 2026">
+    <article className="max-w-3xl mx-auto py-16 px-6">
+      <Link
+        href="/"
+        className="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block"
+      >
+        ← Back to Home
+      </Link>
+      <h1 className="text-3xl font-bold text-foreground mb-2">
+        Terms of Service
+      </h1>
+      <p className="text-sm text-muted-foreground mb-10">
+        Last updated: April 2026
+      </p>
+
       <div className="space-y-8">
         <section>
           <h2 className="text-xl font-semibold text-foreground mb-3">
@@ -341,6 +353,6 @@ export default function TermsPage() {
           </div>
         </section>
       </div>
-    </LegalArticle>
+    </article>
   );
 }

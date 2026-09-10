@@ -1,84 +1,82 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Heart, Zap, ShieldCheck, Users, ArrowRight } from "lucide-react";
-import { InstagramIcon } from "@/components/marketing/brand-icons";
-import PageHero from "@/components/marketing/page-hero";
-import Reveal from "@/components/motion/reveal";
-import Magnetic from "@/components/motion/magnetic";
 
 export const metadata: Metadata = {
   title: "About — ChirplyMint",
-  description: "Why ChirplyMint exists: turning Instagram comments into customers for creators and businesses.",
+  description: "Learn about ChirplyMint and our mission to help creators automate Instagram growth.",
 };
-
-const values = [
-  { icon: Zap, title: "Speed is a feature", desc: "A lead answered in seconds beats a perfect reply in hours. We obsess over milliseconds." },
-  { icon: ShieldCheck, title: "Trust before tricks", desc: "Official APIs only. We'd rather ship slower than risk your account — ever." },
-  { icon: Users, title: "Creators first", desc: "Built for the one-person business, priced for it too. Free plans that are actually useful." },
-  { icon: Heart, title: "Humans in the loop", desc: "Automation should hand off gracefully, never trap. Pause, take over, resume — anytime." },
-];
 
 export default function AboutPage() {
   return (
-    <div className="pb-24">
-      <PageHero
-        kicker="Our story"
-        title={<>Comments are <span className="text-gradient">the new storefront.</span></>}
-        subtitle="Every viral reel buries its gold — thousands of “price?”, “link?”, “how?” comments nobody can answer by hand. ChirplyMint answers all of them, instantly, in your voice."
-      />
-      <div className="max-w-3xl mx-auto px-6">
-        <Reveal className="rounded-3xl card-elevated p-8 md:p-10 -mt-2">
-          <p className="text-lg leading-relaxed text-foreground/90">
-            ChirplyMint started with a simple observation: creators were losing sales in their own comment
-            sections. A reel blows up overnight, 2,000 people ask for the link, and by morning the moment
-            has passed. Manual replies don&apos;t scale — so most of that intent just… evaporates.
-          </p>
-          <p className="text-lg leading-relaxed text-foreground/90 mt-4">
-            We built the tool we wished existed: connect Instagram, pick a keyword, and every matching
-            comment gets a personal DM in under a second — links, guides, bookings, answers. Then we added
-            AI that sounds like you, lead capture that files itself, and analytics that show exactly what
-            converted. All on Meta&apos;s official API, so accounts stay 100% safe.
-          </p>
-          <div className="flex items-center gap-3 mt-6 pt-6 border-t border-border">
-            <span className="w-10 h-10 rounded-full bg-gradient-mint flex items-center justify-center text-white font-bold">N</span>
-            <div>
-              <p className="text-sm font-bold">Built by NovaMint Networks</p>
-              <p className="text-xs text-muted-foreground">Made with 💚 in India</p>
-            </div>
-            <a href="https://instagram.com/chirplymint" target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-mint-dark dark:text-mint-light hover:underline">
-              <InstagramIcon className="w-4 h-4" /> @chirplymint
-            </a>
-          </div>
-        </Reveal>
+    <div className="max-w-3xl mx-auto py-16 px-6">
+      <h1 className="text-4xl font-bold text-foreground mb-4">About ChirplyMint</h1>
+      <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+        We&apos;re on a mission to help creators, coaches, and small businesses
+        turn Instagram engagement into real revenue — automatically.
+      </p>
 
-        <div className="mt-14">
-          <Reveal className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold">What we optimize for</h2>
-          </Reveal>
-          <div className="grid sm:grid-cols-2 gap-5">
-            {values.map((v, i) => (
-              <Reveal key={v.title} delay={i * 0.06}>
-                <div className="h-full p-6 rounded-3xl card-elevated card-lift">
-                  <span className="w-11 h-11 rounded-2xl bg-mint/10 flex items-center justify-center mb-4">
-                    <v.icon className="w-5 h-5 text-mint" />
-                  </span>
-                  <h3 className="font-bold mb-1.5">{v.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{v.desc}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-8 text-foreground leading-relaxed">
+        <section>
+          <h2 className="text-2xl font-semibold mb-3">Our Story</h2>
+          <p className="text-muted-foreground">
+            ChirplyMint was born from a simple frustration: creators spend hours
+            manually replying to comments with the same links, guides, and
+            resources. We built ChirplyMint to automate that entire flow — so you
+            can focus on creating, not typing.
+          </p>
+        </section>
 
-        <Reveal className="mt-14 text-center rounded-3xl bg-gradient-to-br from-mint/10 to-emerald/5 border border-mint/20 p-8 md:p-10">
-          <h3 className="text-2xl font-bold">Come build the future of DMs with us</h3>
-          <p className="text-sm text-muted-foreground mt-2 mb-6">Free forever plan. Live in 2 minutes.</p>
-          <Magnetic>
-            <Link href="/signup" className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-mint text-white font-semibold btn-shine glow-mint hover:scale-[1.02] transition-transform">
-              Start free <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </Magnetic>
-        </Reveal>
+        <section>
+          <h2 className="text-2xl font-semibold mb-3">How It Works</h2>
+          <p className="text-muted-foreground">
+            When someone comments a specific keyword on your post, ChirplyMint
+            instantly sends them a personalized DM with your content — a PDF, link,
+            discount code, or AI-powered conversation. It&apos;s 100% built on the
+            official Meta API, so your account stays safe.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-semibold mb-3">Our Values</h2>
+          <ul className="space-y-3 text-muted-foreground">
+            <li className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center text-[oklch(0.52_0.19_162)] text-sm font-bold shrink-0 mt-0.5">
+                1
+              </span>
+              <span>
+                <strong className="text-foreground">Creator-first.</strong> Every feature is
+                designed for people who create content, not just consume it.
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center text-[oklch(0.52_0.19_162)] text-sm font-bold shrink-0 mt-0.5">
+                2
+              </span>
+              <span>
+                <strong className="text-foreground">Compliance always.</strong> We use official APIs
+                only. No scraping, no shadow-ban risks.
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="w-6 h-6 rounded-full bg-[oklch(0.52_0.19_162/10%)] flex items-center justify-center text-[oklch(0.52_0.19_162)] text-sm font-bold shrink-0 mt-0.5">
+                3
+              </span>
+              <span>
+                <strong className="text-foreground">Simple by default.</strong> Anyone should be able
+                to set up an automation in under 2 minutes.
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-semibold mb-3">Built By</h2>
+          <p className="text-muted-foreground">
+            ChirplyMint is a product of{" "}
+            <strong className="text-foreground">NovaMint Networks</strong>, based in India.
+            We&apos;re a small, focused team passionate about automation and
+            helping creators grow.
+          </p>
+        </section>
       </div>
     </div>
   );

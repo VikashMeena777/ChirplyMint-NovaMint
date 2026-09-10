@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   HelpCircle,
   ChevronDown,
@@ -12,11 +11,7 @@ import {
   CreditCard,
   Link2,
   Bot,
-  Search,
-  ArrowRight,
 } from "lucide-react";
-import PageHero from "@/components/marketing/page-hero";
-import Reveal from "@/components/motion/reveal";
 
 const categories = [
   {
@@ -127,153 +122,103 @@ const categories = [
 export default function HelpPage() {
   const [activeCategory, setActiveCategory] = useState("getting-started");
   const [openFaq, setOpenFaq] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
 
   const currentCategory = categories.find((c) => c.id === activeCategory);
-  const q = query.trim().toLowerCase();
-  const visibleFaqs = q
-    ? categories.flatMap((c) => c.faqs.map((f) => ({ ...f, cat: c.label }))).filter(
-        (f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q)
-      )
-    : (currentCategory?.faqs ?? []);
 
   return (
-    <div className="pb-24">
-      <PageHero
-        kicker="Help center"
-        title={<>How can we <span className="text-gradient">help?</span></>}
-        subtitle="Search everything, or browse by topic. Most answers take 30 seconds to read."
-      >
-        <div className="relative max-w-xl mx-auto">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search answers… (try “refund”, “business account”, “keyword”)"
-            className="w-full h-13 py-3.5 pl-11 pr-4 rounded-2xl glass text-sm shadow-lg focus:outline-none focus:ring-2 focus:ring-mint/50 placeholder:text-muted-foreground/70"
-          />
+    <div className="py-20 px-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[oklch(0.52_0.19_162/10%)] text-[oklch(0.52_0.19_162)] text-sm font-medium mb-4">
+            <HelpCircle className="w-4 h-4" />
+            Help Center
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">
+            How can we help?
+          </h1>
+          <p className="text-lg text-muted-foreground mt-4 max-w-xl mx-auto">
+            Find answers to common questions about ChirplyMint.
+          </p>
         </div>
-      </PageHero>
 
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="grid md:grid-cols-[240px_1fr] gap-6 items-start">
+        <div className="grid md:grid-cols-[220px_1fr] gap-8">
           {/* Category Sidebar */}
-          {!q && (
-            <nav className="md:sticky md:top-24 flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-6 px-6 md:mx-0 md:px-0">
-              {categories.map((cat) => {
-                const active = activeCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setActiveCategory(cat.id);
-                      setOpenFaq(null);
-                    }}
-                    className={`relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                      active ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="help-cat"
-                        className="absolute inset-0 rounded-xl bg-gradient-mint shadow-md shadow-mint/25"
-                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <cat.icon className="w-4 h-4 relative" />
-                    <span className="relative">{cat.label}</span>
-                    <span className={`relative ml-auto text-[11px] px-1.5 py-0.5 rounded-md ${active ? "bg-white/20" : "bg-muted"}`}>
-                      {cat.faqs.length}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
-          )}
+          <nav className="space-y-1">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  setOpenFaq(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeCategory === cat.id
+                    ? "bg-[oklch(0.52_0.19_162)] text-white shadow-md"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                }`}
+              >
+                <cat.icon className="w-4 h-4" />
+                {cat.label}
+              </button>
+            ))}
+          </nav>
 
           {/* FAQ Content */}
-          <div className="space-y-3 min-w-0">
-            {q && (
-              <p className="text-sm text-muted-foreground">
-                <b className="text-foreground">{visibleFaqs.length}</b> result{visibleFaqs.length !== 1 ? "s" : ""} for “{query.trim()}”
-              </p>
-            )}
-            {visibleFaqs.length === 0 && (
-              <div className="rounded-3xl card-elevated p-10 text-center">
-                <HelpCircle className="w-8 h-8 text-mint mx-auto mb-3" />
-                <p className="font-semibold">No matches found</p>
-                <p className="text-sm text-muted-foreground mt-1">Try different words — or ask us directly below.</p>
-              </div>
-            )}
-            {visibleFaqs.map((faq, i) => {
-              const faqId = `${"cat" in faq ? (faq as { cat: string }).cat : activeCategory}-${i}-${faq.q}`;
+          <div className="space-y-3">
+            {currentCategory?.faqs.map((faq, i) => {
+              const faqId = `${activeCategory}-${i}`;
               const isOpen = openFaq === faqId;
 
               return (
-                <Reveal key={faqId} delay={Math.min(i * 0.03, 0.15)}>
                 <div
-                  className={`rounded-2xl border overflow-hidden transition-colors ${
-                    isOpen ? "border-mint/40 bg-mint/[0.04]" : "border-border bg-card"
-                  }`}
+                  key={faqId}
+                  className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : faqId)}
-                    aria-expanded={isOpen}
-                    className="w-full flex items-center justify-between gap-4 p-5 text-left"
+                    className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-muted/10 transition-colors"
                   >
-                    <span>
-                      {"cat" in faq && (
-                        <span className="block text-[11px] font-bold uppercase tracking-wider text-mint mb-1">
-                          {(faq as { cat: string }).cat}
-                        </span>
-                      )}
-                      <span className="text-[15px] font-semibold text-foreground">{faq.q}</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {faq.q}
                     </span>
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${isOpen ? "bg-gradient-mint text-white rotate-180" : "bg-muted text-muted-foreground"}`}>
-                      <ChevronDown className="w-4 h-4" />
-                    </span>
+                    <ChevronDown
+                      className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        key="c"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <p className="px-5 pb-5 text-sm text-muted-foreground leading-relaxed">
-                          {faq.a}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {isOpen && (
+                    <div className="px-5 pb-5 -mt-1">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {faq.a}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                </Reveal>
               );
             })}
           </div>
         </div>
 
         {/* Contact CTA */}
-        <Reveal className="mt-16 text-center rounded-3xl bg-gradient-to-br from-mint/10 to-emerald/5 border border-mint/20 p-10">
-          <span className="w-12 h-12 rounded-2xl bg-gradient-mint flex items-center justify-center mx-auto mb-4 shadow-lg shadow-mint/25">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </span>
-          <h2 className="text-2xl font-bold mb-2">Still stuck?</h2>
+        <div className="mt-16 text-center rounded-2xl bg-gradient-to-br from-[oklch(0.52_0.19_162/8%)] to-[oklch(0.45_0.2_200/5%)] border border-[oklch(0.52_0.19_162/15%)] p-10">
+          <MessageSquare className="w-10 h-10 text-[oklch(0.52_0.19_162)] mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            Still have questions?
+          </h2>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-            Can&apos;t find what you&apos;re looking for? Our humans reply within a day.
+            Can&apos;t find what you&apos;re looking for? Our team is happy to
+            help.
           </p>
           <Link
             href="/contact"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-mint text-white font-semibold text-sm btn-shine glow-mint-sm hover:scale-[1.02] transition-transform"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[oklch(0.52_0.19_162)] text-white font-semibold text-sm hover:bg-[oklch(0.48_0.19_162)] transition-colors shadow-md"
           >
             <MessageSquare className="w-4 h-4" />
             Contact Support
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
-        </Reveal>
+        </div>
       </div>
     </div>
   );

@@ -23,16 +23,6 @@ import {
   Layout,
   X,
   MessagesSquare,
-  Smile,
-  Briefcase,
-  Coffee,
-  Flame,
-  Languages,
-  ShoppingBag,
-  Dumbbell,
-  UtensilsCrossed,
-  Camera,
-  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,57 +44,57 @@ import { canAccessAIAgent, type PlanKey } from "@/lib/utils/plan-limits";
 import Link from "next/link";
 
 const TONE_OPTIONS = [
-  { value: "friendly", label: "Friendly", icon: Smile },
-  { value: "professional", label: "Professional", icon: Briefcase },
-  { value: "casual", label: "Casual", icon: Coffee },
-  { value: "enthusiastic", label: "Enthusiastic", icon: Flame },
-  { value: "witty", label: "Witty", icon: Sparkles },
+  { value: "friendly", label: "Friendly", emoji: "😊" },
+  { value: "professional", label: "Professional", emoji: "💼" },
+  { value: "casual", label: "Casual", emoji: "😎" },
+  { value: "enthusiastic", label: "Enthusiastic", emoji: "🔥" },
+  { value: "witty", label: "Witty", emoji: "😏" },
 ];
 
 const LANGUAGE_OPTIONS = [
-  { value: "auto", label: "Auto-detect", short: null as string | null, icon: Languages },
-  { value: "english", label: "English", short: "EN", icon: null },
-  { value: "hindi", label: "Hindi (हिन्दी)", short: "हिं", icon: null },
-  { value: "hinglish", label: "Hinglish", short: "HING", icon: null },
-  { value: "tamil", label: "Tamil (தமிழ்)", short: "த", icon: null },
-  { value: "telugu", label: "Telugu (తెలుగు)", short: "తె", icon: null },
-  { value: "marathi", label: "Marathi (मराठी)", short: "म", icon: null },
-  { value: "bangla", label: "Bangla (বাংলা)", short: "বাং", icon: null },
-  { value: "gujarati", label: "Gujarati (ગુજરાતી)", short: "ગુ", icon: null },
+  { value: "auto", label: "Auto-detect", flag: "🌐" },
+  { value: "english", label: "English", flag: "🇺🇸" },
+  { value: "hindi", label: "Hindi (हिन्दी)", flag: "🇮🇳" },
+  { value: "hinglish", label: "Hinglish", flag: "🇮🇳" },
+  { value: "tamil", label: "Tamil (தமிழ்)", flag: "🇮🇳" },
+  { value: "telugu", label: "Telugu (తెలుగు)", flag: "🇮🇳" },
+  { value: "marathi", label: "Marathi (मराठी)", flag: "🇮🇳" },
+  { value: "bangla", label: "Bangla (বাংলা)", flag: "🇮🇳" },
+  { value: "gujarati", label: "Gujarati (ગુજરાતી)", flag: "🇮🇳" },
 ];
 
 const PERSONA_TEMPLATES = [
   {
     name: "E-commerce Support",
-    icon: ShoppingBag,
+    emoji: "🛍️",
     persona: "You help customers with product questions, order status, returns, and recommendations. Be helpful, professional, and always aim to resolve issues quickly. If you don't know the answer, say you'll connect them with the team.",
     tone: "professional",
     agentName: "ShopAssist",
   },
   {
     name: "Fitness Coach",
-    icon: Dumbbell,
+    emoji: "💪",
     persona: "You are a fitness coach. Help followers with workout tips, diet plans, and motivation. Be energetic and encouraging. Specialize in home workouts and healthy eating. Share actionable advice, not generic tips.",
     tone: "enthusiastic",
     agentName: "FitCoach",
   },
   {
     name: "Restaurant Bot",
-    icon: UtensilsCrossed,
+    emoji: "🍽️",
     persona: "You manage inquiries for a restaurant. Share menu details, hours, location, reservation info, and daily specials. Be warm, welcoming, and make people excited to visit.",
     tone: "friendly",
     agentName: "TableBot",
   },
   {
     name: "Photographer",
-    icon: Camera,
+    emoji: "📸",
     persona: "You are a photographer's assistant. Help with booking inquiries, pricing, availability, and portfolio sharing. Be creative and passionate about visual storytelling. Share tips about the best locations and times for shoots.",
     tone: "casual",
     agentName: "LensAssist",
   },
   {
     name: "Educator / Coach",
-    icon: GraduationCap,
+    emoji: "🎓",
     persona: "You are an online educator. Help students with course info, enrollment, learning tips, and study resources. Be supportive, patient, and encouraging. Break down complex topics into simple explanations.",
     tone: "professional",
     agentName: "EduBot",
@@ -289,8 +279,8 @@ export default function AIAgentPage() {
   if (!canAccessAIAgent(userPlan)) {
     return (
       <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-mint/20 to-emerald/20 flex items-center justify-center mb-6 border border-mint/30">
-          <Lock className="w-10 h-10 text-mint-light" />
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center mb-6 border border-violet-500/30">
+          <Lock className="w-10 h-10 text-violet-400" />
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-3">
           AI Agent — Pro Feature
@@ -301,7 +291,7 @@ export default function AIAgentPage() {
         </p>
         <Link
           href="/pricing"
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-mint to-emerald text-white font-semibold hover:shadow-lg hover:shadow-mint/25 transition-all"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-violet-500/25 transition-all"
         >
           Upgrade Now
           <ArrowUpRight className="w-5 h-5" />
@@ -314,7 +304,7 @@ export default function AIAgentPage() {
   if (!agent) {
     return (
       <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-mint to-emerald flex items-center justify-center mb-6 shadow-lg shadow-mint/20">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mb-6 shadow-lg shadow-violet-500/20">
           <BrainCircuit className="w-10 h-10 text-white" />
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-3">
@@ -327,7 +317,7 @@ export default function AIAgentPage() {
         <button
           onClick={handleCreateAgent}
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-mint to-emerald text-white font-semibold hover:shadow-lg hover:shadow-mint/25 transition-all disabled:opacity-60"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-violet-500/25 transition-all disabled:opacity-60"
         >
           <Sparkles className="w-5 h-5" />
           {saving ? "Creating..." : "Create AI Agent"}
@@ -343,12 +333,12 @@ export default function AIAgentPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <BrainCircuit className="w-7 h-7 text-mint" />
+            <BrainCircuit className="w-7 h-7 text-violet-500" />
             AI Agent
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Configure how your AI replies to DMs — then watch it work in the{" "}
-            <a href="/dashboard/ai-agent/conversations" className="text-mint-light hover:underline font-medium">
+            <a href="/dashboard/ai-agent/conversations" className="text-violet-400 hover:underline font-medium">
               AI Inbox
             </a>
           </p>
@@ -356,7 +346,7 @@ export default function AIAgentPage() {
         <div className="flex items-center gap-3">
           <a
             href="/dashboard/ai-agent/conversations"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-mint/10 text-mint hover:bg-mint/20 border border-mint/30 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-violet-500/10 text-violet-500 hover:bg-violet-500/20 border border-violet-500/30 transition-all"
           >
             <MessagesSquare className="w-4 h-4" /> Open Inbox
           </a>
@@ -388,13 +378,13 @@ export default function AIAgentPage() {
             label: "Conversations",
             value: stats.totalConversations,
             icon: Users,
-            color: "mint",
+            color: "violet",
           },
           {
             label: "Messages Sent",
             value: stats.totalMessages,
             icon: MessageSquare,
-            color: "sky",
+            color: "indigo",
           },
           {
             label: "Active Today",
@@ -409,10 +399,10 @@ export default function AIAgentPage() {
           >
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                stat.color === "mint"
-                  ? "bg-mint/10 text-mint"
-                  : stat.color === "sky"
-                  ? "bg-sky-500/10 text-sky-500"
+                stat.color === "violet"
+                  ? "bg-violet-500/10 text-violet-500"
+                  : stat.color === "indigo"
+                  ? "bg-indigo-500/10 text-indigo-500"
                   : "bg-emerald-500/10 text-emerald-500"
               }`}
             >
@@ -464,7 +454,7 @@ export default function AIAgentPage() {
                 value={agentName}
                 onChange={(e) => setAgentName(e.target.value)}
                 placeholder="My Assistant"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-mint/40"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
               />
             </div>
 
@@ -478,13 +468,13 @@ export default function AIAgentPage() {
                   <button
                     key={t.value}
                     onClick={() => setTone(t.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
                       tone === t.value
-                        ? "border-mint bg-mint/10 text-mint-dark dark:text-mint-light"
-                        : "border-border bg-background text-muted-foreground hover:border-mint/40"
+                        ? "border-violet-500 bg-violet-500/10 text-violet-600"
+                        : "border-border bg-background text-muted-foreground hover:border-violet-500/40"
                     }`}
                   >
-                    <t.icon className="w-3.5 h-3.5" /> {t.label}
+                    {t.emoji} {t.label}
                   </button>
                 ))}
               </div>
@@ -494,33 +484,26 @@ export default function AIAgentPage() {
           {/* Language */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Globe className="w-4 h-4 text-mint" />
+              <Globe className="w-4 h-4 text-violet-500" />
               Reply Language
             </label>
             <p className="text-xs text-muted-foreground">
               Auto-detect mirrors the user&apos;s language. Pick a specific language to always reply in it.
             </p>
             <div className="flex flex-wrap gap-2">
-                {LANGUAGE_OPTIONS.map((l) => (
-                  <button
-                    key={l.value}
-                    onClick={() => setLanguage(l.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
-                      language === l.value
-                        ? "border-mint bg-mint/10 text-mint-dark dark:text-mint-light"
-                        : "border-border bg-background text-muted-foreground hover:border-mint/40"
-                    }`}
-                  >
-                    {l.icon ? (
-                      <l.icon className="w-3.5 h-3.5" />
-                    ) : (
-                      <span className="text-[10px] font-bold px-1 py-px rounded bg-mint/15 text-mint-dark dark:text-mint-light">
-                        {l.short}
-                      </span>
-                    )}
-                    {l.label}
-                  </button>
-                ))}
+              {LANGUAGE_OPTIONS.map((l) => (
+                <button
+                  key={l.value}
+                  onClick={() => setLanguage(l.value)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    language === l.value
+                      ? "border-violet-500 bg-violet-500/10 text-violet-600"
+                      : "border-border bg-background text-muted-foreground hover:border-violet-500/40"
+                  }`}
+                >
+                  {l.flag} {l.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -537,7 +520,7 @@ export default function AIAgentPage() {
               </div>
               <button
                 onClick={() => setShowTemplates(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-mint/10 text-mint-dark text-xs font-medium hover:bg-mint/20 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-600 text-xs font-medium hover:bg-violet-500/20 transition-all"
               >
                 <Layout className="w-3.5 h-3.5" />
                 Templates
@@ -548,7 +531,7 @@ export default function AIAgentPage() {
               onChange={(e) => setPersona(e.target.value)}
               rows={5}
               placeholder="You are a fitness coach named Alex. You help people with workout plans, nutrition advice, and motivation. You specialize in home workouts and have 10 years of experience..."
-              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-mint/40 resize-none text-sm"
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none text-sm"
             />
           </div>
 
@@ -558,7 +541,7 @@ export default function AIAgentPage() {
               <div className="bg-card border border-border rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-mint" />
+                    <Sparkles className="w-5 h-5 text-violet-500" />
                     Persona Templates
                   </h3>
                   <button onClick={() => setShowTemplates(false)} className="p-2 rounded-lg hover:bg-muted transition-colors">
@@ -577,22 +560,14 @@ export default function AIAgentPage() {
                         setShowTemplates(false);
                         toast.success(`Applied "${tmpl.name}" template — edit and save!`);
                       }}
-                      className="text-left p-4 rounded-xl border border-border bg-background hover:border-mint/50 hover:bg-mint/5 transition-all group"
+                      className="text-left p-4 rounded-xl border border-border bg-background hover:border-violet-500/50 hover:bg-violet-500/5 transition-all group"
                     >
-                      <div className="w-11 h-11 rounded-2xl bg-mint/10 flex items-center justify-center mb-3">
-                        <tmpl.icon className="w-5 h-5 text-mint" />
-                      </div>
-                      <h4 className="font-semibold text-foreground group-hover:text-mint-dark dark:group-hover:text-mint-light transition-colors">{tmpl.name}</h4>
+                      <div className="text-2xl mb-2">{tmpl.emoji}</div>
+                      <h4 className="font-semibold text-foreground group-hover:text-violet-600 transition-colors">{tmpl.name}</h4>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tmpl.persona}</p>
-                      {(() => {
-                        const toneOpt = TONE_OPTIONS.find((t) => t.value === tmpl.tone);
-                        const ToneIcon = toneOpt?.icon ?? Smile;
-                        return (
-                          <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-mint/10 text-mint-dark dark:text-mint-light">
-                            <ToneIcon className="w-3 h-3" /> {tmpl.tone}
-                          </span>
-                        );
-                      })()}
+                      <span className="inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600">
+                        {TONE_OPTIONS.find((t) => t.value === tmpl.tone)?.emoji} {tmpl.tone}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -614,7 +589,7 @@ export default function AIAgentPage() {
                 onChange={(e) => setGreetingMessage(e.target.value)}
                 rows={3}
                 placeholder="Hey! 👋 Thanks for reaching out..."
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-mint/40 resize-none text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none text-sm"
               />
             </div>
 
@@ -631,7 +606,7 @@ export default function AIAgentPage() {
                 onChange={(e) => setFallbackMessage(e.target.value)}
                 rows={3}
                 placeholder="Great question! Let me check and get back to you..."
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-mint/40 resize-none text-sm"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none text-sm"
               />
             </div>
           </div>
@@ -648,7 +623,7 @@ export default function AIAgentPage() {
               step={50}
               value={maxReplyLength}
               onChange={(e) => setMaxReplyLength(Number(e.target.value))}
-              className="w-full accent-mint"
+              className="w-full accent-violet-500"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>100 (concise)</span>
@@ -661,7 +636,7 @@ export default function AIAgentPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-mint to-emerald text-white font-semibold hover:shadow-lg hover:shadow-mint/25 transition-all disabled:opacity-60"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-violet-500/25 transition-all disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
               {saving ? "Saving..." : "Save Settings"}
@@ -676,7 +651,7 @@ export default function AIAgentPage() {
           {/* Add FAQ */}
           <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Plus className="w-4 h-4 text-mint" />
+              <Plus className="w-4 h-4 text-violet-500" />
               Add FAQ
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -693,7 +668,7 @@ export default function AIAgentPage() {
                   value={newQuestion}
                   onChange={(e) => setNewQuestion(e.target.value)}
                   placeholder='e.g. "What are your prices?"'
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-mint/40"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
                 />
               </div>
               <div className="space-y-1">
@@ -705,13 +680,13 @@ export default function AIAgentPage() {
                   value={newAnswer}
                   onChange={(e) => setNewAnswer(e.target.value)}
                   placeholder='e.g. "Our plans start at $29/mo..."'
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-mint/40"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
                 />
               </div>
             </div>
             <button
               onClick={handleAddFAQ}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-mint/10 text-mint-dark font-medium text-sm hover:bg-mint/20 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500/10 text-violet-600 font-medium text-sm hover:bg-violet-500/20 transition-all"
             >
               <Plus className="w-4 h-4" />
               Add
@@ -721,8 +696,8 @@ export default function AIAgentPage() {
           {/* FAQ List */}
           {faqs.length === 0 ? (
             <div className="bg-card border border-border rounded-2xl p-12 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-mint/15 to-emerald/10 flex items-center justify-center mx-auto mb-4">
-                <HelpCircle className="w-6 h-6 text-mint-light" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/15 to-indigo-500/10 flex items-center justify-center mx-auto mb-4">
+                <HelpCircle className="w-6 h-6 text-violet-400" />
               </div>
               <h3 className="text-lg font-semibold text-foreground">
                 No FAQs yet
