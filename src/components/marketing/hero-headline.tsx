@@ -54,7 +54,7 @@ export function HeroHeadline() {
           transition={{ delay: next(), duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }}
           whileHover={{ scale: 1.04, transition: { type: "spring", stiffness: 350, damping: 14 } }}
         >
-          <span className="bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-mint-dark via-mint to-emerald bg-clip-text text-transparent">
             {ACCENT}
           </span>
           {/* hand-drawn underline that draws itself */}

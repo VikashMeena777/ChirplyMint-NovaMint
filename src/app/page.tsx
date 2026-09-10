@@ -79,12 +79,12 @@ function Hero() {
     <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-28 pb-16">
       {/* Living aurora backdrop — drifting gradient blobs, grid, vignette */}
       <div aria-hidden className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.15_0.025_250/35%),transparent)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.93_0.02_200/50%),transparent)]" />
         <div
           className="absolute inset-0 opacity-[0.35]"
           style={{
             backgroundImage:
-              "linear-gradient(oklch(0.62 0.19 162/6%) 1px, transparent 1px), linear-gradient(90deg, oklch(0.62 0.19 162/6%) 1px, transparent 1px)",
+              "linear-gradient(oklch(0.52 0.19 162/12%) 1px, transparent 1px), linear-gradient(90deg, oklch(0.52 0.19 162/12%) 1px, transparent 1px)",
             backgroundSize: "72px 72px",
             maskImage:
               "radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 70%)",
@@ -92,22 +92,25 @@ function Hero() {
               "radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 70%)",
           }}
         />
-        {/* ── colour psychology: ink-navy depth (trust) · emerald (growth/money)
-             · teal (calm) · indigo (premium) — layered, never flat black ── */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,oklch(0.22_0.05_235/60%),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.17_0.03_240/50%)_0%,transparent_35%,oklch(0.15_0.025_250/60%)_100%)]" />
-        {/* aurora blobs — slow drift, transform-only */}
-        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-emerald/14 blur-[140px]" />
-        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-teal-500/12 blur-[150px]" />
-        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[380px] w-[380px] rounded-full bg-indigo-500/10 blur-[130px]" />
+        {/* ── colour psychology, theme-aware ──
+             light: airy white + VISIBLE pastel aurora (saturation turned up)
+             dark:  ink-navy depth (trust) + emerald/teal/indigo glow ── */}
+        {/* base wash — light: cool white · dark: navy */}
+        <div className="dark:hidden absolute inset-0 bg-[linear-gradient(180deg,oklch(0.985_0.008_200/80%)_0%,oklch(0.995_0_0)_35%,oklch(0.975_0.015_240/75%)_100%)]" />
+        <div className="hidden dark:block absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,oklch(0.22_0.05_235/60%),transparent_60%)]" />
+        <div className="hidden dark:block absolute inset-0 bg-[linear-gradient(180deg,oklch(0.17_0.03_240/50%)_0%,transparent_35%,oklch(0.15_0.025_250/60%)_100%)]" />
+        {/* aurora — saturations tuned per theme so both are clearly visible */}
+        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-emerald/30 blur-[140px] dark:bg-emerald/14" />
+        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-teal-400/25 blur-[150px] dark:bg-teal-500/12" />
+        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[380px] w-[380px] rounded-full bg-indigo-400/20 blur-[130px] dark:bg-indigo-500/10" />
         {/* soft top beam */}
-        <div className="absolute left-1/2 top-0 h-[280px] w-[720px] -translate-x-1/2 rounded-full bg-mint/8 blur-[120px]" />
+        <div className="absolute left-1/2 top-0 h-[280px] w-[720px] -translate-x-1/2 rounded-full bg-mint/20 blur-[120px] dark:bg-mint/8" />
         {/* floating particles */}
-        <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-emerald/55" />
-        <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-teal-400/60" />
-        <div className="animate-float-3 absolute left-[55%] top-[64%] h-1.5 w-1.5 rounded-full bg-indigo-400/45" />
-        <div className="animate-float-2 absolute left-[30%] top-[72%] h-1 w-1 rounded-full bg-emerald/50" />
-        <div className="animate-float-1 absolute left-[85%] top-[55%] h-1 w-1 rounded-full bg-mint/55" />
+        <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-emerald/70" />
+        <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-teal-500/70" />
+        <div className="animate-float-3 absolute left-[55%] top-[64%] h-1.5 w-1.5 rounded-full bg-indigo-500/55" />
+        <div className="animate-float-2 absolute left-[30%] top-[72%] h-1 w-1 rounded-full bg-emerald/65" />
+        <div className="animate-float-1 absolute left-[85%] top-[55%] h-1 w-1 rounded-full bg-mint/70" />
       </div>
 
       <div className="relative w-full max-w-7xl mx-auto px-6">
@@ -120,7 +123,7 @@ function Hero() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-mint" />
                 </span>
-                <span className="text-xs font-semibold tracking-wide text-mint-light">
+                <span className="text-xs font-semibold tracking-wide text-mint-dark">
                   New: AI Agent with your persona &amp; FAQs
                 </span>
               </div>
@@ -414,7 +417,7 @@ function Pricing() {
                   }`}
                 >
                   {plan.key === "pro" && (
-                    <span className="mb-4 w-fit rounded-full bg-mint/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-mint-light">
+                    <span className="mb-4 w-fit rounded-full bg-mint/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-mint-dark">
                       Most popular
                     </span>
                   )}
@@ -514,7 +517,7 @@ export default function Home() {
   return (
     <SmoothScroll>
       <IntroOverlay />
-      <main className="relative overflow-hidden bg-background">
+      <main className="force-light relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
         <NicheMarquee />

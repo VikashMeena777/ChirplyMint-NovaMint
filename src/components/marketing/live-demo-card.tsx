@@ -254,32 +254,26 @@ export function LiveDemoCard() {
         </motion.div>
       </motion.div>
 
-      {/* floating badge */}
+      {/* status chips under the phone — flow layout, never overlaps */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.2, duration: 0.5 }}
-        className="absolute -left-8 top-24 z-40 hidden rounded-2xl border border-mint/25 bg-card/85 px-3.5 py-2 shadow-xl backdrop-blur-xl lg:block"
+        className="mt-6 flex flex-wrap items-center justify-center gap-2.5"
       >
-        <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full border border-mint/25 bg-card/80 px-3.5 py-1.5 shadow-sm backdrop-blur-xl">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Automated</span>
-        </div>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">0 human touches</p>
-      </motion.div>
-
-      {/* small chip under phone */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.6 }}
-        className="mt-5 flex items-center justify-center gap-2 text-[11px] text-muted-foreground"
-      >
-        <Search className="h-3 w-3" />
-        this runs on your account, every comment, 24/7
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Automated · 0 human touches
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-[11px] text-muted-foreground">
+          <Search className="h-3 w-3" />
+          runs on your account, every comment, 24/7
+        </span>
       </motion.div>
     </div>
   );
