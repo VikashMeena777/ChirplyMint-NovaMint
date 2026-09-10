@@ -6,6 +6,7 @@ import { Menu, X, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { TextRoll } from "@/components/motion/text-roll";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { User } from "@supabase/supabase-js";
 
@@ -82,7 +83,7 @@ export function Navbar() {
                 href={link.href}
                 className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                {link.label}
+                <TextRoll text={link.label} />
                 <span className="absolute -bottom-1 left-1/2 h-px w-0 -translate-x-1/2 bg-gradient-to-r from-transparent via-mint to-transparent transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}

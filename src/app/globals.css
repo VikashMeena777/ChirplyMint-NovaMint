@@ -263,3 +263,15 @@
     animation: fade-in 300ms ease-out both;
   }
 }
+/* Shimmer: slow light-sweep across gradient text */
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer { animation: none; }
+}

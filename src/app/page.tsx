@@ -25,16 +25,17 @@ import {
   Stagger,
   StaggerItem,
   AnimatedCard,
-  Magnetic,
-  CountUp,
 } from "@/components/motion/kit";
-import { springTap } from "@/components/motion/transitions";
+import { springSnappy, springTap } from "@/components/motion/transitions";
 import { SendIcon } from "@/components/icons/send/send";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { ZapIcon } from "@/components/icons/zap/zap";
 import { UsersIcon } from "@/components/icons/users/users";
 import { TrendingUpIcon } from "@/components/icons/trending-up/trending-up";
 import { InstagramIcon } from "@/components/icons/instagram/instagram";
+import { LiveDemoCard } from "@/components/marketing/live-demo-card";
+import { FunnelChart } from "@/components/marketing/funnel-chart";
+import { IntroOverlay } from "@/components/motion/intro-overlay";
 
 /* ─── Data (real product facts — no fabricated metrics) ─── */
 
@@ -111,7 +112,7 @@ function Hero() {
             <SplitHeadline
               as="h1"
               text="Turn every comment into a customer"
-              className="text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.02] bg-gradient-to-br from-foreground via-foreground to-mint bg-clip-text text-transparent"
+              className="animate-shimmer text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.02] bg-gradient-to-r from-foreground via-foreground to-mint bg-clip-text text-transparent"
             />
 
             <FadeIn delay={0.35}>
@@ -124,7 +125,7 @@ function Hero() {
 
             <FadeIn delay={0.5} className="w-full sm:w-auto">
               <div className="flex flex-col sm:flex-row gap-4">
-                <Magnetic strength={0.25}>
+                <motion.div whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }} transition={springSnappy}>
                   <Link
                     href="/signup"
                     className="group inline-flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-mint px-8 py-4 text-base font-semibold text-white glow-mint"
@@ -133,7 +134,7 @@ function Hero() {
                     Start free — no card
                     <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </Link>
-                </Magnetic>
+                </motion.div>
                 <motion.div whileTap={{ scale: 0.97 }} transition={springTap}>
                   <Link
                     href="#demo"
@@ -161,80 +162,10 @@ function Hero() {
             </FadeIn>
           </div>
 
-          {/* ── Right: glass stats card (Trust Hero pattern) ── */}
+          {/* ── Right: live animated product demo ── */}
           <div className="lg:col-span-5">
             <FadeIn delay={0.4} direction="left">
-              <div className="relative overflow-hidden rounded-3xl border border-mint/15 bg-card/40 p-8 backdrop-blur-xl shadow-2xl">
-                <div aria-hidden className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-mint/12 blur-3xl" />
-
-                <div className="relative">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mint/15 ring-1 ring-mint/30">
-                      <InstagramIcon />
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold font-heading tracking-tight text-foreground">
-                        <CountUp to={24} suffix="/7" />
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Your Instagram, always answering
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-8">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reply speed</span>
-                      <span className="font-medium text-foreground">Instant</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted/50">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        whileInView={{ width: "100%" }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 1.2, delay: 0.6, ease: [0.21, 0.47, 0.32, 0.98] }}
-                        className="h-full rounded-full bg-gradient-to-r from-mint-dark to-mint"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="h-px w-full bg-border mb-6" />
-
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    {[
-                      { v: 3, s: " min", l: "Setup" },
-                      { v: 10, s: "", l: "Recipes" },
-                      { v: 100, s: "%", l: "Automated" },
-                    ].map((stat) => (
-                      <div
-                        key={stat.l}
-                        className="flex flex-col items-center transition-transform duration-300 hover:-translate-y-1"
-                      >
-                        <span className="text-xl font-bold font-heading text-foreground sm:text-2xl">
-                          <CountUp to={stat.v} suffix={stat.s} />
-                        </span>
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
-                          {stat.l}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8 flex flex-wrap gap-2">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-                      <span className="relative flex size-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-                      </span>
-                      LIVE
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-                      <Sparkles className="w-3 h-3 text-mint" />
-                      AI PERSONA
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <LiveDemoCard />
             </FadeIn>
           </div>
         </div>
@@ -565,17 +496,15 @@ function FinalCTA() {
           your next customer.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6">
-          <Magnetic strength={0.25}>
-            <motion.div whileTap={{ scale: 0.97 }} transition={springTap}>
-              <Link
-                href="/signup"
-                className="group inline-flex items-center gap-2.5 rounded-2xl bg-gradient-mint px-9 py-4 text-base font-semibold text-white glow-mint"
-              >
-                Get started — it&apos;s free
-                <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-            </motion.div>
-          </Magnetic>
+          <motion.div whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }} transition={springSnappy}>
+            <Link
+              href="/signup"
+              className="group inline-flex items-center gap-2.5 rounded-2xl bg-gradient-mint px-9 py-4 text-base font-semibold text-white glow-mint"
+            >
+              Get started — it&apos;s free
+              <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
           <SendIcon />
         </div>
         <p className="mt-6 text-xs text-muted-foreground">
@@ -600,12 +529,14 @@ export default function Home() {
 
   return (
     <SmoothScroll>
+      <IntroOverlay />
       <main className="relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
         <NicheMarquee />
         <HowItWorks />
         <FeatureBento />
+        <FunnelChart />
         <Pricing />
         <FinalCTA />
         <Footer />

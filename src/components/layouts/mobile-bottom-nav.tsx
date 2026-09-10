@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bot, MessageCircle, LayoutDashboard, Settings, Users } from "lucide-react";
+import { HomeIcon } from "@/components/icons/home/home";
+import { BotIcon } from "@/components/icons/bot/bot";
+import { MessageCircleIcon } from "@/components/icons/message-circle/message-circle";
+import { UsersIcon } from "@/components/icons/users/users";
+import { SettingsIcon } from "@/components/icons/settings/settings";
 
 /**
  * Mobile bottom navigation (thumb-friendly). Hidden on md+ where the
@@ -10,11 +15,11 @@ import { Bot, MessageCircle, LayoutDashboard, Settings, Users } from "lucide-rea
  * (PWA manifest wired in layout.tsx).
  */
 const NAV = [
-  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/dashboard/automations", label: "Automations", icon: Bot },
-  { href: "/dashboard/messages", label: "Inbox", icon: MessageCircle },
-  { href: "/dashboard/leads", label: "Leads", icon: Users },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard, animated: HomeIcon },
+  { href: "/dashboard/automations", label: "Automations", icon: Bot, animated: BotIcon },
+  { href: "/dashboard/messages", label: "Inbox", icon: MessageCircle, animated: MessageCircleIcon },
+  { href: "/dashboard/leads", label: "Leads", icon: Users, animated: UsersIcon },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, animated: SettingsIcon },
 ];
 
 export function MobileBottomNav() {
@@ -40,7 +45,7 @@ export function MobileBottomNav() {
                 active ? "text-[oklch(0.52_0.19_162)]" : "text-muted-foreground"
               }`}
             >
-              <item.icon className={`w-5 h-5 ${active ? "drop-shadow-[0_0_6px_oklch(0.52_0.19_162/50%)]" : ""}`} />
+              <item.animated size={22} className={active ? "drop-shadow-[0_0_6px_oklch(0.52_0.19_162/50%)]" : ""} />
               <span className="text-[10px] font-medium">{item.label}</span>
               {active && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-[oklch(0.52_0.19_162)]" />}
             </Link>

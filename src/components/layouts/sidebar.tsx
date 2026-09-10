@@ -31,31 +31,49 @@ import {
   Monitor,
 } from "lucide-react";
 
+import { HomeIcon } from "@/components/icons/home/home";
+import { BotIcon } from "@/components/icons/bot/bot";
+import { MessageCircleIcon } from "@/components/icons/message-circle/message-circle";
+import { UsersIcon } from "@/components/icons/users/users";
+import { SparklesIcon } from "@/components/icons/sparkles/sparkles";
+import { LinkIcon } from "@/components/icons/link/link";
+import { ChartLineIcon } from "@/components/icons/chart-line/chart-line";
+import { ChartPieIcon } from "@/components/icons/chart-pie/chart-pie";
+import { BellIcon } from "@/components/icons/bell/bell";
+import { SettingsIcon } from "@/components/icons/settings/settings";
+
+type AnimatedIconType = React.ComponentType<{ size?: number; className?: string }>;
+
 const navItems = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    animated: HomeIcon,
   },
   {
     label: "Automations",
     href: "/dashboard/automations",
     icon: Bot,
+    animated: BotIcon,
   },
   {
     label: "Messages",
     href: "/dashboard/messages",
     icon: MessageCircle,
+    animated: MessageCircleIcon,
   },
   {
     label: "Leads",
     href: "/dashboard/leads",
     icon: Users,
+    animated: UsersIcon,
   },
   {
     label: "AI Agent",
     href: "/dashboard/ai-agent",
     icon: BrainCircuit,
+    animated: SparklesIcon,
   },
   {
     label: "AI Inbox",
@@ -66,16 +84,19 @@ const navItems = [
     label: "Link-in-Bio",
     href: "/dashboard/bio",
     icon: Link2,
+    animated: LinkIcon,
   },
   {
     label: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
+    animated: ChartLineIcon,
   },
   {
     label: "Insights",
     href: "/dashboard/insights",
     icon: Lightbulb,
+    animated: ChartPieIcon,
   },
   {
     label: "Referrals",
@@ -85,8 +106,8 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  { label: "Notifications", href: "/dashboard/notifications", icon: Bell, animated: BellIcon },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, animated: SettingsIcon },
 ];
 
 export function Sidebar() {
@@ -144,7 +165,13 @@ export function Sidebar() {
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
               />
             )}
-            <item.icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`} />
+            {item.animated ? (
+              <span className={`shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`}>
+                <item.animated size={20} />
+              </span>
+            ) : (
+              <item.icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive(item.href) ? "scale-110" : "group-hover:scale-105"}`} />
+            )}
             {!collapsed && <span>{item.label}</span>}
           </Link>
         ))}
@@ -163,7 +190,13 @@ export function Sidebar() {
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
-            <item.icon className="w-5 h-5 shrink-0" />
+            {item.animated ? (
+              <span className="shrink-0">
+                <item.animated size={20} />
+              </span>
+            ) : (
+              <item.icon className="w-5 h-5 shrink-0" />
+            )}
             {!collapsed && <span>{item.label}</span>}
           </Link>
         ))}
