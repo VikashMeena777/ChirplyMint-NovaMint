@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "date": "Sep 11, 2026",
+      "version": "auto",
+      "title": "switcher for owner+member users, Team tab back for all plans, animated Google button",
+      "description": "Workspace switcher no longer disappears for team owners who are ALSO",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "Workspace switcher no longer disappears for team owners who are ALSO",
+        "Team & API tab is visible for ALL plans again — clicking it as a",
+        "Google auth button rebuilt with real tactile feedback: hover lift,",
+        "/dashboard/settings verified end-to-end on PRODUCTION with a real"
+      ]
+    },
+    {
       "date": "Sep 12, 2026",
       "version": "3.5",
       "icon": "Users",
