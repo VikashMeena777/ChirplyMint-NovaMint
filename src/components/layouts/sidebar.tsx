@@ -112,7 +112,7 @@ const navItems = [
 
 const bottomItems = [
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell, animated: BellIcon },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, animated: SettingsIcon },
+  { label: "Settings", href: "/dashboard/settings/account", icon: Settings, animated: SettingsIcon },
 ];
 
 export function Sidebar() {
@@ -134,7 +134,9 @@ export function Sidebar() {
   const isActive = (href: string) =>
     href === "/dashboard"
       ? pathname === "/dashboard"
-      : pathname.startsWith(href);
+      : href === "/dashboard/settings/account"
+        ? pathname.startsWith("/dashboard/settings")
+        : pathname.startsWith(href);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

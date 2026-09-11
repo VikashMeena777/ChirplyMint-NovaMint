@@ -19,7 +19,7 @@ const NAV = [
   { href: "/dashboard/automations", label: "Automations", icon: Bot, animated: BotIcon },
   { href: "/dashboard/messages", label: "Inbox", icon: MessageCircle, animated: MessageCircleIcon },
   { href: "/dashboard/leads", label: "Leads", icon: Users, animated: UsersIcon },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings, animated: SettingsIcon },
+  { href: "/dashboard/settings/account", label: "Settings", icon: Settings, animated: SettingsIcon },
 ];
 
 export function MobileBottomNav() {
