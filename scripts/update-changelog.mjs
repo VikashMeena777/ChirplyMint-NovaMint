@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /**
  * Auto-changelog: converts "Round N: <title>" commit subjects on main into
- * entries in src/data/changelog.json.
+ * entries in src/data/changelog.json — BATCHED.
+ *
+ * Publishing rule (anti-spam): entries are only published once at least
+ * BATCH_THRESHOLD (4) release commits have accumulated since the last
+ * published batch. Until then, every push just re-counts the pending
+ * commits and exits without writing — so single bug-fix rounds never
+ * spam the changelog; four of them publish together.
  *
  * Entry shape: the commit subject's title + sanitized bullet lines from the
  * body. Sanitizer strips anything that looks sensitive (emails, URLs with
@@ -11,8 +17,11 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const FILE = "src/data/changelog.json";
+const BATCH_THRESHOLD = 4;
 
-// Commits since the last changelog-bot commit (or last 50 as a start)
+// Commits since the last changelog-bot commit (or last 50 as a start).
+// Un-published rounds accumulate naturally: nothing is marked as processed
+// until a batch is actually written.
 function commitsSince() {
   const last = execSync(
     `git log --oneline --grep="^chore(changelog)" -1 --format=%H || true`
@@ -51,23 +60,21 @@ function sanitize(text) {
   return out.replace(/\s{2,}/g, " ").trim();
 }
 
+// Build candidate entries from the pending release commits
 const data = JSON.parse(readFileSync(FILE, "utf8"));
-const known = new Set(
-  data.entries.map((e) => e.title.toLowerCase())
-);
+const known = new Set(data.entries.map((e) => e.title.toLowerCase()));
 
-let added = 0;
+const pending = [];
 for (const c of commitsSince()) {
   const lines = c.body.split("\n");
   const subject = sanitize(lines[0] || "");
   const m = subject.match(/^Round\s+\d+:\s*(.+)$/i) || subject.match(/^(feat|fix|improve)[^:]*:\s*(.+)$/i);
   if (!m) continue;
   const rawTitle = (m[1] || m[2]).slice(0, 90);
-  // Professional casing: capitalize the first letter; if the title looks
-  // like a lowercase list ("a, b and c"), capitalize each segment start.
+  // Professional casing: capitalize the first letter + segment starts
   const title = rawTitle
-    .replace(/^([a-z])/, (c) => c.toUpperCase())
-    .replace(/([,;]\s+|(?:and\s+))([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
+    .replace(/^([a-z])/, (ch) => ch.toUpperCase())
+    .replace(/([,;]\s+|\band\b\s+)([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
   if (known.has(title.toLowerCase())) continue;
 
   // highlights: bullet lines from the body, sanitized, max 6
@@ -86,14 +93,12 @@ for (const c of commitsSince()) {
         ? "improvement"
         : "feature";
 
-  const date = new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-
-  data.entries.unshift({
-    date,
+  pending.push({
+    date: new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
     version: "auto",
     title,
     description: highlights[0] || title,
@@ -102,12 +107,18 @@ for (const c of commitsSince()) {
     highlights: highlights.length ? highlights : [title],
   });
   known.add(title.toLowerCase());
-  added++;
 }
 
-if (added > 0) {
+// ── The batching gate ──
+if (pending.length >= BATCH_THRESHOLD) {
+  // oldest first at the top of the list
+  data.entries.unshift(...pending.reverse());
   writeFileSync(FILE, JSON.stringify(data, null, 2) + "\n");
-  console.log(`changelog: +${added} entries`);
+  console.log(`changelog: published batch of ${pending.length} entries`);
+} else if (pending.length > 0) {
+  console.log(
+    `changelog: holding ${pending.length}/${BATCH_THRESHOLD} rounds — publishing at ${BATCH_THRESHOLD}`
+  );
 } else {
   console.log("changelog: nothing to add");
 }
