@@ -28,7 +28,7 @@ import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
-import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, type InvoiceRow, type SubscriptionStatusRow } from "@/lib/actions/billing";
+import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, getTrialEligibility, type InvoiceRow, type SubscriptionStatusRow } from "@/lib/actions/billing";
 import {
   inviteTeamMember,
   revokeInvite,
@@ -1053,6 +1053,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionStatusRow | null>(null);
+  const [trialEligible, setTrialEligible] = useState<boolean | null>(null); // null = still checking
   const [downgrading, setDowngrading] = useState(false);
 
   const allPlans = getPlanDisplayData();
@@ -1064,6 +1065,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   useEffect(() => {
     getInvoices().then(setInvoices);
     getSubscriptionStatus().then(setSubscription);
+    getTrialEligibility().then((e) => setTrialEligible(e.eligible));
   }, []);
 
   async function handleStartTrial() {
@@ -1264,8 +1266,8 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
         </div>
       )}
 
-      {/* Free trial banner (once) */}
-      {currentPlan === "free" && (
+      {/* Free trial banner — only for users who can actually start it */}
+      {currentPlan === "free" && trialEligible === true && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">🎁 Try Pro free for 7 days</p>

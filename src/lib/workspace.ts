@@ -70,11 +70,14 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
   const isOwner = (owned ?? 0) > 0;
 
   const hasMembership = !!m?.owner_id;
+  // The switcher always needs the team owner's name — resolve once whenever
+  // a membership exists (even while viewing the personal workspace).
+  const teamOwnerName = hasMembership ? await resolveOwnerName(m.owner_id) : "";
 
   // Explicit switcher preferences: 'own' or 'team' (team works even for
   // owners who are ALSO members of someone else's team).
   if (hasMembership && pref === "own") {
-    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: "" };
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: teamOwnerName };
   }
   if (hasMembership && pref === "team") {
     return {
@@ -82,13 +85,13 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
       workspaceUserId: m.owner_id,
       isMember: true,
       hasMembership,
-      ownerName: await resolveOwnerName(m.owner_id),
+      ownerName: teamOwnerName,
     };
   }
 
   // Defaults: owners work in their own workspace; pure members see the team.
   if (isOwner) {
-    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: "" };
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: teamOwnerName };
   }
 
   if (hasMembership) {

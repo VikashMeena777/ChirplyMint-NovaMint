@@ -62,7 +62,12 @@ for (const c of commitsSince()) {
   const subject = sanitize(lines[0] || "");
   const m = subject.match(/^Round\s+\d+:\s*(.+)$/i) || subject.match(/^(feat|fix|improve)[^:]*:\s*(.+)$/i);
   if (!m) continue;
-  const title = (m[1] || m[2]).slice(0, 90);
+  const rawTitle = (m[1] || m[2]).slice(0, 90);
+  // Professional casing: capitalize the first letter; if the title looks
+  // like a lowercase list ("a, b and c"), capitalize each segment start.
+  const title = rawTitle
+    .replace(/^([a-z])/, (c) => c.toUpperCase())
+    .replace(/([,;]\s+|(?:and\s+))([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
   if (known.has(title.toLowerCase())) continue;
 
   // highlights: bullet lines from the body, sanitized, max 6

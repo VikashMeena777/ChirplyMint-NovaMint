@@ -4,23 +4,50 @@ import { useEffect, useState } from "react";
 import { ChevronsUpDown, User, Users, Check } from "lucide-react";
 import { switchWorkspace, getWorkspaceSwitchState } from "@/lib/actions/workspace";
 
+const CACHE_KEY = "cm_ws_switcher";
+
+interface SwitcherState {
+  hasMembership: boolean;
+  viewingTeam: boolean;
+  ownerName: string;
+}
+
 /**
- * Workspace switcher — shown ONLY for team members (who have both a
- * personal workspace and the team's). Owners and solo users see nothing.
+ * Workspace switcher — shown ONLY for users who belong to a team (owner
+ * and/or member). State is cached in localStorage so navigation never
+ * flashes the switcher away while the fresh state loads.
  */
 export function WorkspaceSwitcher() {
-  const [state, setState] = useState<{ hasMembership: boolean; viewingTeam: boolean; ownerName: string }>({
-    hasMembership: false,
-    viewingTeam: false,
-    ownerName: "",
+  // Hydrate instantly from cache → no flicker between page navigations
+  const [state, setState] = useState<SwitcherState | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      return raw ? (JSON.parse(raw) as SwitcherState) : null;
+    } catch {
+      return null;
+    }
   });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Until the first server check completes, trust a positive cache but
+  // hide on a negative one only after confirmation (prevents flashing
+  // hidden → shown for members)
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
-    getWorkspaceSwitchState().then(setState);
+    getWorkspaceSwitchState().then((fresh) => {
+      setState(fresh);
+      setConfirmed(true);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
+      } catch {}
+    });
   }, []);
 
+  // Pre-confirmation: show if the cache says member (optimistic); hide
+  // only after the server confirms no membership.
+  if (!state || (!state.hasMembership && !confirmed)) return null;
   if (!state.hasMembership) return null;
 
   const options = [
@@ -31,7 +58,14 @@ export function WorkspaceSwitcher() {
 
   async function pick(key: "own" | "team") {
     if (key === active) return setOpen(false);
+    if (!state) return;
     setBusy(true);
+    // optimistic cache update so the switcher reflects the choice instantly
+    const next: SwitcherState = { ...state, viewingTeam: key === "team" };
+    setState(next);
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(next));
+    } catch {}
     await switchWorkspace(key);
     setBusy(false);
     setOpen(false);

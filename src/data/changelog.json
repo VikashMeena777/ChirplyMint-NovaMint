@@ -3,18 +3,7 @@
     {
       "date": "Sep 11, 2026",
       "version": "auto",
-      "title": "Settings buttons link directly to /settings/account — no more redirect hop",
-      "description": "Settings buttons link directly to /settings/account — no more redirect hop",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Settings buttons link directly to /settings/account — no more redirect hop"
-      ]
-    },
-    {
-      "date": "Sep 11, 2026",
-      "version": "auto",
-      "title": "switcher for owner+member users, Team tab back for all plans, animated Google button",
+      "title": "Switcher for owner+member users, Team tab back for all plans, Animated Google button",
       "description": "Workspace switcher no longer disappears for team owners who are ALSO",
       "tag": "security",
       "icon": "Shield",
