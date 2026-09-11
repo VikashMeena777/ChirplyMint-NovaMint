@@ -28,7 +28,7 @@ import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
-import { startFreeTrial, getInvoices, cancelPlanAtPeriodEnd, resumePlan, type InvoiceRow } from "@/lib/actions/billing";
+import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, type InvoiceRow, type SubscriptionStatusRow } from "@/lib/actions/billing";
 import {
   inviteTeamMember,
   revokeInvite,
@@ -998,6 +998,8 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionStatusRow | null>(null);
+  const [downgrading, setDowngrading] = useState(false);
 
   const allPlans = getPlanDisplayData();
   // Only show Pro and Business as upgrade options
@@ -1007,6 +1009,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
 
   useEffect(() => {
     getInvoices().then(setInvoices);
+    getSubscriptionStatus().then(setSubscription);
   }, []);
 
   async function handleStartTrial() {
@@ -1016,6 +1019,31 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     if (r.error) toast.error(r.error);
     else {
       toast.success("7-day Pro trial started! 🎉 Everything is unlocked.");
+      window.location.reload();
+    }
+  }
+
+  async function handleImmediateCancel() {
+    setCancelling(true);
+    const r = await cancelImmediately(cancelReason || "unspecified", cancelFeedback);
+    setCancelling(false);
+    if (r.error) toast.error(r.error);
+    else {
+      toast.success("Moved to the free Starter plan — top-up DMs kept");
+      setShowCancelSurvey(false);
+      setCancelReason("");
+      setCancelFeedback("");
+      window.location.reload();
+    }
+  }
+
+  async function handleDowngradeToPro() {
+    setDowngrading(true);
+    const r = await downgradeToPro();
+    setDowngrading(false);
+    if (r.error) toast.error(r.error);
+    else {
+      toast.success("Switched to Pro — period end unchanged");
       window.location.reload();
     }
   }
@@ -1124,20 +1152,60 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
         })()}
       </div>
 
-      {/* Cancel plan */}
-      {currentPlan !== "free" && (
+      {/* Subscription status + cancel/downgrade */}
+      {currentPlan !== "free" && subscription?.status !== "canceled" && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Cancel plan</p>
+            <p className="text-sm font-medium text-foreground">Subscription</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Keep every feature until the end of your paid period — no lock-in, re-subscribe anytime.
+              {subscription?.currentPeriodEnd
+                ? `Your ${currentPlan} plan is active until ${new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Cancel keeps every feature until then.`
+                : "No renewal is charged automatically — your plan simply ends when the period does."}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {currentPlan === "business" && (
+              <button
+                onClick={handleDowngradeToPro}
+                disabled={downgrading}
+                className="px-4 py-2 rounded-xl border border-border text-muted-foreground text-sm font-medium hover:border-[oklch(0.52_0.19_162/40%)] hover:text-foreground disabled:opacity-40"
+              >
+                {downgrading ? "Switching…" : "Switch to Pro"}
+              </button>
+            )}
+            <button
+              onClick={() => setShowCancelSurvey(true)}
+              className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            >
+              Cancel plan
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Canceled — banner + resume */}
+      {subscription?.status === "canceled" && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Cancels on {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "the end of your period"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              All {currentPlan} features stay until then. Changed your mind?
             </p>
           </div>
           <button
-            onClick={() => setShowCancelSurvey(true)}
-            className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+            onClick={async () => {
+              const r = await resumePlan();
+              if (r.error) toast.error(r.error);
+              else {
+                toast.success("Plan resumed! 🎉");
+                window.location.reload();
+              }
+            }}
+            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shrink-0"
           >
-            Cancel plan
+            Resume plan
           </button>
         </div>
       )}
@@ -1373,16 +1441,30 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
               rows={3}
               className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none"
             />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCancelSurvey(false)} className="px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted/30">
-                Keep my plan
-              </button>
+            {/* Two clear choices: keep what you paid for (default) or end now */}
+            <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground">Keep until the end — recommended</p>
+              <p className="mt-0.5">
+                Every feature stays until {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "your period end"}. Resume anytime in one click.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
               <button
                 onClick={handleCancelPlan}
                 disabled={cancelling || !cancelReason}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-40"
+                className="w-full py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold disabled:opacity-40"
               >
-                {cancelling ? "Canceling…" : "Confirm cancel"}
+                {cancelling ? "Canceling…" : "Cancel — keep features until the end"}
+              </button>
+              <button
+                onClick={handleImmediateCancel}
+                disabled={cancelling || !cancelReason}
+                className="w-full py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40"
+              >
+                Cancel now — drop to Starter today (no refund for remaining days)
+              </button>
+              <button onClick={() => setShowCancelSurvey(false)} className="w-full py-2 text-sm text-muted-foreground hover:text-foreground">
+                Keep my plan
               </button>
             </div>
           </div>

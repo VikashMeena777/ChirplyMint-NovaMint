@@ -130,6 +130,31 @@ export async function GET(request: Request) {
         console.log(`[Sub Check] ✅ Renewed: ${userId} → ${renewPlan}`);
         }
 
+      } else if ((s.status as string) === "canceled") {
+        // ── CANCELED: the user already decided — no grace nags, downgrade
+        // to free as soon as the paid period ends.
+        await supabase.from("subscriptions").update({
+          status: "expired",
+          updated_at: nowIso,
+        }).eq("user_id", userId);
+
+        await supabase.from("profiles").update({
+          plan: "free",
+          dm_limit: PLANS.free.dmLimit,
+          updated_at: nowIso,
+        }).eq("id", userId);
+
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          type: "info",
+          title: "Plan ended",
+          body: "Your paid period has ended and your canceled plan moved to Starter. Upgrade again anytime.",
+          metadata: { previous_plan: s.plan },
+        });
+
+        downgraded++;
+        console.log(`[Sub Check] 📉 Canceled → free: ${userId}`);
+
       } else if (daysSinceExpiry <= GRACE_PERIOD_DAYS) {
         // ── SCENARIO 2: GRACE PERIOD — Daily countdown emails ──
         const daysLeft = GRACE_PERIOD_DAYS - daysSinceExpiry;

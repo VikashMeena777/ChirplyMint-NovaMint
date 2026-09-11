@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { PLANS } from "@/lib/utils/plan-limits";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
@@ -123,6 +124,37 @@ export async function getInvoices(): Promise<InvoiceRow[]> {
   return (data as unknown as InvoiceRow[]) ?? [];
 }
 
+export interface SubscriptionStatusRow {
+  status: string;
+  plan: string;
+  currentPeriodEnd: string | null;
+}
+
+/** Current subscription state for the billing UI (banner + buttons). */
+export async function getSubscriptionStatus(): Promise<SubscriptionStatusRow | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const admin = getAdmin();
+  const { data: sub } = await admin
+    .from("subscriptions")
+    .select("status, plan, current_period_end")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const row = sub as Record<string, string> | null;
+  if (!row) return null;
+  return {
+    status: row.status,
+    plan: row.plan,
+    currentPeriodEnd: row.current_period_end ?? null,
+  };
+}
+
 /** Cancel the paid plan at period end (survey first). */
 export async function cancelPlanAtPeriodEnd(
   reason: string,
@@ -144,11 +176,13 @@ export async function cancelPlanAtPeriodEnd(
   });
 
   // Mark subscription canceled — features stay until current_period_end,
-  // then the subscription-check cron downgrades to free.
+  // then the subscription-check cron downgrades to free (no grace nags —
+  // the user already decided).
   const { error } = await admin
     .from("subscriptions")
     .update({ status: "canceled", updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .in("status", ["active", "grace_period"]);
 
   if (error) return { error: error.message };
 
@@ -179,5 +213,116 @@ export async function resumePlan(): Promise<{ error?: string }> {
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/settings");
+  return {};
+}
+
+/**
+ * Cancel NOW: paid features end immediately, account moves to Starter.
+ * Purchased top-up DMs are preserved. The subscription row is marked
+ * 'expired' so the daily cron never processes it again (no grace emails).
+ */
+export async function cancelImmediately(
+  reason: string,
+  feedback: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getAdmin();
+
+  await admin.from("activity_log").insert({
+    user_id: user.id,
+    action: "billing.cancel_immediate",
+    metadata: { reason, feedback: feedback.slice(0, 500) },
+  });
+
+  // Preserve purchased top-ups on the free plan's limit
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("plan, dm_topup_balance")
+    .eq("id", user.id)
+    .single();
+  const p = prof as Record<string, number> | null;
+  const balance = (p?.dm_topup_balance as number) ?? 0;
+
+  const { error: profErr } = await admin
+    .from("profiles")
+    .update({
+      plan: "free",
+      dm_limit: PLANS.free.dmLimit + balance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  if (profErr) return { error: profErr.message };
+
+  const { error: subErr } = await admin
+    .from("subscriptions")
+    .update({ status: "expired", updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .in("status", ["active", "grace_period", "canceled"]);
+  if (subErr) return { error: subErr.message };
+
+  await admin.from("notifications").insert({
+    user_id: user.id,
+    type: "info",
+    title: "Plan canceled",
+    body: "You're now on the free Starter plan. Your purchased top-up DMs are kept. Come back anytime!",
+  });
+
+  revalidatePath("/dashboard/settings/billing");
+  return {};
+}
+
+/**
+ * Downgrade Business → Pro, effective immediately. The paid period end
+ * is kept; DM entitlement becomes Pro (2000) + purchased top-ups.
+ */
+export async function downgradeToPro(): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getAdmin();
+
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("plan, dm_topup_balance")
+    .eq("id", user.id)
+    .single();
+  const p = prof as Record<string, string | number> | null;
+  if (p?.plan !== "business") {
+    return { error: "Only Business plans can switch to Pro." };
+  }
+  const balance = (p?.dm_topup_balance as number) ?? 0;
+
+  const { error: profErr } = await admin
+    .from("profiles")
+    .update({
+      plan: "pro",
+      dm_limit: PLANS.pro.dmLimit + balance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  if (profErr) return { error: profErr.message };
+
+  await admin
+    .from("subscriptions")
+    .update({ plan: "pro", updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .in("status", ["active", "grace_period"]);
+
+  await admin.from("notifications").insert({
+    user_id: user.id,
+    type: "info",
+    title: "Switched to Pro",
+    body: "You're now on Pro — 2,000 DMs a month plus your top-ups. Your paid period end date is unchanged.",
+  });
+
+  revalidatePath("/dashboard/settings/billing");
   return {};
 }
