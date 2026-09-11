@@ -9,8 +9,8 @@ import { switchWorkspace, getWorkspaceSwitchState } from "@/lib/actions/workspac
  * personal workspace and the team's). Owners and solo users see nothing.
  */
 export function WorkspaceSwitcher() {
-  const [state, setState] = useState<{ isMember: boolean; viewingTeam: boolean; ownerName: string }>({
-    isMember: false,
+  const [state, setState] = useState<{ hasMembership: boolean; viewingTeam: boolean; ownerName: string }>({
+    hasMembership: false,
     viewingTeam: false,
     ownerName: "",
   });
@@ -21,7 +21,7 @@ export function WorkspaceSwitcher() {
     getWorkspaceSwitchState().then(setState);
   }, []);
 
-  if (!state.isMember) return null;
+  if (!state.hasMembership) return null;
 
   const options = [
     { key: "team" as const, label: `${state.ownerName}'s team`, sub: "Shared workspace", icon: Users },

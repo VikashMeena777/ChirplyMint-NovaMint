@@ -14,7 +14,10 @@ export interface WorkspaceContext {
   userId: string;
   /** whose data the dashboard should read (owner's id for members) */
   workspaceUserId: string;
+  /** currently VIEWING the team workspace? (drives the banner) */
   isMember: boolean;
+  /** belongs to someone's team at all (drives the switcher) */
+  hasMembership: boolean;
   ownerName: string;
 }
 
@@ -66,26 +69,39 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
     .eq("owner_id", user.id);
   const isOwner = (owned ?? 0) > 0;
 
-  // Explicit "own workspace" preference (the workspace switcher)
-  if (pref === "own" && m?.owner_id) {
-    return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
-  }
+  const hasMembership = !!m?.owner_id;
 
-  if (isOwner) {
-    return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
+  // Explicit switcher preferences: 'own' or 'team' (team works even for
+  // owners who are ALSO members of someone else's team).
+  if (hasMembership && pref === "own") {
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: "" };
   }
-
-  // Membership: read the owner's workspace (default for members).
-  if (m?.owner_id) {
+  if (hasMembership && pref === "team") {
     return {
       userId: user.id,
       workspaceUserId: m.owner_id,
       isMember: true,
+      hasMembership,
       ownerName: await resolveOwnerName(m.owner_id),
     };
   }
 
-  return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
+  // Defaults: owners work in their own workspace; pure members see the team.
+  if (isOwner) {
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership, ownerName: "" };
+  }
+
+  if (hasMembership) {
+    return {
+      userId: user.id,
+      workspaceUserId: m.owner_id,
+      isMember: true,
+      hasMembership,
+      ownerName: await resolveOwnerName(m.owner_id),
+    };
+  }
+
+  return { userId: user.id, workspaceUserId: user.id, isMember: false, hasMembership: false, ownerName: "" };
 }
 
 /** Admin client for cross-user (member → owner) reads. */

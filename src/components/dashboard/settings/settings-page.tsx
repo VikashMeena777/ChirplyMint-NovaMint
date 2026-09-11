@@ -49,7 +49,7 @@ interface UserProfile {
   authProvider: "email" | "google" | "oauth";
 }
 
-const allTabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
   { id: "instagram", label: "Instagram", icon: Link2 },
   { id: "billing", label: "Billing", icon: CreditCard },
@@ -59,8 +59,7 @@ const allTabs: { id: TabId; label: string; icon: React.ElementType }[] = [
 export default function SettingsPage({ section }: { section: TabId }) {
   const activeTab = section;
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  // Team & API is a Business-plan feature — hidden for non-Business users
-  const tabs = profile?.plan === "business" ? allTabs : allTabs.filter((t) => t.id !== "team");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
