@@ -100,3 +100,32 @@ export async function revokeApiKey(id: string): Promise<{ error?: string }> {
   revalidatePath("/dashboard/settings");
   return {};
 }
+
+/**
+ * Permanently delete a REVOKED key row (Stripe/GitHub pattern: revoke first,
+ * delete removes the clutter). Active keys must be revoked before deletion.
+ */
+export async function deleteApiKey(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const admin = getAdmin();
+
+  // Only allow deleting keys you own AND that are already revoked
+  const { data: key } = await admin
+    .from("api_keys")
+    .select("id, revoked")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const k = key as { revoked: boolean } | null;
+  if (!k) return { error: "Key not found" };
+  if (!k.revoked) return { error: "Revoke the key first — then delete it." };
+
+  const { error } = await admin.from("api_keys").delete().eq("id", id).eq("user_id", user.id);
+  if (error) return { error: error.message };
+  return {};
+}

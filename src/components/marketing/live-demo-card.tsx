@@ -129,7 +129,7 @@ export function LiveDemoCard() {
                     <BadgeCheck className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white fill-sky-500 text-white dark:bg-neutral-900" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-neutral-900 dark:text-white">chirplymint</p>
+                    <p className="truncate text-[13px] font-semibold text-neutral-900 dark:text-white">ig.chirplymint</p>
                     <p className="text-[10px] text-neutral-400">active now</p>
                   </div>
                   <Phone className="h-4 w-4 text-neutral-900 dark:text-white" />

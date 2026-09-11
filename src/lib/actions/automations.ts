@@ -272,11 +272,16 @@ export async function toggleAutomation(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase
+  // Shared workspace: members may pause/resume the owner's automations
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const client = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
+  const { error } = await client
     .from("automations")
     .update({ status: newStatus })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -607,7 +612,11 @@ export async function bulkSetAutomationStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { error, count } = await supabase
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.workspaceUserId ?? user.id;
+  const client = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+
+  const { error, count } = await client
     .from("automations")
     .update({ status })
     .in("id", ids)

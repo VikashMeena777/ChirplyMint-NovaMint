@@ -25,7 +25,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-3 mt-4">
               <a
-                href="https://instagram.com/chirplymint"
+                href="https://instagram.com/ig.chirplymint"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"

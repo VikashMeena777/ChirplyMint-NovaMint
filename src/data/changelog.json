@@ -1,0 +1,207 @@
+{
+  "entries": [
+    {
+      "date": "Sep 12, 2026",
+      "version": "3.5",
+      "icon": "Users",
+      "tag": "feature",
+      "title": "Team Workspaces, Public API & Docs",
+      "description": "Business plans get shared team workspaces with roles, a public read-only API with documentation, and a safer free trial.",
+      "highlights": [
+        "Team members see the owner's workspace read-only with a clear banner",
+        "API keys: revoke AND delete, last-used display",
+        "Public API docs page with copy-paste examples (/dashboard/api-docs)",
+        "Free trial now strictly for new accounts — once ever, never after a paid plan",
+        "Team & API section locked to Business plans with an upgrade path"
+      ]
+    },
+    {
+      "date": "Sep 11, 2026",
+      "version": "3.4",
+      "icon": "CreditCard",
+      "tag": "improvement",
+      "title": "Rebuilt Cancel & Downgrade System",
+      "description": "Full control over your subscription: see exactly when it ends, cancel at period end or immediately, resume in one click, and switch Business to Pro anytime.",
+      "highlights": [
+        "Billing shows 'active until <date>' and 'cancels on <date>' banners",
+        "Two-choice cancel: keep features until the end, or drop to Starter today",
+        "One-click Resume while a cancellation is pending",
+        "Business to Pro switch keeps your paid period end date",
+        "Purchased top-up DMs survive every plan change, renewal, and downgrade",
+        "DM limit now always shows plan + purchased top-ups"
+      ]
+    },
+    {
+      "date": "Sep 11, 2026",
+      "version": "3.3",
+      "icon": "Sparkles",
+      "tag": "feature",
+      "title": "Premium Design Overhaul",
+      "description": "A research-driven redesign: buttery smooth scrolling, masked headline animations, a live product demo, and a new color system.",
+      "highlights": [
+        "Live animated Instagram DM demo in the hero (tap, PDF, lead captured)",
+        "Smooth inertia scrolling and word-by-word headline reveals",
+        "Funnel rings chart: watch comments become customers",
+        "Premium fonts (Space Grotesk + Inter) that actually load",
+        "Dark-mode greenise ambience across the whole page",
+        "Settings split into clean URLs: /settings/account, /billing, /team and more"
+      ]
+    },
+    {
+      "date": "Sep 10, 2026",
+      "version": "3.2",
+      "icon": "Shield",
+      "tag": "security",
+      "title": "Payments Hardened & Passwords Enforced",
+      "description": "One shared payment-fulfilment path (no more top-up misses), server-enforced password rules everywhere, and lawful invoices.",
+      "highlights": [
+        "+500 DM top-ups now always apply — display AND enforcement fixed",
+        "Password rules (8+ chars, uppercase, number) enforced on the server: signup, change, reset",
+        "Sequential GST-compliant invoices with one-click download",
+        "Team invite emails + on-domain password reset (no more phishing warnings)",
+        "Instagram connect loop fixed — success shows once, URL cleans itself"
+      ]
+    },
+    {
+      "date": "Sep 9, 2026",
+      "version": "3.1",
+      "icon": "MessageCircle",
+      "tag": "feature",
+      "title": "Real Inbox, Recipes & Onboarding",
+      "description": "A real Instagram inbox with manual replies and AI pause, 10 niche recipe templates, and a guided first-run checklist.",
+      "highlights": [
+        "Inbox: live conversations, reply manually, pause the AI per person",
+        "10 ready-made automation recipes (fitness, stores, musicians and more)",
+        "Test-mode sends the real DM to YOUR Instagram — safe, nothing public",
+        "Onboarding checklist on the dashboard",
+        "Annual plans (2 months free) and 99-rupee DM top-ups"
+      ]
+    },
+    {
+      "date": "May 10, 2026",
+      "version": "2.8",
+      "title": "Enhanced Account Security & Theme Toggle",
+      "icon": "Shield",
+      "tag": "security",
+      "description": "Smarter account deletion flow based on your login method, plus a new dark/light/system theme switcher right in the sidebar.",
+      "highlights": [
+        "Google OAuth users see a clear confirmation dialog — no fake password prompt",
+        "Email/password users must verify their actual password to delete",
+        "New Sun/Moon/Monitor theme toggle in the sidebar",
+        "Upgrade CTA now links to the Pricing page for better conversion"
+      ]
+    },
+    {
+      "date": "May 5, 2026",
+      "version": "2.7",
+      "title": "Automated Engagement Email System",
+      "icon": "Mail",
+      "tag": "feature",
+      "description": "7 professional branded email templates triggered by user actions and milestones. Plus a daily cron for inactive nudges and win-back campaigns.",
+      "highlights": [
+        "Instagram Connected, First DM, and 100 DM Milestone celebration emails",
+        "Plan Upgraded & Approaching Limit transactional emails",
+        "Daily cron sends Inactive Nudge (7-day) and Win-Back (30-day) emails",
+        "Smart cooldown prevents email fatigue — max 1 engagement email per 7 days"
+      ]
+    },
+    {
+      "date": "Apr 26, 2026",
+      "version": "2.6",
+      "title": "Multi-Account Instagram Support",
+      "icon": "Users",
+      "tag": "feature",
+      "description": "Connect and manage multiple Instagram accounts from a single ChirplyMint dashboard. Switch between accounts seamlessly.",
+      "highlights": [
+        "Connect unlimited IG accounts (plan-dependent limits)",
+        "Per-account automation targeting",
+        "Account switcher in the dashboard",
+        "Individual token refresh per account"
+      ]
+    },
+    {
+      "date": "Apr 15, 2026",
+      "version": "2.5",
+      "title": "AI Agent & Smart Inbox",
+      "icon": "Bot",
+      "tag": "feature",
+      "description": "AI-powered conversational agent that handles DMs intelligently with context awareness and customizable personality.",
+      "highlights": [
+        "Custom AI personality configuration",
+        "Context-aware DM responses using your business info",
+        "AI Inbox to review and manage AI conversations",
+        "Smart handoff to human when confidence is low"
+      ]
+    },
+    {
+      "date": "Apr 5, 2026",
+      "version": "2.4",
+      "title": "Drip Sequences & Postback Flows",
+      "icon": "Zap",
+      "tag": "feature",
+      "description": "Multi-step automated DM sequences with delays, conditions, and postback button flows for interactive conversations.",
+      "highlights": [
+        "Create multi-step drip sequences with custom delays",
+        "Postback button flows for interactive DM experiences",
+        "A/B testing on automation messages",
+        "Per-sequence analytics and conversion tracking"
+      ]
+    },
+    {
+      "date": "Mar 25, 2026",
+      "version": "2.3",
+      "title": "Link-in-Bio Builder",
+      "icon": "Link2",
+      "tag": "feature",
+      "description": "Beautiful, customizable link-in-bio pages with analytics. No external tools needed.",
+      "highlights": [
+        "Drag-and-drop link ordering",
+        "Custom themes, colors, and avatar",
+        "Click analytics per link",
+        "SEO-optimized public profile pages"
+      ]
+    },
+    {
+      "date": "Mar 15, 2026",
+      "version": "2.2",
+      "title": "Advanced Analytics Dashboard",
+      "icon": "BarChart3",
+      "tag": "improvement",
+      "description": "Deep insights into your automation performance with charts, trends, and per-automation breakdowns.",
+      "highlights": [
+        "Daily DM send volume and lead capture charts",
+        "Per-automation performance comparison",
+        "Conversion rate tracking",
+        "Weekly email reports with key metrics"
+      ]
+    },
+    {
+      "date": "Mar 1, 2026",
+      "version": "2.1",
+      "title": "Lead Capture & CRM",
+      "icon": "Users",
+      "tag": "feature",
+      "description": "Automatically capture leads from DM conversations. Tag, filter, export, and manage your pipeline.",
+      "highlights": [
+        "Auto-capture leads from comment triggers",
+        "Tagging system (Hot, Warm, Cold, VIP, Customer)",
+        "CSV export and webhook integrations",
+        "Bulk operations for lead management"
+      ]
+    },
+    {
+      "date": "Feb 15, 2026",
+      "version": "2.0",
+      "title": "ChirplyMint Launch 🚀",
+      "icon": "Sparkles",
+      "tag": "feature",
+      "description": "The initial public launch of ChirplyMint — automate Instagram DMs from comment keywords with AI-powered responses.",
+      "highlights": [
+        "Comment keyword trigger → auto DM",
+        "AI-powered message generation",
+        "Real-time DM delivery tracking",
+        "Free, Pro, and Business plans"
+      ]
+    }
+  ]
+}

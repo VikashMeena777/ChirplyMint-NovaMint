@@ -21,7 +21,85 @@ function getAdmin() {
 const TRIAL_DAYS = 7;
 
 /** Start the one-time 7-day Pro trial. */
+const TRIAL_MAX_ACCOUNT_AGE_DAYS = 30;
+
+export interface TrialEligibility {
+  eligible: boolean;
+  reason: string;
+}
+
+/**
+ * Strict trial eligibility — ALL must hold:
+ *   1. trial_used is false (one trial per account, forever)
+ *   2. the account has NEVER made a paid purchase (upgraded-then-
+ *      canceled users don't get a second taste)
+ *   3. the account is genuinely new (created within 30 days)
+ *   4. an Instagram professional account is connected
+ */
+export async function getTrialEligibility(): Promise<TrialEligibility> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { eligible: false, reason: "Not authenticated" };
+
+  const admin = getAdmin();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("plan, trial_used, created_at")
+    .eq("id", user.id)
+    .single();
+  const p = profile as Record<string, unknown> | null;
+
+  if (p?.plan === "pro" || p?.plan === "business") {
+    return { eligible: false, reason: "You're already on a paid plan." };
+  }
+  if (p?.trial_used === true) {
+    return { eligible: false, reason: "already_used" };
+  }
+
+  const { count: paidOrders } = await admin
+    .from("payment_orders")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "paid");
+  if ((paidOrders ?? 0) > 0) {
+    return { eligible: false, reason: "paid_before" };
+  }
+
+  const createdAt = p?.created_at ? new Date(p.created_at as string).getTime() : 0;
+  const ageDays = createdAt ? Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000)) : 999;
+  if (ageDays > TRIAL_MAX_ACCOUNT_AGE_DAYS) {
+    return { eligible: false, reason: "not_new" };
+  }
+
+  const { count: igCount } = await admin
+    .from("instagram_accounts")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+  if ((igCount ?? 0) === 0) {
+    return { eligible: false, reason: "connect_instagram" };
+  }
+
+  return { eligible: true, reason: "" };
+}
+
 export async function startFreeTrial(): Promise<{ error?: string }> {
+  // Every rule lives in ONE place — the action re-runs the full
+  // eligibility check so the client state can never grant a trial the
+  // rules forbid.
+  const eligibility = await getTrialEligibility();
+  if (!eligibility.eligible) {
+    const friendly: Record<string, string> = {
+      already_used: "You've already used your free trial.",
+      paid_before: "Free trials are for new accounts only — you've been on a paid plan before.",
+      not_new: "Free trials are for new accounts (created within the last 30 days).",
+      connect_instagram: "Connect your Instagram account first (Settings → Instagram), then start the trial.",
+    };
+    return { error: friendly[eligibility.reason] || eligibility.reason };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,30 +109,10 @@ export async function startFreeTrial(): Promise<{ error?: string }> {
   const admin = getAdmin();
   const { data: profile } = await admin
     .from("profiles")
-    .select("plan, plan_expires_at, trial_used, email")
+    .select("email")
     .eq("id", user.id)
     .single();
   const p = profile as Record<string, unknown> | null;
-
-  if (p?.trial_used === true) {
-    return { error: "You've already used your free trial." };
-  }
-  if (p?.plan === "pro" || p?.plan === "business") {
-    // Already on a paid plan — extend instead of granting
-    return { error: "You're already on a paid plan." };
-  }
-
-  // Abuse guard: a connected Instagram account is required. Throwaway
-  // emails don't have IG professional accounts, so this stops the
-  // "new email = new trial" loop without demanding a card.
-  const { count: igCount } = await admin
-    .from("instagram_accounts")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("is_active", true);
-  if ((igCount ?? 0) === 0) {
-    return { error: "Connect your Instagram account first (Settings → Instagram), then start the trial." };
-  }
 
   const ends = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
   const { error } = await admin

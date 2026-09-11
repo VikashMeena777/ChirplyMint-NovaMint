@@ -34,7 +34,7 @@ import {
   revokeInvite,
   removeTeamMember,
 } from "@/lib/actions/team";
-import { createApiKey, revokeApiKey } from "@/lib/actions/api-keys";
+import { createApiKey, revokeApiKey, deleteApiKey } from "@/lib/actions/api-keys";
 
 type TabId = "account" | "instagram" | "billing" | "notifications" | "team";
 
@@ -49,17 +49,18 @@ interface UserProfile {
   authProvider: "email" | "google" | "oauth";
 }
 
-const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+const allTabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
   { id: "instagram", label: "Instagram", icon: Link2 },
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "team", label: "Team & API", icon: Users },
 ];
-
 export default function SettingsPage({ section }: { section: TabId }) {
   const activeTab = section;
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // Team & API is a Business-plan feature — hidden for non-Business users
+  const tabs = profile?.plan === "business" ? allTabs : allTabs.filter((t) => t.id !== "team");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
@@ -388,7 +389,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
         )}
 
         {activeTab === "billing" && (
-          <BillingTab profile={profile} />
+          <BillingTab profile={profile} onProfileRefresh={loadProfile} />
         )}
 
         {activeTab === "notifications" && (
@@ -484,6 +485,26 @@ export default function SettingsPage({ section }: { section: TabId }) {
         )}
 
         {activeTab === "team" && (
+          profile?.plan !== "business" ? (
+            <div className="text-center py-16 space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-[oklch(0.52_0.19_162/12%)] flex items-center justify-center">
+                <Users className="w-7 h-7 text-[oklch(0.52_0.19_162)]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Team &amp; API is a Business feature</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Invite teammates to your workspace and build on the public API. Upgrade to Business to unlock it.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/settings/billing"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold"
+              >
+                <Sparkles className="w-4 h-4" />
+                Upgrade to Business
+              </Link>
+            </div>
+          ) : (
           <div className="space-y-6 max-w-2xl">
             {/* Team seats (D6) */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
@@ -581,25 +602,50 @@ export default function SettingsPage({ section }: { section: TabId }) {
                   <code className="bg-muted px-1 rounded mx-1">/api/v1/stats</code>
                 </p>
               </div>
-              {apiKeys.map((k) => (
+              {/* Active keys */}
+              {apiKeys.filter((k) => !k.revoked).map((k) => (
                 <div key={k.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30">
-                  <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <KeyRound className="w-4 h-4 text-[oklch(0.52_0.19_162)] shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground truncate">{k.name} <span className="text-muted-foreground font-mono text-xs">({k.key_prefix}...)</span></p>
+                    <p className="text-sm text-foreground truncate">{k.name} <span className="text-muted-foreground font-mono text-xs">({k.key_prefix}…)</span></p>
                     <p className="text-[11px] text-muted-foreground">
-                      {k.revoked ? "Revoked" : k.last_used_at ? "Last used " + new Date(k.last_used_at).toLocaleDateString("en-IN") : "Never used"}
+                      {k.last_used_at ? `Last used ${timeAgo(k.last_used_at)}` : "Never used"}
                     </p>
                   </div>
-                  {!k.revoked && (
-                    <button
-                      onClick={async () => { const r = await revokeApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key revoked"); loadApiKeys(); } }}
-                      className="text-xs text-red-400 hover:underline"
-                    >
-                      Revoke
-                    </button>
-                  )}
+                  <button
+                    onClick={async () => { const r = await revokeApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key revoked — integrations using it will stop working"); loadApiKeys(); } }}
+                    className="text-xs text-red-400 hover:underline shrink-0"
+                  >
+                    Revoke
+                  </button>
                 </div>
               ))}
+
+              {/* Revoked keys — collapsed, greyed, deletable */}
+              {apiKeys.some((k) => k.revoked) && (
+                <details className="rounded-lg border border-border">
+                  <summary className="px-3 py-2 text-xs text-muted-foreground cursor-pointer select-none">
+                    Revoked keys ({apiKeys.filter((k) => k.revoked).length}) — no longer work
+                  </summary>
+                  <div className="px-3 pb-2 space-y-1.5">
+                    {apiKeys.filter((k) => k.revoked).map((k) => (
+                      <div key={k.id} className="flex items-center gap-3 px-2 py-1.5 rounded-lg opacity-60">
+                        <KeyRound className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-muted-foreground line-through truncate">{k.name} <span className="font-mono text-xs">({k.key_prefix}…)</span></p>
+                          <p className="text-[11px] text-muted-foreground">Revoked</p>
+                        </div>
+                        <button
+                          onClick={async () => { const r = await deleteApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key deleted"); loadApiKeys(); } }}
+                          className="text-xs text-muted-foreground hover:text-red-400 hover:underline shrink-0"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
               {newApiKey && (
                 <div className="rounded-lg border border-[oklch(0.52_0.19_162/40%)] bg-[oklch(0.52_0.19_162/5%)] p-3 space-y-1.5">
                   <p className="text-xs font-semibold text-foreground">Copy your key now - it won't be shown again:</p>
@@ -633,7 +679,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
               </div>
             </div>
           </div>
-        )}
+          ))}
       </div>
     </div>
   );
@@ -990,7 +1036,16 @@ function InstagramConnectionTab() {
 }
 
 /* ─── Billing Sub-component ─── */
-function BillingTab({ profile }: { profile: UserProfile | null }) {
+
+function timeAgo(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null; onProfileRefresh: () => Promise<void> }) {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [startingTrial, setStartingTrial] = useState(false);
@@ -1019,7 +1074,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     if (r.error) toast.error(r.error);
     else {
       toast.success("7-day Pro trial started! 🎉 Everything is unlocked.");
-      window.location.reload();
+      await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
     }
   }
 
@@ -1033,7 +1088,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
       setShowCancelSurvey(false);
       setCancelReason("");
       setCancelFeedback("");
-      window.location.reload();
+      await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
     }
   }
 
@@ -1044,7 +1099,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     if (r.error) toast.error(r.error);
     else {
       toast.success("Switched to Pro — period end unchanged");
-      window.location.reload();
+      await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
     }
   }
 
@@ -1058,7 +1113,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
       setShowCancelSurvey(false);
       setCancelReason("");
       setCancelFeedback("");
-      window.location.reload();
+      await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
     }
   }
 
@@ -1067,7 +1122,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
     if (r.error) toast.error(r.error);
     else {
       toast.success("Plan resumed! 🎉");
-      window.location.reload();
+      await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
     }
   }
 
@@ -1200,7 +1255,7 @@ function BillingTab({ profile }: { profile: UserProfile | null }) {
               if (r.error) toast.error(r.error);
               else {
                 toast.success("Plan resumed! 🎉");
-                window.location.reload();
+                await Promise.all([onProfileRefresh(), getSubscriptionStatus().then(setSubscription)]);
               }
             }}
             className="px-5 py-2 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shrink-0"

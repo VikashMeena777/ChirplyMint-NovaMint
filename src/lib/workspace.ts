@@ -25,6 +25,8 @@ function admin() {
   );
 }
 
+export const WORKSPACE_COOKIE = "cm_ws";
+
 export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
   const supabase = await createClient();
   const {
@@ -33,18 +35,11 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
   if (!user) return null;
 
   const db = admin();
+  const { cookies } = await import("next/headers");
+  const jar = await cookies();
+  const pref = jar.get(WORKSPACE_COOKIE)?.value; // "own" | owner-uuid
 
-  // Ownership wins: if this user has their own team, they work in their
-  // own workspace even if they're also a member of someone else's.
-  const { count: owned } = await db
-    .from("team_members")
-    .select("*", { count: "exact", head: true })
-    .eq("owner_id", user.id);
-  if ((owned ?? 0) > 0) {
-    return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
-  }
-
-  // Membership: read the owner's workspace instead.
+  // Membership row (if any)
   const { data: membership } = await db
     .from("team_members")
     .select("owner_id")
@@ -52,18 +47,41 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
     .limit(1)
     .maybeSingle();
   const m = membership as { owner_id: string } | null;
-  if (m?.owner_id) {
+
+  const resolveOwnerName = async (ownerId: string) => {
     const { data: ownerProfile } = await db
       .from("profiles")
       .select("full_name, email")
-      .eq("id", m.owner_id)
+      .eq("id", ownerId)
       .single();
     const op = ownerProfile as { full_name?: string; email?: string } | null;
+    return op?.full_name || op?.email || "your team owner";
+  };
+
+  // Ownership wins unless the user is ONLY a member (no team of their own)
+  // and hasn't explicitly switched to "own".
+  const { count: owned } = await db
+    .from("team_members")
+    .select("*", { count: "exact", head: true })
+    .eq("owner_id", user.id);
+  const isOwner = (owned ?? 0) > 0;
+
+  // Explicit "own workspace" preference (the workspace switcher)
+  if (pref === "own" && m?.owner_id) {
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
+  }
+
+  if (isOwner) {
+    return { userId: user.id, workspaceUserId: user.id, isMember: false, ownerName: "" };
+  }
+
+  // Membership: read the owner's workspace (default for members).
+  if (m?.owner_id) {
     return {
       userId: user.id,
       workspaceUserId: m.owner_id,
       isMember: true,
-      ownerName: op?.full_name || op?.email || "your team owner",
+      ownerName: await resolveOwnerName(m.owner_id),
     };
   }
 

@@ -52,7 +52,7 @@ export default function ContactPage() {
               <MessageCircle className="w-5 h-5 text-[oklch(0.52_0.19_162)]" />
               <h3 className="font-semibold text-foreground">Social</h3>
             </div>
-            <p className="text-sm text-muted-foreground">@chirplymint on Instagram</p>
+            <p className="text-sm text-muted-foreground">@ig.chirplymint on Instagram</p>
           </div>
           <div className="p-5 rounded-2xl bg-card border border-border shadow-sm">
             <div className="flex items-center gap-3 mb-2">

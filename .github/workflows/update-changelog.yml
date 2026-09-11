@@ -1,0 +1,36 @@
+name: Update changelog
+
+# Auto-append changelog entries when a release round is pushed to main.
+# Commit subjects matching "Round N: <title>" become a new entry; the body's
+# bullet list becomes the highlights. Sensitive content is filtered.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  changelog:
+    # Skip docs-only chores and the changelog's own commits
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(changelog)') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Append new changelog entries from commits
+        run: node scripts/update-changelog.mjs
+
+      - name: Commit if changed
+        run: |
+          git config user.name "changelog-bot"
+          git config user.email "actions@github.com"
+          git add src/data/changelog.json
+          git diff --cached --quiet || git commit -m "chore(changelog): auto-update"
+          git push

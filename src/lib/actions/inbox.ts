@@ -113,7 +113,11 @@ export async function getThreadMessages(
   } = await supabase.auth.getUser();
   if (!user) return { messages: [], error: "Not authenticated" };
 
-  const acc = await getAccount(user.id);
+  // Shared workspace: members read the owner's threads
+  const ws1 = await getWorkspaceContext();
+  const targetId1 = ws1?.workspaceUserId ?? user.id;
+  const cross1 = targetId1 !== user.id ? getAdmin() : undefined;
+  const acc = await getAccount(targetId1, cross1);
   if (!acc) return { messages: [], error: "Connect Instagram first" };
 
   try {
@@ -159,7 +163,11 @@ export async function replyInThread(
   if (!user) return { error: "Not authenticated" };
   if (!text.trim()) return { error: "Message is empty" };
 
-  const acc = await getAccount(user.id);
+  // Shared workspace: members reply from the OWNER's connected account
+  const ws2 = await getWorkspaceContext();
+  const targetId2 = ws2?.workspaceUserId ?? user.id;
+  const cross2 = targetId2 !== user.id ? getAdmin() : undefined;
+  const acc = await getAccount(targetId2, cross2);
   if (!acc) return { error: "Connect Instagram first" };
 
   const res = await fetch(`https://graph.instagram.com/v26.0/${acc.igUserId}/messages`, {

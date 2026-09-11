@@ -32,6 +32,7 @@ import { BrainIcon } from "@/components/icons/brain/brain";
 import { BotMessageSquareIcon } from "@/components/icons/bot-message-square/bot-message-square";
 import { Link2Icon } from "@/components/icons/link-2/link-2";
 import { PartyPopperIcon } from "@/components/icons/party-popper/party-popper";
+import { WorkspaceSwitcher } from "@/components/layouts/workspace-switcher";
 import { LogoutIcon } from "@/components/icons/logout/logout";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { MessageCircleIcon } from "@/components/icons/message-circle/message-circle";
@@ -148,6 +149,8 @@ export function Sidebar() {
           )}
         </Link>
       </div>
+
+      <WorkspaceSwitcher />
 
       {/* Main nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
