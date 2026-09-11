@@ -140,14 +140,24 @@ export async function applyReferralCode(code: string): Promise<{
     reward_days: 14,
   });
 
-  // Increment referrer's count
+  // Increment referrer's count — CAPPED (Strix vuln-0006): after 5 rewarded
+  // referrals the count still tracks but no more free Pro is granted, so
+  // throwaway-account cycling can't stack unlimited free months.
+  const MAX_REWARDED_REFERRALS = 5;
   const currentCount = ((referrer as Record<string, unknown>).referral_count as number) || 0;
+  const alreadyCapped = currentCount >= MAX_REWARDED_REFERRALS;
+
   await admin
     .from("profiles")
     .update({ referral_count: currentCount + 1 })
     .eq("id", referrerId);
 
-  // Award referrer: 14 days of Pro
+  // Award referrer: 14 days of Pro — only while under the cap
+  if (alreadyCapped) {
+    console.log(`[Referral] Cap reached for ${referrerId} — no reward granted`);
+    return { success: true, error: null };
+  }
+
   const currentPlan = (referrer as Record<string, unknown>).plan as string;
   const currentExpiry = (referrer as Record<string, unknown>).plan_expires_at as string | null;
 

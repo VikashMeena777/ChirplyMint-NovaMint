@@ -78,12 +78,31 @@ export function getAiLimiter() {
  * Check rate limit — returns { allowed, remaining, resetAt }
  * Gracefully returns allowed=true if Redis is not configured or fails.
  */
+
+// In-memory fallback so a Redis outage degrades to per-instance throttling
+// instead of no throttling at all (Strix vuln-0001).
+const memoryBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function memoryRateLimit(identifier: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const bucket = memoryBuckets.get(identifier);
+  if (!bucket || now > bucket.resetAt) {
+    memoryBuckets.set(identifier, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= max;
+}
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string
 ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
   if (!limiter) {
-    return { allowed: true, remaining: 999, resetAt: new Date() };
+    // Degraded mode: per-instance in-memory fallback (5 per 15 min) rather
+    // than unthrottled access.
+    const allowed = memoryRateLimit(identifier, 5, 15 * 60 * 1000);
+    return { allowed, remaining: allowed ? 998 : 0, resetAt: new Date() };
   }
 
   try {

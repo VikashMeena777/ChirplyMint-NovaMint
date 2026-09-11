@@ -4,6 +4,44 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 
+/**
+ * SSRF guard: webhook destinations must be https and must not resolve to
+ * private/loopback/link-local/metadata addresses. (Strix vuln-0003)
+ */
+function assertSafeWebhookUrl(raw: string): { error?: string } {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { error: "Invalid webhook URL" };
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return { error: "Webhook URL must start with http:// or https://" };
+  }
+  const host = url.hostname.toLowerCase();
+  const blockedHosts = [
+    "localhost", "0.0.0.0", "metadata.google.internal",
+    "169.254.169.254", "100.100.100.200",
+  ];
+  if (blockedHosts.includes(host)) {
+    return { error: "That host is not allowed as a webhook destination" };
+  }
+  const isIpV4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+  const isIpV6 = host.includes(":");
+  if (isIpV4) {
+    const parts = host.split(".").map(Number);
+    if (parts[0] === 10 || parts[0] === 127 || parts[0] === 0) return { error: "Private addresses are not allowed" };
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return { error: "Private addresses are not allowed" };
+    if (parts[0] === 192 && parts[1] === 168) return { error: "Private addresses are not allowed" };
+    if (parts[0] === 169 && parts[1] === 254) return { error: "Link-local addresses are not allowed" };
+  }
+  if (isIpV6 && (host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80"))) {
+    return { error: "Private addresses are not allowed" };
+  }
+  return {};
+}
+
+
 // ─── Types ───────────────────────────────────────────────
 
 export interface LeadExportRecord {
@@ -117,19 +155,16 @@ function escapeCsv(value: string): string {
 /**
  * Send all leads to a webhook URL via POST request.
  */
-export async function exportLeadsWebhook(webhookUrl: string) {
+export async function exportLeadsWebhook(webhookUrl: string): Promise<{ error?: string; success?: boolean; count?: number }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Validate URL
-  try {
-    new URL(webhookUrl);
-  } catch {
-    return { error: "Invalid webhook URL" };
-  }
+  // SSRF guard (scheme + private-address blocking)
+  const urlError = assertSafeWebhookUrl(webhookUrl);
+  if (urlError.error) return urlError;
 
   const { data: leads, error } = await supabase
     .from("leads")
@@ -215,18 +250,15 @@ export async function exportLeadsWebhook(webhookUrl: string) {
 /**
  * Test a webhook URL by sending a sample payload.
  */
-export async function testWebhook(webhookUrl: string) {
+export async function testWebhook(webhookUrl: string) : Promise<{ error?: string; success?: boolean; message?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  try {
-    new URL(webhookUrl);
-  } catch {
-    return { error: "Invalid webhook URL" };
-  }
+  const urlError2 = assertSafeWebhookUrl(webhookUrl);
+  if (urlError2.error) return urlError2;
 
   const testPayload = {
     source: "chirplymint",

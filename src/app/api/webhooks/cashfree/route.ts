@@ -66,8 +66,12 @@ export async function POST(request: Request) {
         const verification = await verifyPaymentOrder(orderId);
         const payments = (verification.payments as Array<Record<string, unknown>>) || [];
         const success = payments.find((p) => p.payment_status === "SUCCESS");
-        if (verification.success && payments.length > 0 && !success) {
-          console.error(`[Cashfree Webhook] No SUCCESS payment for ${orderId} — ignoring`);
+        // Fail-CLOSED (Strix vuln-0004): when the order-status API confirms
+        // the order but shows NO successful payment — whether the list is
+        // empty or every attempt failed — do NOT fulfil. Only a network-level
+        // error on OUR side (the catch below) still trusts the HMAC alone.
+        if (verification.success && !success) {
+          console.error(`[Cashfree Webhook] No SUCCESS payment for ${orderId} (verified, ${payments.length} payment(s)) — ignoring`);
           return NextResponse.json({ status: "ok" });
         }
         // Amount check when Cashfree returns an amount field.
