@@ -3,6 +3,20 @@
     {
       "date": "Sep 11, 2026",
       "version": "auto",
+      "title": "Workspace switcher polish, Trial banner gating, Changelog title casing",
+      "description": "Switcher label fix: the team owner's name is now always resolved —",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Switcher label fix: the team owner's name is now always resolved —",
+        "Switcher flicker fix: state is cached in localStorage and hydrated",
+        "Free trial banner now only appears for users who can actually start",
+        "Auto-changelog titles now get professional casing (first letter +"
+      ]
+    },
+    {
+      "date": "Sep 11, 2026",
+      "version": "auto",
       "title": "Switcher for owner+member users, Team tab back for all plans, Animated Google button",
       "description": "Workspace switcher no longer disappears for team owners who are ALSO",
       "tag": "security",
