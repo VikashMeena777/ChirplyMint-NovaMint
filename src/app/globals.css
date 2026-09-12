@@ -402,23 +402,16 @@
   contain-intrinsic-size: auto 900px;
 }
 
-/* While the user is actively scrolling, freeze every ambient loop. The
-   drift cycles are 22-32s long, so a pause of a few hundred ms is
-   imperceptible — but moving content behind backdrop-filter surfaces is
-   what made scrolling expensive, and this stops it exactly then.
+/* Only the big background auroras freeze during scroll. Their drift loops
+   are 22-32s long, so a pause of a few hundred ms is invisible — and they
+   are the large compositor layers whose movement costs the most. Everything
+   a visitor actually watches (the phone demo, the marquee, pulse pings)
+   keeps running while scrolling: the de-frosted surfaces + late layer
+   promotion removed the cost that made freezing them necessary.
    (Class is toggled on <html> by the AmbientPause component.) */
 html.ambient-scrolling .animate-aurora-1,
 html.ambient-scrolling .animate-aurora-2,
-html.ambient-scrolling .animate-aurora-3,
-html.ambient-scrolling .animate-float-1,
-html.ambient-scrolling .animate-float-2,
-html.ambient-scrolling .animate-float-3,
-html.ambient-scrolling .animate-ping,
-html.ambient-scrolling .animate-shimmer,
-html.ambient-scrolling .demo-dot,
-html.ambient-scrolling .demo-float,
-html.ambient-scrolling .demo-ripple,
-html.ambient-scrolling [class*="animate-[marquee"] {
+html.ambient-scrolling .animate-aurora-3 {
   animation-play-state: paused;
 }
 

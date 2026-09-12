@@ -55,52 +55,19 @@ export function LiveDemoCard() {
   // The demo advances by re-rendering the whole phone tree. Freeze it while
   // the phone isn't on screen so scrolling the rest of the page stays smooth.
   const inView = useInView(rootRef, { margin: "160px" });
-  // ...and while the user is actively scrolling: advancing mid-scroll
-  // re-renders the tree exactly when frames are scarcest.
-  const scrollingRef = useRef(false);
-
-  useEffect(() => {
-    let settle: ReturnType<typeof setTimeout> | null = null;
-    const onScroll = () => {
-      scrollingRef.current = true;
-      if (settle) clearTimeout(settle);
-      settle = setTimeout(() => {
-        scrollingRef.current = false;
-      }, 260);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (settle) clearTimeout(settle);
-    };
-  }, []);
 
   useEffect(() => {
     if (!inView) return;
-    let cancelled = false;
-    let t: ReturnType<typeof setTimeout>;
-    const schedule = (delay: number) => {
-      t = setTimeout(() => {
-        if (cancelled) return;
-        // hold the current step while the page is being scrolled
-        if (scrollingRef.current) {
-          schedule(350);
-          return;
+    const t = setTimeout(() => {
+      setStep((s) => {
+        if (s === TIMELINE.length - 1) {
+          setRun((r) => r + 1);
+          return 0;
         }
-        setStep((s) => {
-          if (s === TIMELINE.length - 1) {
-            setRun((r) => r + 1);
-            return 0;
-          }
-          return s + 1;
-        });
-      }, delay);
-    };
-    schedule(TIMELINE[step].ms);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
+        return s + 1;
+      });
+    }, TIMELINE[step].ms);
+    return () => clearTimeout(t);
   }, [step, inView]);
 
   return (

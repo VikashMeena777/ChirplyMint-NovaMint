@@ -77,6 +77,8 @@ export async function createAIAgent(agentName: string) {
     .insert({
       user_id: user.id,
       agent_name: agentName || "Assistant",
+      // auto-detect: mirror whatever language the lead writes in (default)
+      language: "auto",
     })
     .select()
     .single();

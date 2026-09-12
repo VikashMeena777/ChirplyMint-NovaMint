@@ -149,7 +149,8 @@ export default function AIAgentPage() {
       setAgentName(data.agent_name);
       setPersona(data.persona);
       setTone(data.tone);
-      setLanguage(data.language || "auto");
+      // legacy 'en' rows read as auto-detect (the old silent default)
+      setLanguage(!data.language || data.language === "en" ? "auto" : data.language);
       setGreetingMessage(data.greeting_message);
       setFallbackMessage(data.fallback_message);
       setMaxReplyLength(data.max_reply_length);
