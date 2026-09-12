@@ -59,7 +59,9 @@ function humanizeReply(reply: string): string {
 
 /**
  * Analyze the last few assistant replies to build anti-repetition context.
- * Tells the model exactly what phrases to AVOID using again.
+ * Keeps phrasing fresh WITHOUT pushing the model to invent new facts —
+ * the old "vary completely" wording made models break character when a
+ * question was repeated, spiralling into nonsense.
  */
 function buildAntiRepetitionContext(
   conversationHistory: { role: string; content: string }[]
@@ -70,14 +72,42 @@ function buildAntiRepetitionContext(
 
   if (assistantReplies.length === 0) return "";
 
-  // Extract key phrases that were repeated
-  const recentReplies = assistantReplies.slice(-4);
+  const recentReplies = assistantReplies.slice(-3);
 
-  return `\n\nANTI-REPETITION (CRITICAL):
-Your recent replies to this person were:
-${recentReplies.map((r, i) => `- Reply ${i + 1}: "${r.slice(0, 120)}${r.length > 120 ? "..." : ""}"`).join("\n")}
+  return `\n\nRECENT CHAT RECAP (context only — not a constraint):
+Your last replies were:
+${recentReplies.map((r) => `- "${r.slice(0, 120)}${r.length > 120 ? "..." : ""}"`).join("\n")}
 
-DO NOT repeat these same phrases, sentences, or structure. Each reply must feel fresh and different. If you've already mentioned a link, channel, or promo — DO NOT mention it again unless the user specifically asks for it. Vary your wording completely.`;
+Vary your PHRASING a little so you don't sound like a loop — but NEVER change the facts or invent new things just to sound different. If you already shared a link or promo, don't repeat it unless they ask.`;
+}
+
+/**
+ * Has the person asked essentially this same question in the last few
+ * turns? A repeated question means the earlier answer didn't land — the
+ * agent must answer it again, clearly and simply, not flail for
+ * something new to say.
+ */
+function isRepeatQuestion(
+  conversationHistory: { role: string; content: string }[],
+  incoming: string
+): boolean {
+  const norm = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const target = norm(incoming);
+  if (!target || target.length < 3) return false;
+  const recentUserMsgs = conversationHistory
+    .filter((m) => m.role === "user")
+    .slice(-4)
+    .map((m) => norm(m.content));
+  return recentUserMsgs.some(
+    (m) =>
+      m === target ||
+      (m.length > 8 && target.length > 8 && (m.includes(target) || target.includes(m)))
+  );
 }
 
 /**
@@ -249,12 +279,26 @@ export async function generateAgentReply(params: {
   }
 
   // 7. Build the human-like system prompt
-  const systemPrompt = `You are "${config.agent_name}" — a real person running an Instagram page. You chat with followers in your DMs.
+  const repeatNote = isRepeatQuestion(conversationHistory, params.incomingMessage)
+    ? `\nTHEY'RE ASKING THE SAME THING AGAIN: they asked this before and your earlier answer may not have landed. Answer the SAME question again — clearer and simpler this time. Same facts, cleaner phrasing. Do NOT invent a different answer just to sound fresh.`
+    : "";
+
+  const greetingContext =
+    conversationHistory.length === 0 && config.greeting_message
+      ? `\nThis is your first reply to this person. Your usual opening line is: "${config.greeting_message}" — you don't have to use it word-for-word, but keep the same warm energy.`
+      : "";
+
+  const systemPrompt = `You are "${config.agent_name}" — a real person running an Instagram page, chatting with a follower in your DMs.
 
 WHO YOU ARE:
 ${config.persona}
 
 YOUR VIBE: ${config.tone}
+
+WHAT YOU HELP FOLLOWERS WITH:
+- Answering their questions about you, your content, and anything in your knowledge base
+- Sharing details, links, prices, or info they ask for
+- Being warm, quick, and human — like a creator who actually reads their DMs
 
 HOW YOU TALK:
 - You talk like a real person on Instagram DMs — short, casual, friendly
@@ -265,6 +309,12 @@ HOW YOU TALK:
 - ${languageHint}
 - Keep replies under ${config.max_reply_length} characters
 
+STAYING REAL (CRITICAL):
+- Only state facts about yourself that are in your persona or knowledge base below
+- If they ask something personal you don't have an answer for (favorite place, age, city, plans…) — NEVER invent specifics. Deflect lightly and naturally, or say you'll check and get back
+- If they ask what you do or what you can help with: describe how you help — answering questions, sharing content and details, collabs, whatever fits your persona — in your own casual style, not a sales pitch
+- NEVER break character. NEVER mention being an AI, a bot, or an agent, and NEVER say things like "I gave the wrong answer" or "I don't know anything". If you're unsure, just reply simply and stay chill
+
 CONVERSATION AWARENESS:
 - ${intent === "greeting" ? "The person just said hi. Greet them warmly and casually. DON'T immediately pitch or promote anything." : ""}
 - ${intent === "thanks" ? "The person is thanking you or acknowledging something. Keep it brief and warm. DON'T repeat any links or promos." : ""}
@@ -273,8 +323,7 @@ CONVERSATION AWARENESS:
 - If you've already shared a link or promo in this conversation, DO NOT share it again. They already have it.
 - If someone asks something you don't know, just say "${config.fallback_message}" — don't make stuff up
 - NEVER start with "Sure!", "Of course!", "Great question!", "I'd be happy to help!" — that sounds like AI
-- NEVER use phrases like "Feel free to", "Don't hesitate to", "Let me know if" — those are robotic
-${faqContext}${antiRepetition}${feedbackContext}`;
+- NEVER use phrases like "Feel free to", "Don't hesitate to", "Let me know if" — those are robotic${repeatNote}${greetingContext}${faqContext}${antiRepetition}${feedbackContext}`;
 
   // 8. Save incoming message to conversation history
   await supabase.from("ai_conversations").insert({
@@ -286,8 +335,14 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
     content: params.incomingMessage,
   });
 
-  // 9. Check if this is first message — send greeting
-  if (conversationHistory.length === 0 && config.greeting_message) {
+  // 9. First message: send the greeting only when they're just saying hi —
+  // if their first message is a real question, answering it beats a canned
+  // greeting every time (the prompt carries the greeting's warm energy).
+  if (
+    conversationHistory.length === 0 &&
+    config.greeting_message &&
+    (intent === "greeting" || intent === "casual")
+  ) {
     await supabase.from("ai_conversations").insert({
       agent_id: config.id,
       user_id: params.userId,
@@ -349,9 +404,12 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
 
     chatMessages.push({ role: "user", content: params.incomingMessage });
 
-    const { text: aiReply, provider, fallbackUsed } = await chatCompletionWithMeta({
+    const { text: aiReply, provider, fallbackUsed, primary } = await chatCompletionWithMeta({
       messages: chatMessages,
-      max_tokens: 200,
+      // Reasoning models spend part of the budget on hidden thinking —
+      // 450 leaves room for it while reply LENGTH is still enforced by the
+      // prompt + post-truncation, not by the token cap.
+      max_tokens: 450,
       temperature: 0.5,
       frequency_penalty: 0.4,
       presence_penalty: 0.2,
@@ -363,8 +421,8 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
         action: "ai.fallback_used",
         metadata: { agent_id: config.id, recipient: params.senderUsername },
       }).then(() => {});
-    } else if (provider && provider !== "nvidia-nim") {
-      // B3: provider failover must be visible outside Vercel logs
+    } else if (!primary && provider) {
+      // provider failover must be visible outside Vercel logs
       console.warn(`[AI-FALLBACK] answered by ${provider} for @${params.senderUsername}`);
       supabase.from("activity_log").insert({
         user_id: params.userId,
@@ -378,9 +436,8 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
     // Post-process: strip AI artifacts
     reply = humanizeReply(reply);
 
-    // Enforce max length
+    // Enforce max length — never cut mid-word
     if (reply.length > config.max_reply_length) {
-      // Try to cut at the last sentence boundary
       const truncated = reply.slice(0, config.max_reply_length);
       const lastSentenceEnd = Math.max(
         truncated.lastIndexOf("."),
@@ -388,9 +445,16 @@ ${faqContext}${antiRepetition}${feedbackContext}`;
         truncated.lastIndexOf("?"),
         truncated.lastIndexOf("।") // Hindi sentence ender
       );
-      reply = lastSentenceEnd > config.max_reply_length * 0.5
-        ? truncated.slice(0, lastSentenceEnd + 1)
-        : truncated.slice(0, config.max_reply_length - 3) + "...";
+      if (lastSentenceEnd > config.max_reply_length * 0.5) {
+        reply = truncated.slice(0, lastSentenceEnd + 1);
+      } else {
+        const lastSpace = truncated.lastIndexOf(" ");
+        reply =
+          (lastSpace > config.max_reply_length * 0.6
+            ? truncated.slice(0, lastSpace)
+            : truncated.slice(0, config.max_reply_length - 1)
+          ).trimEnd() + "…";
+      }
     }
 
     // Save reply to conversation history

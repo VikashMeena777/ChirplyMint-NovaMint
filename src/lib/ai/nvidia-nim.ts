@@ -42,7 +42,7 @@ export async function generateDMReply(context: {
   const resolvedTemplate = replaceTemplateVars(context.dmTemplate, templateVars);
 
   try {
-    const { text, provider, fallbackUsed } = await chatCompletionWithMeta({
+    const { text, provider, fallbackUsed, primary } = await chatCompletionWithMeta({
       messages: [
         {
           role: "system",
@@ -68,14 +68,15 @@ Template to base your DM on (rephrase naturally, don't copy): "${resolvedTemplat
 Write the DM:`,
         },
       ],
-      max_tokens: 150,
+      // budget includes hidden reasoning tokens on gpt-oss-style models
+      max_tokens: 400,
       temperature: 0.5,
       frequency_penalty: 0.3,
     });
     let reply = text;
     if (fallbackUsed) {
       console.warn(`[AI-FALLBACK] DM reply for @${context.commenterUsername} using static template (all AI providers failed)`);
-    } else if (provider && provider !== "nvidia-nim") {
+    } else if (provider && !primary) {
       console.warn(`[AI-FALLBACK] DM reply for @${context.commenterUsername} answered by ${provider}`);
     }
 

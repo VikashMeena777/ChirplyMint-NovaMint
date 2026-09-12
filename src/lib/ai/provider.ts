@@ -5,9 +5,12 @@ import OpenAI from "openai";
  * Chat Completions API, so the same request body works everywhere; we only
  * swap baseURL / apiKey / model.
  *
- * Order:
- *  1. NVIDIA NIM (primary)  — NVIDIA_NIM_API_KEY + NVIDIA_NIM_MODEL
- *  2. Groq (fallback)       — GROQ_API_KEY + GROQ_MODEL (default: openai/gpt-oss-120b)
+ * Order (2026-09-12, re-measured):
+ *  1. Groq (primary)   — GROQ_API_KEY + GROQ_MODEL. ~1.5s replies with
+ *     excellent conversational/Hinglish quality. NIM's remaining models
+ *     measured 5-18s per reply (and the old llama-3.3-70b is 410-gone),
+ *     which is too slow for Instagram DM webhooks.
+ *  2. NVIDIA NIM (fallback) — NVIDIA_NIM_API_KEY + NVIDIA_NIM_MODEL.
  */
 
 interface Provider {
@@ -19,17 +22,6 @@ interface Provider {
 function buildProviders(): Provider[] {
   const providers: Provider[] = [];
 
-  if (process.env.NVIDIA_NIM_API_KEY) {
-    providers.push({
-      name: "nvidia-nim",
-      client: new OpenAI({
-        baseURL: "https://integrate.api.nvidia.com/v1",
-        apiKey: process.env.NVIDIA_NIM_API_KEY,
-      }),
-      model: process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct",
-    });
-  }
-
   if (process.env.GROQ_API_KEY) {
     providers.push({
       name: "groq",
@@ -38,6 +30,17 @@ function buildProviders(): Provider[] {
         apiKey: process.env.GROQ_API_KEY,
       }),
       model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+    });
+  }
+
+  if (process.env.NVIDIA_NIM_API_KEY) {
+    providers.push({
+      name: "nvidia-nim",
+      client: new OpenAI({
+        baseURL: "https://integrate.api.nvidia.com/v1",
+        apiKey: process.env.NVIDIA_NIM_API_KEY,
+      }),
+      model: process.env.NVIDIA_NIM_MODEL || "deepseek-ai/deepseek-v4-flash-0731",
     });
   }
 
@@ -91,16 +94,19 @@ export async function chatCompletionWithMeta(params: ChatParams): Promise<{
   text: string | null;
   provider: string | null;
   fallbackUsed: boolean;
+  /** true when the reply came from the FIRST provider in the chain */
+  primary: boolean;
 }> {
   const providers = buildProviders();
 
   if (providers.length === 0) {
     console.warn("[AI] No AI providers configured (NVIDIA_NIM_API_KEY / GROQ_API_KEY)");
-    return { text: null, provider: null, fallbackUsed: true };
+    return { text: null, provider: null, fallbackUsed: true, primary: false };
   }
 
   let lastError: unknown = null;
-  for (const provider of providers) {
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
     try {
       // Build a minimal request: omit undefined params (some NIM/Groq
       // deployments 400 on explicit null/extra fields, e.g. extra_body or
@@ -118,6 +124,10 @@ export async function chatCompletionWithMeta(params: ChatParams): Promise<{
               ...(params.presence_penalty !== undefined ? { presence_penalty: params.presence_penalty } : {}),
             }
           : {}),
+        // gpt-oss-style models think in a hidden `reasoning` field that
+        // COUNTS toward max_tokens — "low" keeps that overhead small so the
+        // visible reply doesn't get truncated by the budget.
+        ...(provider.name === "groq" ? { reasoning_effort: "low" as const } : {}),
       } as CreateParams;
       const completion = await provider.client.chat.completions.create(req);
       const content =
@@ -127,12 +137,12 @@ export async function chatCompletionWithMeta(params: ChatParams): Promise<{
       if (content) {
         const clean = stripReasoning(content);
         if (clean) {
-          if (provider.name !== "nvidia-nim") {
-            console.warn(`[AI-FALLBACK] Primary unavailable — answered by ${provider.name} (${provider.model})`);
-          } else {
+          if (i === 0) {
             console.log(`[AI] Answered by ${provider.name} (${provider.model})`);
+          } else {
+            console.warn(`[AI-FALLBACK] Primary unavailable — answered by ${provider.name} (${provider.model})`);
           }
-          return { text: clean, provider: provider.name, fallbackUsed: false };
+          return { text: clean, provider: provider.name, fallbackUsed: false, primary: i === 0 };
         }
         console.error(`[AI] ${provider.name} reply was entirely reasoning, trying next provider`);
       }
@@ -147,5 +157,5 @@ export async function chatCompletionWithMeta(params: ChatParams): Promise<{
   }
 
   if (lastError) console.error("[AI] All providers failed — caller will use template fallback");
-  return { text: null, provider: null, fallbackUsed: true };
+  return { text: null, provider: null, fallbackUsed: true, primary: false };
 }
