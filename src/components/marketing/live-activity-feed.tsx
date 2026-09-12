@@ -71,7 +71,7 @@ export function LiveActivityFeed({ initialItems = [] }: LiveActivityFeedProps) {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -20, scale: 0.95 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-card/95 backdrop-blur-md border border-border shadow-lg shadow-black/5"
+            className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-card border border-border shadow-lg shadow-black/5"
           >
             {/* Pulse dot */}
             <div className="relative mt-1 shrink-0">

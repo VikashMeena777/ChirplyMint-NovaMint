@@ -369,6 +369,65 @@
    this tiny observer does it: ambient loops only run while visible. */
 .ambient-paused { animation-play-state: paused !important; }
 
+/* Phone-demo loops (typing dots, idle float, tap ripple) — CSS instead of
+   Motion so the scroll-pause rule covers them too. Motion's JS render loop
+   writes inline styles every frame; these three simple loops don't need it. */
+@keyframes demo-dot-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes demo-phone-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+/* Animates the `scale` property (not transform) because the ripple keeps
+   its Tailwind v4 -translate-x/y-1/2 centering via the `translate` property;
+   the two compose. */
+@keyframes demo-tap-ripple {
+  0% { scale: 0.3; opacity: 0.9; }
+  100% { scale: 1.8; opacity: 0; }
+}
+.demo-dot { animation: demo-dot-bounce 0.7s ease-in-out infinite; }
+.demo-dot-2 { animation-delay: 0.15s; }
+.demo-dot-3 { animation-delay: 0.3s; }
+.demo-float { animation: demo-phone-float 6s ease-in-out infinite; }
+.demo-ripple { animation: demo-tap-ripple 0.8s ease-out infinite; }
+
+/* Below-fold sections opt out of rendering until near the viewport. On a
+   long marketing page this is the single biggest scroll win: sections you
+   can't see cost no layout, no style, no paint, no layers — they render
+   just-in-time instead. Intrinsic size keeps the scrollbar stable. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* While the user is actively scrolling, freeze every ambient loop. The
+   drift cycles are 22-32s long, so a pause of a few hundred ms is
+   imperceptible — but moving content behind backdrop-filter surfaces is
+   what made scrolling expensive, and this stops it exactly then.
+   (Class is toggled on <html> by the AmbientPause component.) */
+html.ambient-scrolling .animate-aurora-1,
+html.ambient-scrolling .animate-aurora-2,
+html.ambient-scrolling .animate-aurora-3,
+html.ambient-scrolling .animate-float-1,
+html.ambient-scrolling .animate-float-2,
+html.ambient-scrolling .animate-float-3,
+html.ambient-scrolling .animate-ping,
+html.ambient-scrolling .animate-shimmer,
+html.ambient-scrolling .demo-dot,
+html.ambient-scrolling .demo-float,
+html.ambient-scrolling .demo-ripple,
+html.ambient-scrolling [class*="animate-[marquee"] {
+  animation-play-state: paused;
+}
+
+/* Compositor layer for the drifting blobs — added AFTER first paint by
+   AmbientPause (never in static CSS: allocating these backing stores
+   during load delays LCP). With a layer, the drift is a pure transform
+   update; without one, a ~990px gradient repaints every single frame. */
+.aurora-layered { will-change: transform; }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-aurora-1, .animate-aurora-2, .animate-aurora-3,
   .animate-float-1, .animate-float-2, .animate-float-3 { animation: none; }

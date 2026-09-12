@@ -71,7 +71,7 @@ export function FunnelRings() {
         <FadeIn delay={0.15}>
           <div
             ref={ref}
-            className="relative overflow-hidden rounded-3xl border border-border bg-card/50 p-8 backdrop-blur-sm md:p-10"
+            className="relative overflow-hidden rounded-3xl border border-border bg-card/70 p-8 md:p-10"
           >
             <div className="flex flex-col items-center gap-10 md:flex-row md:gap-14">
               {/* ── the rings ── */}

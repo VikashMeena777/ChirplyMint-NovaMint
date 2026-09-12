@@ -45,7 +45,7 @@ export function GenZCard() {
   const current = OUT_WORDS[idx];
 
   return (
-    <div ref={cardRef} className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card/60 p-8 backdrop-blur-sm transition-colors hover:border-mint/30">
+    <div ref={cardRef} className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card/75 p-8 transition-colors hover:border-mint/30">
       {/* soft radial glow */}
       <div aria-hidden className="absolute -right-16 -top-16 size-48 rounded-full bg-mint/10 blur-3xl" />
 
@@ -107,7 +107,7 @@ export function GenZCard() {
           {CHIPS.map((chip) => (
             <motion.span
               key={chip.text}
-              className="absolute cursor-default rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm backdrop-blur-sm"
+              className="absolute cursor-default rounded-full border border-border bg-card/90 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm"
               style={{ top: chip.top, left: chip.left }}
               initial={{ opacity: 0, y: 14, rotate: chip.rot }}
               animate={{ opacity: 1, y: inView ? [0, -5, 0] : 0, rotate: chip.rot }}

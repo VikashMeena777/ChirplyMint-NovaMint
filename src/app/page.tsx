@@ -227,7 +227,7 @@ function NicheMarquee() {
 /* ─── How it works ─── */
 function HowItWorks() {
   return (
-    <section id="demo" className="relative py-24 md:py-32">
+    <section id="demo" className="cv-auto relative py-24 md:py-32">
       <div className="max-w-7xl mx-auto px-6">
         <FadeIn className="text-center mb-16">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-mint mb-4">
@@ -243,7 +243,7 @@ function HowItWorks() {
           {STEPS.map((step) => (
             <StaggerItem key={step.n}>
               <AnimatedCard className="rounded-3xl">
-                <div className="rounded-3xl border border-border bg-card/60 p-8 h-full backdrop-blur-sm">
+                <div className="rounded-3xl border border-border bg-card/75 p-8 h-full">
                   <span className="text-5xl font-bold font-heading tracking-tight bg-gradient-to-br from-mint/60 to-mint bg-clip-text text-transparent">
                     {step.n}
                   </span>
@@ -266,7 +266,7 @@ function HowItWorks() {
 /* ─── Feature Bento (21st Dev Feature Bento adaptation) ─── */
 function FeatureBento() {
   return (
-    <section id="features" className="relative py-24 md:py-32">
+    <section id="features" className="cv-auto relative py-24 md:py-32">
       <div
         aria-hidden
         className="aurora au-mint top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1312px] h-[1112px] [--au-p:3.9]"
@@ -293,7 +293,7 @@ function FeatureBento() {
             <IconDrawCard
               icon={BotIcon}
               iconBoxClass="bg-violet-500/10 group-hover:-rotate-6"
-              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-violet-400/30"
+              className="group h-full rounded-3xl border border-border bg-card/75 p-8 flex flex-col justify-between transition-colors hover:border-violet-400/30"
             >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">AI Persona Engine</h4>
@@ -310,7 +310,7 @@ function FeatureBento() {
             <IconDrawCard
               icon={ZapIcon}
               iconBoxClass="bg-mint/10 group-hover:rotate-6"
-              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-mint/30"
+              className="group h-full rounded-3xl border border-border bg-card/75 p-8 flex flex-col justify-between transition-colors hover:border-mint/30"
             >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Interactive Button DMs</h4>
@@ -327,7 +327,7 @@ function FeatureBento() {
             <IconDrawCard
               icon={UsersIcon}
               iconBoxClass="bg-sky-500/10 group-hover:-rotate-6"
-              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-sky-400/30"
+              className="group h-full rounded-3xl border border-border bg-card/75 p-8 flex flex-col justify-between transition-colors hover:border-sky-400/30"
             >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Lead Capture &amp; Tagging</h4>
@@ -344,7 +344,7 @@ function FeatureBento() {
             <IconDrawCard
               icon={TrendingUpIcon}
               iconBoxClass="bg-amber-500/10 group-hover:rotate-6"
-              className="group h-full rounded-3xl border border-border bg-card/60 p-8 flex flex-col justify-between backdrop-blur-sm transition-colors hover:border-amber-400/30"
+              className="group h-full rounded-3xl border border-border bg-card/75 p-8 flex flex-col justify-between transition-colors hover:border-amber-400/30"
             >
               <div>
                 <h4 className="text-xl font-bold font-heading text-foreground">Real-Time Analytics</h4>
@@ -363,10 +363,10 @@ function FeatureBento() {
               className="group relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-950 to-neutral-800 dark:from-card dark:to-neutral-900 p-8 text-white flex flex-col justify-between border border-border"
             >
               <div className="flex items-start justify-between">
-                <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white/80 backdrop-blur-sm">
+                <span className="rounded-full bg-white/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white/80">
                   Free plan
                 </span>
-                <div className="flex size-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm text-lg transition-all duration-500 group-hover:rotate-45 group-hover:bg-mint/30">
+                <div className="flex size-10 items-center justify-center rounded-full bg-white/15 text-lg transition-all duration-500 group-hover:rotate-45 group-hover:bg-mint/30">
                   ↗
                 </div>
               </div>
@@ -391,7 +391,7 @@ function Pricing() {
   const allPlans = getPlanDisplayData();
 
   return (
-    <section id="pricing" className="relative py-24 md:py-32">
+    <section id="pricing" className="cv-auto relative py-24 md:py-32">
       <div className="max-w-6xl mx-auto px-6">
         <FadeIn className="text-center mb-14">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-mint mb-4">
@@ -411,7 +411,7 @@ function Pricing() {
             <StaggerItem key={plan.key} className="h-full">
               <AnimatedCard className="h-full rounded-3xl">
                 <div
-                  className={`h-full rounded-3xl border p-8 flex flex-col backdrop-blur-sm transition-[border-color,box-shadow] duration-300 group-hover:border-mint/50 ${
+                  className={`h-full rounded-3xl border p-8 flex flex-col transition-[border-color,box-shadow] duration-300 group-hover:border-mint/50 ${
                     plan.key === "pro"
                       ? "border-mint/50 ring-1 ring-mint/30 bg-gradient-to-b from-mint/10 to-card shadow-[inset_0_1px_0_oklch(0.72_0.15_162/25%)] group-hover:border-mint/80 group-hover:ring-mint/50 group-hover:shadow-[inset_0_0_48px_-6px_oklch(0.62_0.19_162/45%),inset_0_1px_0_oklch(0.72_0.15_162/25%)]"
                       : "border-border bg-card/85 group-hover:border-mint/45 group-hover:shadow-[inset_0_0_40px_-8px_oklch(0.62_0.19_162/32%)]"
@@ -469,7 +469,7 @@ function FinalCTA() {
   const sendRef = useRef<SendIconHandle>(null);
 
   return (
-    <section className="relative py-24 md:py-32 overflow-hidden">
+    <section className="cv-auto relative py-24 md:py-32 overflow-hidden">
       <div aria-hidden className="absolute inset-0 bg-gradient-section" />
       <div
         aria-hidden

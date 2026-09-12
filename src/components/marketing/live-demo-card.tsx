@@ -55,19 +55,52 @@ export function LiveDemoCard() {
   // The demo advances by re-rendering the whole phone tree. Freeze it while
   // the phone isn't on screen so scrolling the rest of the page stays smooth.
   const inView = useInView(rootRef, { margin: "160px" });
+  // ...and while the user is actively scrolling: advancing mid-scroll
+  // re-renders the tree exactly when frames are scarcest.
+  const scrollingRef = useRef(false);
+
+  useEffect(() => {
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const onScroll = () => {
+      scrollingRef.current = true;
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(() => {
+        scrollingRef.current = false;
+      }, 260);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (settle) clearTimeout(settle);
+    };
+  }, []);
 
   useEffect(() => {
     if (!inView) return;
-    const t = setTimeout(() => {
-      setStep((s) => {
-        if (s === TIMELINE.length - 1) {
-          setRun((r) => r + 1);
-          return 0;
+    let cancelled = false;
+    let t: ReturnType<typeof setTimeout>;
+    const schedule = (delay: number) => {
+      t = setTimeout(() => {
+        if (cancelled) return;
+        // hold the current step while the page is being scrolled
+        if (scrollingRef.current) {
+          schedule(350);
+          return;
         }
-        return s + 1;
-      });
-    }, TIMELINE[step].ms);
-    return () => clearTimeout(t);
+        setStep((s) => {
+          if (s === TIMELINE.length - 1) {
+            setRun((r) => r + 1);
+            return 0;
+          }
+          return s + 1;
+        });
+      }, delay);
+    };
+    schedule(TIMELINE[step].ms);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [step, inView]);
 
   return (
@@ -75,17 +108,9 @@ export function LiveDemoCard() {
       {/* ambient glow */}
       <div aria-hidden className="absolute -inset-12 rounded-[4rem] bg-mint/10 blur-3xl" />
 
-      {/* idle float wrapper */}
-      <motion.div
-        animate={{ y: inView ? [0, -10, 0] : 0 }}
-        transition={
-          inView
-            ? { duration: 6, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 0.3 }
-        }
-        className="relative"
-        style={{ perspective: 1200 }}
-      >
+      {/* idle float wrapper — CSS animation so the scroll-pause rule
+          (html.ambient-scrolling) freezes it while the user scrolls */}
+      <div className="demo-float relative" style={{ perspective: 1200 }}>
         {/* subtle 3D tilt for dimension */}
         <motion.div
           style={{ transformStyle: "preserve-3d", rotateY: -7, rotateX: 3 }}
@@ -156,7 +181,7 @@ export function LiveDemoCard() {
                       exit={{ opacity: 0 }}
                       className="absolute inset-x-3 top-3 z-10"
                     >
-                      <div className="flex items-center gap-2 rounded-2xl border border-neutral-200/70 bg-white/90 px-3 py-2.5 shadow-lg backdrop-blur-xl dark:border-neutral-800 dark:bg-neutral-900/90">
+                      <div className="flex items-center gap-2 rounded-2xl border border-neutral-200/70 bg-white px-3 py-2.5 shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/15">
                           <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
                         </div>
@@ -184,11 +209,9 @@ export function LiveDemoCard() {
                         >
                           <div className="flex gap-1.5">
                             {[0, 1, 2].map((i) => (
-                              <motion.span
+                              <span
                                 key={i}
-                                className="h-1.5 w-1.5 rounded-full bg-neutral-500 dark:bg-neutral-400"
-                                animate={{ y: [0, -3, 0] }}
-                                transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.15 }}
+                                className={`demo-dot ${i === 1 ? "demo-dot-2" : i === 2 ? "demo-dot-3" : ""} h-1.5 w-1.5 rounded-full bg-neutral-500 dark:bg-neutral-400`}
                               />
                             ))}
                           </div>
@@ -208,12 +231,9 @@ export function LiveDemoCard() {
                               >
                                 Send it to me
                                 {step === 3 && (
-                                  <motion.span
+                                  <span
                                     aria-hidden
-                                    className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90"
-                                    initial={{ scale: 0.3, opacity: 0.9 }}
-                                    animate={{ scale: 1.8, opacity: 0 }}
-                                    transition={{ duration: 0.8, repeat: Infinity, ease: "easeOut" }}
+                                    className="demo-ripple absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90"
                                   />
                                 )}
                               </span>
@@ -288,7 +308,7 @@ export function LiveDemoCard() {
             </div>
           </div>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* status chips under the phone — flow layout, never overlaps */}
       <motion.div
@@ -297,7 +317,7 @@ export function LiveDemoCard() {
         transition={{ delay: 1.2, duration: 0.5 }}
         className="mt-6 flex flex-wrap items-center justify-center gap-2.5"
       >
-        <span className="inline-flex items-center gap-2 rounded-full border border-mint/25 bg-card/80 px-3.5 py-1.5 shadow-sm backdrop-blur-xl">
+        <span className="inline-flex items-center gap-2 rounded-full border border-mint/25 bg-card/85 px-3.5 py-1.5 shadow-sm">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
