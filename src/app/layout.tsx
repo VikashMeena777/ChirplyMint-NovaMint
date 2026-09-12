@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
@@ -20,6 +20,25 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+
+/**
+ * Mobile / installed-PWA viewport behaviour:
+ * - viewportFit "cover": let the app draw under notches in standalone mode
+ *   (paired with env(safe-area-inset-*) paddings).
+ * - interactiveWidget "resizes-content": the on-screen keyboard RESIZES the
+ *   layout instead of overlaying it — the fixed bottom nav can no longer sit
+ *   on top of the input the user is typing into.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0f0e" },
+  ],
+};
 
 export const metadata: Metadata = {
   manifest: "/manifest.json",

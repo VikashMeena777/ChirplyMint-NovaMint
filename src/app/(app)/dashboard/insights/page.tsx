@@ -102,7 +102,7 @@ export default async function InsightsPage() {
       </FadeInSection>
 
       {/* Summary Stats Cards */}
-      <FadeInSection delay={100} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <FadeInSection delay={100} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           {
             label: "Total DMs Sent",
@@ -131,7 +131,7 @@ export default async function InsightsPage() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl bg-card border border-border p-5 shadow-sm"
+            className="rounded-2xl bg-card border border-border p-4 sm:p-5 shadow-sm min-w-0"
           >
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"

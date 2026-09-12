@@ -138,6 +138,20 @@
   }
   html {
     @apply font-sans;
+    /* App-like scroll feel, especially in the installed PWA:
+       - no horizontal rubber-banding ("page moving sides")
+       - no pull-to-refresh hijacking drags inside the app */
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* No page may ever scroll sideways, on any device: every layout is
+     single-column at phone widths, so any horizontal scroll is a bug
+     (usually a decorative pseudo-element). `clip` (not `hidden`) so no
+     scroll container is created — sticky/Lenis keep working. */
+  html, body {
+    overflow-x: hidden;
+    overflow-x: clip;
   }
 }
 

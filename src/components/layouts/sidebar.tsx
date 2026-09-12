@@ -282,7 +282,7 @@ export function Sidebar() {
       >
         <button
           onClick={() => setMobileOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+          className="absolute top-4 right-4 p-2.5 -m-1 rounded-lg text-muted-foreground hover:text-foreground"
           aria-label="Close sidebar"
         >
           <X className="w-5 h-5" />

@@ -75,18 +75,18 @@ export default function AIConversationsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: "Conversations", value: stats.total_conversations, icon: MessagesSquare, color: "oklch(0.52 0.19 162)" },
           { label: "Today", value: stats.messages_today, icon: CalendarDays, color: "oklch(0.65 0.15 250)" },
-          { label: "Total Messages", value: stats.total_messages, icon: Hash, color: "oklch(0.7 0.18 60)" },
+          { label: "Messages", value: stats.total_messages, icon: Hash, color: "oklch(0.7 0.18 60)" },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl bg-card border border-border p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <s.icon className="w-4 h-4" style={{ color: s.color }} />
-              <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
+          <div key={s.label} className="rounded-xl bg-card border border-border p-3 sm:p-4 shadow-sm min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1 min-w-0">
+              <s.icon className="w-4 h-4 shrink-0" style={{ color: s.color }} />
+              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground truncate">{s.label}</span>
             </div>
-            <p className="text-xl font-bold text-foreground">{s.value}</p>
+            <p className="text-lg sm:text-xl font-bold text-foreground">{s.value}</p>
           </div>
         ))}
       </div>

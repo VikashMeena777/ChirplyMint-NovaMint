@@ -49,3 +49,4 @@ next-env.d.ts
 # perf tooling outputs (kept in tools/perf, results are local-only)
 perf-*.json
 shots/
+tools/mobile/.audit-session.json

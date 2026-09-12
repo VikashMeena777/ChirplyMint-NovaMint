@@ -209,7 +209,7 @@ export default function AnalyticsChartsClient({
             Per-Automation Performance
           </h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-2 text-muted-foreground font-medium">Automation</th>
