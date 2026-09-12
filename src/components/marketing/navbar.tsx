@@ -24,8 +24,21 @@ export function Navbar() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    // Passive + rAF-coalesced: Lenis emits scroll events every frame, so an
+    // unthrottled handler ran a layout read on each one and could block the
+    // scroll itself. Now at most one read per frame, and React only re-renders
+    // when the boolean actually flips.
+    let queued = false;
+    const handleScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        const next = window.scrollY > 20;
+        setIsScrolled((prev) => (prev === next ? prev : next));
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -56,12 +69,12 @@ export function Navbar() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
-        className={`fixed top-0 inset-x-0 z-50 flex justify-center px-4 transition-all duration-500 ${
+        className={`fixed top-0 inset-x-0 z-50 flex justify-center px-4 transition-[padding] duration-500 ${
           isScrolled ? "pt-3" : "pt-5"
         }`}
       >
         <div
-          className={`flex items-center justify-between gap-6 w-full transition-all duration-500 ${
+          className={`flex items-center justify-between gap-6 w-full transition-[max-width,padding,background-color,border-color,box-shadow] duration-500 ${
             isScrolled
               ? "max-w-4xl rounded-2xl border border-border/70 bg-card/70 px-5 py-2.5 shadow-[0_8px_32px_-12px_oklch(0_0_0/40%)] backdrop-blur-xl"
               : "max-w-6xl bg-transparent px-6 py-2"
@@ -84,7 +97,7 @@ export function Navbar() {
                 className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 <TextRoll text={link.label} />
-                <span className="absolute -bottom-1 left-1/2 h-px w-0 -translate-x-1/2 bg-gradient-to-r from-transparent via-mint to-transparent transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-1/2 h-px w-full -translate-x-1/2 scale-x-0 bg-gradient-to-r from-transparent via-mint to-transparent transition-transform duration-300 group-hover:scale-x-100" />
               </Link>
             ))}
           </div>

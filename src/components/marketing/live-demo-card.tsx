@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence, useInView } from "motion/react";
 import {
   Signal,
   Wifi,
@@ -51,8 +51,13 @@ const bubbleAnim = {
 export function LiveDemoCard() {
   const [step, setStep] = useState(0);
   const [run, setRun] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // The demo advances by re-rendering the whole phone tree. Freeze it while
+  // the phone isn't on screen so scrolling the rest of the page stays smooth.
+  const inView = useInView(rootRef, { margin: "160px" });
 
   useEffect(() => {
+    if (!inView) return;
     const t = setTimeout(() => {
       setStep((s) => {
         if (s === TIMELINE.length - 1) {
@@ -63,17 +68,21 @@ export function LiveDemoCard() {
       });
     }, TIMELINE[step].ms);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [step, inView]);
 
   return (
-    <div className="relative mx-auto w-full max-w-[330px]">
+    <div ref={rootRef} className="relative mx-auto w-full max-w-[330px]">
       {/* ambient glow */}
       <div aria-hidden className="absolute -inset-12 rounded-[4rem] bg-mint/10 blur-3xl" />
 
       {/* idle float wrapper */}
       <motion.div
-        animate={{ y: [0, -10, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ y: inView ? [0, -10, 0] : 0 }}
+        transition={
+          inView
+            ? { duration: 6, repeat: Infinity, ease: "easeInOut" }
+            : { duration: 0.3 }
+        }
         className="relative"
         style={{ perspective: 1200 }}
       >

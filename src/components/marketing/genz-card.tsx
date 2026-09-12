@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, useInView } from "motion/react";
 import { MessageCircle, Heart, Sparkles, CheckCircle2 } from "lucide-react";
 
 /**
@@ -30,16 +30,22 @@ const CHIPS = [
 
 export function GenZCard() {
   const [idx, setIdx] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // The card lives ~2 viewports down; only spend frames on it while it's
+  // actually on screen (the word cycle and the chip float both stop when
+  // scrolled away instead of running for the whole session).
+  const inView = useInView(cardRef, { margin: "120px" });
 
   useEffect(() => {
+    if (!inView) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % OUT_WORDS.length), 2200);
     return () => clearInterval(t);
-  }, []);
+  }, [inView]);
 
   const current = OUT_WORDS[idx];
 
   return (
-    <div className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card/60 p-8 backdrop-blur-sm transition-colors hover:border-mint/30">
+    <div ref={cardRef} className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card/60 p-8 backdrop-blur-sm transition-colors hover:border-mint/30">
       {/* soft radial glow */}
       <div aria-hidden className="absolute -right-16 -top-16 size-48 rounded-full bg-mint/10 blur-3xl" />
 
@@ -104,10 +110,12 @@ export function GenZCard() {
               className="absolute cursor-default rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm backdrop-blur-sm"
               style={{ top: chip.top, left: chip.left }}
               initial={{ opacity: 0, y: 14, rotate: chip.rot }}
-              animate={{ opacity: 1, y: [0, -5, 0], rotate: chip.rot }}
+              animate={{ opacity: 1, y: inView ? [0, -5, 0] : 0, rotate: chip.rot }}
               transition={{
                 opacity: { delay: chip.delay + 0.4, duration: 0.5 },
-                y: { duration: 4 + chip.delay, repeat: Infinity, ease: "easeInOut" },
+                y: inView
+                  ? { duration: 4 + chip.delay, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 0.3 },
               }}
               whileHover={{
                 scale: 1.18,

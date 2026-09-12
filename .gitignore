@@ -45,3 +45,7 @@ next-env.d.ts
 
 # agents internal state
 .agents/
+
+# perf tooling outputs (kept in tools/perf, results are local-only)
+perf-*.json
+shots/

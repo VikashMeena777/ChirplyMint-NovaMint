@@ -1,5 +1,6 @@
 /**
- * Shared password policy: 8+ chars, one uppercase letter, one number.
+ * Shared password policy: 8+ chars, one uppercase letter, one number,
+ * not a common dictionary password.
  * One source of truth for the server-side check (signup / change / reset
  * actions) and the client-side checklist UI.
  */

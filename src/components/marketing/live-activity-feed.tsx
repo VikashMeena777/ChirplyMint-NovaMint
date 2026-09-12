@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Zap } from "lucide-react";
+import { getLiveFeedItems } from "@/lib/actions/live-feed";
 
 interface FeedItem {
   id: string;
@@ -20,14 +21,31 @@ interface LiveActivityFeedProps {
  * Cycles through items every 4 seconds with a slide-in animation.
  */
 export function LiveActivityFeed({ initialItems = [] }: LiveActivityFeedProps) {
-  const [items] = useState<FeedItem[]>(initialItems);
+  const [items, setItems] = useState<FeedItem[]>(initialItems);
+
+  // Fetch here rather than in the page: this state update used to live in the
+  // root Home component, so every arrival re-rendered all ~570 lines of the
+  // homepage right while the hero animations were still running.
+  useEffect(() => {
+    if (initialItems.length) return;
+    let alive = true;
+    getLiveFeedItems(12).then((rows) => {
+      if (alive) setItems(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialItems.length]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cycleNext = useCallback(() => {
     if (items.length <= 1) return;
     setIsVisible(false);
-    setTimeout(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % items.length);
       setIsVisible(true);
     }, 400);

@@ -39,6 +39,7 @@ import { TrendingUpIcon } from "@/components/icons/trending-up/trending-up";
 import { InstagramIcon } from "@/components/icons/instagram/instagram";
 import { LiveDemoCard } from "@/components/marketing/live-demo-card";
 import { IntroOverlay } from "@/components/motion/intro-overlay";
+import { AmbientPause } from "@/components/motion/ambient-pause";
 
 /* ─── Data (real product facts — no fabricated metrics) ─── */
 
@@ -100,11 +101,11 @@ function Hero() {
         <div className="hidden dark:block absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-10%,oklch(0.22_0.05_235/60%),transparent_60%)]" />
         <div className="hidden dark:block absolute inset-0 bg-[linear-gradient(180deg,oklch(0.17_0.03_240/50%)_0%,transparent_35%,oklch(0.15_0.025_250/60%)_100%)]" />
         {/* aurora — saturations tuned per theme so both are clearly visible */}
-        <div className="animate-aurora-1 absolute -top-32 left-[8%] h-[480px] w-[480px] rounded-full bg-emerald/30 blur-[140px] dark:bg-emerald/14" />
-        <div className="animate-aurora-2 absolute bottom-[-10%] right-[4%] h-[420px] w-[420px] rounded-full bg-teal-400/25 blur-[150px] dark:bg-teal-500/12" />
-        <div className="animate-aurora-3 absolute top-[30%] left-[45%] h-[380px] w-[380px] rounded-full bg-indigo-400/20 blur-[130px] dark:bg-indigo-500/10" />
+        <div className="aurora au-emerald animate-aurora-1 -top-[366px] left-[calc(8%-238px)] h-[956px] w-[956px] [--au-p:22.75] dark:[--au-p:10.98]" />
+        <div className="aurora au-teal dark:au-teal-d animate-aurora-2 bottom-[calc(-10%-255px)] right-[calc(4%-255px)] h-[930px] w-[930px] [--au-p:15.29] dark:[--au-p:7.34]" />
+        <div className="aurora au-indigo dark:au-indigo-d animate-aurora-3 top-[calc(30%-221px)] left-[calc(45%-221px)] h-[822px] w-[822px] [--au-p:13.07] dark:[--au-p:6.54]" />
         {/* soft top beam */}
-        <div className="absolute left-1/2 top-0 h-[280px] w-[720px] -translate-x-1/2 rounded-full bg-mint/20 blur-[120px] dark:bg-mint/8" />
+        <div className="aurora au-mint left-1/2 -top-[204px] h-[688px] w-[1128px] -translate-x-1/2 [--au-p:15.29] dark:[--au-p:6.12]" />
         {/* floating particles */}
         <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-emerald/70" />
         <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-teal-500/70" />
@@ -118,7 +119,7 @@ function Hero() {
           {/* ── Left: message ── */}
           <div className="lg:col-span-7 flex flex-col items-start gap-7">
             <FadeIn direction="none" delay={0}>
-              <div className="inline-flex items-center gap-2.5 rounded-full border border-mint/25 bg-mint/8 px-4 py-1.5 backdrop-blur-md">
+              <div className="inline-flex items-center gap-2.5 rounded-full border border-mint/25 bg-mint/12 px-4 py-1.5">
                 <span className="relative flex size-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-mint" />
@@ -154,7 +155,7 @@ function Hero() {
                 <motion.div whileTap={{ scale: 0.97 }} transition={springTap}>
                   <Link
                     href="#demo"
-                    className="group inline-flex items-center justify-center gap-2.5 rounded-2xl border border-border bg-card/60 px-8 py-4 text-base font-semibold text-foreground backdrop-blur-sm transition-colors hover:border-mint/40 hover:bg-mint/5"
+                    className="group inline-flex items-center justify-center gap-2.5 rounded-2xl border border-border bg-card/80 px-8 py-4 text-base font-semibold text-foreground transition-colors hover:border-mint/40 hover:bg-mint/5"
                   >
                     <Play className="w-4 h-4 fill-current text-mint" />
                     See it in action
@@ -193,7 +194,7 @@ function Hero() {
 /* ─── Niche marquee (Trust Hero pattern) ─── */
 function NicheMarquee() {
   return (
-    <section className="relative border-y border-border/60 bg-card/20 py-8 backdrop-blur-sm">
+    <section className="relative border-y border-border/60 bg-card/45 py-8">
       <p className="mb-6 text-center text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
         Built for every creator niche
       </p>
@@ -268,7 +269,7 @@ function FeatureBento() {
     <section id="features" className="relative py-24 md:py-32">
       <div
         aria-hidden
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-mint/5 blur-[180px] rounded-full"
+        className="aurora au-mint top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1312px] h-[1112px] [--au-p:3.9]"
       />
       <div className="relative max-w-7xl mx-auto px-6">
         <FadeIn className="text-center mb-16">
@@ -472,7 +473,7 @@ function FinalCTA() {
       <div aria-hidden className="absolute inset-0 bg-gradient-section" />
       <div
         aria-hidden
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-mint/10 blur-[150px] rounded-full"
+        className="aurora au-mint top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1110px] h-[910px] [--au-p:7.8]"
       />
 
       <FadeIn className="relative max-w-3xl mx-auto px-6 text-center">
@@ -513,19 +514,10 @@ function FinalCTA() {
 
 /* ─── Page ─── */
 export default function Home() {
-  const [feedItems, setFeedItems] = useState<
-    { id: string; detail: string; timeAgo: string }[]
-  >([]);
-
-  useEffect(() => {
-    getLiveFeedItems(12).then((items) => {
-      setFeedItems(items);
-    });
-  }, []);
-
   return (
     <SmoothScroll>
       <IntroOverlay />
+      <AmbientPause />
       <main className="relative overflow-hidden bg-background">
         <Navbar />
         <Hero />
@@ -548,9 +540,9 @@ export default function Home() {
               }}
             />
             {/* drifting auroras — evenly spaced down the page, diffuse */}
-            <div className="animate-aurora-1 absolute top-[10%] left-[0%] h-[540px] w-[540px] rounded-full bg-emerald/10 blur-[170px]" />
-            <div className="animate-aurora-2 absolute top-[45%] right-[-2%] h-[580px] w-[580px] rounded-full bg-teal-500/9 blur-[180px]" />
-            <div className="animate-aurora-3 absolute top-[80%] left-[28%] h-[540px] w-[540px] rounded-full bg-indigo-500/8 blur-[160px]" />
+            <div className="aurora au-emerald animate-aurora-1 top-[calc(10%-289px)] -left-[289px] h-[1118px] w-[1118px] [--au-p:7.3]" />
+            <div className="aurora au-teal-d animate-aurora-2 top-[calc(45%-306px)] right-[calc(-2%-306px)] h-[1192px] w-[1192px] [--au-p:6.57]" />
+            <div className="aurora au-indigo-d animate-aurora-3 top-[calc(80%-272px)] left-[calc(28%-272px)] h-[1084px] w-[1084px] [--au-p:6]" />
           </div>
           <div className="relative z-10">
             <NicheMarquee />
@@ -563,7 +555,7 @@ export default function Home() {
         </div>
         {/* footer stays OUTSIDE the ambience — background ends above it */}
         <Footer />
-        {feedItems.length > 0 && <LiveActivityFeed initialItems={feedItems} />}
+        <LiveActivityFeed />
       </main>
     </SmoothScroll>
   );
