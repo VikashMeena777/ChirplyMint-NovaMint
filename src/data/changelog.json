@@ -1,6 +1,64 @@
 {
   "entries": [
     {
+      "date": "Sep 12, 2026",
+      "version": "auto",
+      "title": "Scroll performance, Round two — freeze ambient motion during scroll, De-frost flat surface",
+      "description": "AmbientPause (extended): ambient CSS loops (auroras, particles,",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "AmbientPause (extended): ambient CSS loops (auroras, particles,",
+        "The phone demo's three infinite Motion loops (typing dots, idle",
+        "Drifting auroras get compositor layers AFTER first paint",
+        "15 backdrop-blur surfaces that sit over FLAT backgrounds (cards,",
+        "content-visibility: auto on the four below-fold sections with CLS"
+      ]
+    },
+    {
+      "date": "Sep 12, 2026",
+      "version": "auto",
+      "title": "Homepage performance — scroll +26-111% fps on throttled devices, Zero visual change",
+      "description": "AmbientPause (new): a 40-line IntersectionObserver pauses every",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "AmbientPause (new): a 40-line IntersectionObserver pauses every",
+        "Three above-the-fold backdrop-blur surfaces that sat over drifting",
+        "9 giant filter:blur() blobs (up to 180px radius) converted to",
+        "will-change removed from auroras: a standing hint forced ~22MB of",
+        "scroll-smooth removed from html: it fought Lenis's lerp and made",
+        "Unused ScrollTrigger plugin dropped (registered + updated on every"
+      ]
+    },
+    {
+      "date": "Sep 12, 2026",
+      "version": "auto",
+      "title": "Security hardening — Strix vulnerability fixes (6 confirmed, 2 low)",
+      "description": "next 16.2.4 → 16.3.5, remediating CVE-2026-44574 (middleware auth",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "next 16.2.4 → 16.3.5, remediating CVE-2026-44574 (middleware auth",
+        "SSRF in leads-export webhook (vuln-0003): exportLeadsWebhook and",
+        "Referral reward abuse (vuln-0006): capped at 5 rewarded referrals per",
+        "Cashfree webhook fail-open (vuln-0004): the empty-payments path now",
+        "Auth rate-limiter fails open on Redis outage (vuln-0001): added an",
+        "Weak password entropy (vuln-0002): common-password blocklist added —"
+      ]
+    },
+    {
+      "date": "Sep 12, 2026",
+      "version": "auto",
+      "title": "Auto-changelog batches — publish only when 4+ rounds accumulate",
+      "description": "Auto-changelog batches — publish only when 4+ rounds accumulate",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Auto-changelog batches — publish only when 4+ rounds accumulate"
+      ]
+    },
+    {
       "date": "Sep 11, 2026",
       "version": "auto",
       "title": "Workspace switcher polish, Trial banner gating, Changelog title casing",
