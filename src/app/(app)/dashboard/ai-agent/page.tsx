@@ -25,6 +25,7 @@ import {
   MessagesSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AgentOnboarding } from "@/components/dashboard/ai-agent/agent-onboarding";
 import {
   getAIAgent,
   createAIAgent,
@@ -324,6 +325,20 @@ export default function AIAgentPage() {
           {saving ? "Creating..." : "Create AI Agent"}
         </button>
       </div>
+    );
+  }
+
+  // ── Setup gate: the agent cannot run (or answer a single DM) until the
+  // owner has given it real information about themselves ──
+  if (!agent.setup_complete) {
+    return (
+      <AgentOnboarding
+        agent={agent}
+        onComplete={(updated) => {
+          setAgent(updated);
+          loadAgent();
+        }}
+      />
     );
   }
 

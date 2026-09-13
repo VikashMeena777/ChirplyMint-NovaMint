@@ -179,6 +179,16 @@ export async function generateAgentReply(params: {
 
   if (!agent) return null;
 
+  // Setup gate (defense in depth — the toggle is already gated in the
+  // action): an agent that hasn't been through onboarding has a placeholder
+  // persona and WILL invent facts. Stay silent and tell the owner once.
+  if ((agent as { setup_complete?: boolean }).setup_complete !== true) {
+    console.warn(
+      `[AI Agent] ${params.userId}'s agent is active but not set up — skipping reply (placeholder persona would hallucinate)`
+    );
+    return null;
+  }
+
   // Inbox takeover: if the owner paused the AI for this lead, stay silent —
   // they're answering personally from the inbox.
   const admin = getSupabase();
