@@ -1,6 +1,68 @@
 {
   "entries": [
     {
+      "date": "Sep 13, 2026",
+      "version": "auto",
+      "title": "AI agent onboarding system — the agent cannot activate (or reply) without real information",
+      "description": "6-step wizard (business type → who you are → content & offers →",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "6-step wizard (business type → who you are → content & offers →",
+        "Persona assembly: structured answers (about, topics, offers) build",
+        "THREE activation gates (defense in depth):",
+        "Migration: structured fields (business_type, about_text,",
+        "previewAgentReply action: sandbox test with unsaved values, no DB",
+        "Gate unit tests: placeholder gated, real passes, hand-edited-empty"
+      ]
+    },
+    {
+      "date": "Sep 13, 2026",
+      "version": "auto",
+      "title": "Mobile + installed-PWA fixes — no sideways scroll, Keyboard-aware layout, Responsive table",
+      "description": "overflow-x: clip on html+body — a page can NEVER scroll sideways on",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "overflow-x: clip on html+body — a page can NEVER scroll sideways on",
+        "Viewport export: viewportFit 'cover' (draw under notches in the",
+        "overscroll-behavior: none on html — kills horizontal rubber-banding",
+        "Analytics Per-Automation table: min-width 640px so the existing",
+        "AI-agent conversations stat row: 3 cards at every width were ~105px",
+        "Insights stat cards: tighter padding on phones + min-w-0."
+      ]
+    },
+    {
+      "date": "Sep 13, 2026",
+      "version": "auto",
+      "title": "Rebuild the AI agent reply system — premium, Coherent, Fast",
+      "description": "The agent's prompt had no capability framing, a weak buried",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "The agent's prompt had no capability framing, a weak buried",
+        "All replies were running on the Groq fallback: the NIM key in Vercel",
+        "provider chain reordered: Groq primary, NIM deepseek-v4-flash",
+        "reasoning-model token bug: gpt-oss spends hidden",
+        "system prompt rebuilt: explicit 'what you help followers with'",
+        "repeated-question detector (normalized match against recent user"
+      ]
+    },
+    {
+      "date": "Sep 13, 2026",
+      "version": "auto",
+      "title": "AI agent fixes + motion tuning — NIM primary restored, Auto-detect default, Demo keeps mov",
+      "description": "Root cause of '[AI-FALLBACK] Primary unavailable': the NVIDIA NIM key in",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Root cause of '[AI-FALLBACK] Primary unavailable': the NVIDIA NIM key in",
+        "Language 'Auto-detect' is now the default everywhere: new agents insert",
+        "The during-scroll freeze now applies ONLY to the big background",
+        "The demo timeline no longer holds its step during scroll — the phone"
+      ]
+    },
+    {
       "date": "Sep 12, 2026",
       "version": "auto",
       "title": "Scroll performance, Round two — freeze ambient motion during scroll, De-frost flat surface",
