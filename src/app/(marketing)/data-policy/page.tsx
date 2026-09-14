@@ -193,9 +193,10 @@ export default function DataPolicyPage() {
               To store your account data and handle authentication
             </li>
             <li>
-              <strong className="text-foreground">NVIDIA NIM (AI):</strong> Your
+              <strong className="text-foreground">Groq &amp; NVIDIA (AI providers):</strong> Your
               custom persona instructions and message context are sent for AI
-              generation — no personal data is shared
+              generation (with automatic failover between providers) — no
+              personal data is shared and it is never used to train their models
             </li>
             <li>
               <strong className="text-foreground">Vercel (Hosting):</strong>{" "}

@@ -23,10 +23,6 @@ const shipped: RoadmapItem[] = [
     description: "Trained on your persona and FAQs, answering DMs for you.",
   },
   {
-    title: "Drip sequences",
-    description: "Multi-step follow-ups delivered over time.",
-  },
-  {
     title: "A/B testing with auto-winner",
     description: "Test message variants and let the better one win automatically.",
   },
@@ -62,12 +58,14 @@ const shipped: RoadmapItem[] = [
 
 const inProgress: RoadmapItem[] = [
   {
-    title: "Human Agent permission approval",
-    description: "Awaiting Meta review to enable human-agent messaging windows.",
+    title: "Drip sequences",
+    description:
+      "Built and ready — pending Meta's approval of the Human Agent permission (business-initiated follow-up DMs). Unlocks in your dashboard automatically once approved.",
   },
   {
-    title: "Auto-like comments",
-    description: "Awaiting Meta review before this can ship.",
+    title: "Auto-like ❤️ reactions",
+    description:
+      "Built and ready — pending Meta's approval of the instagram_manage_engagement permission. Unlocks automatically once approved.",
   },
 ];
 

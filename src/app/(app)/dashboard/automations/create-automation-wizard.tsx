@@ -30,6 +30,7 @@ import {
   FileText,
   Layers,
   Heart,
+  Lock,
 } from "lucide-react";
 import {
   getInstagramPosts,
@@ -43,6 +44,7 @@ import {
 import { toast } from "sonner";
 import { DMPreview } from "@/components/dm-preview";
 import { canConfigureFollowCheck, type PlanKey } from "@/lib/utils/plan-limits";
+import { isFeatureBlocked } from "@/lib/features";
 import {
   type IGPost,
   type TemplateButton,
@@ -1150,23 +1152,35 @@ export default function CreateAutomationWizard({
                 </div>
               )}
 
-              {/* Auto-react toggle */}
-              <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+              {/* Auto-react — locked pending Meta App Review
+                  (instagram_manage_engagement). See src/lib/features.ts. */}
+              <div
+                className={`flex items-start justify-between gap-3 rounded-xl border p-3 ${
+                  isFeatureBlocked("autoLike")
+                    ? "border-dashed border-border bg-muted/10 opacity-70"
+                    : "border-border bg-muted/20"
+                }`}
+              >
                   <div>
                     <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                       <Heart className="h-4 w-4 text-red-400" /> Auto-react ❤️ to their message
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      When your automation replies to a story reply (or drip opener), instantly react with a heart on the lead&apos;s message.
+                      Instantly react with a heart when your automation replies.
                     </p>
                   </div>
+                  {isFeatureBlocked("autoLike") ? (
+                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                      <Lock className="h-3 w-3" /> Pending Meta approval
+                    </span>
+                  ) : (
                   <button
                     type="button"
                     role="switch"
                     aria-checked={formData.auto_react}
                     onClick={() => setFormData((f) => ({ ...f, auto_react: !f.auto_react }))}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                      formData.auto_react ? "bg-[oklch(0.52_0.19_162)]" : "bg-muted-foreground/30"
+                      formData.auto_react ? "bg-[oklch(0.52 0.19 162)]" : "bg-muted-foreground/30"
                     }`}
                   >
                     <span
@@ -1175,6 +1189,7 @@ export default function CreateAutomationWizard({
                       }`}
                     />
                   </button>
+                  )}
                 </div>
 
               {/* Button Template Builder */}

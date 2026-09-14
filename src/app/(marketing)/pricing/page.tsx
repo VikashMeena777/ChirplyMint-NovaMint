@@ -119,6 +119,27 @@ export default function PricingPage() {
           })}
         </div>
 
+        {/* Pending Meta approval */}
+        <div className="mt-12 rounded-2xl border border-dashed border-amber-500/30 bg-amber-500/5 p-6 max-w-2xl mx-auto">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <h3 className="text-sm font-bold text-foreground">Coming after Meta approval</h3>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            These features are built and ready, but need additional Instagram
+            permissions that are currently under Meta App Review:{" "}
+            <span className="text-foreground font-medium">
+              Auto-like ❤️ reactions
+            </span>{" "}
+            and{" "}
+            <span className="text-foreground font-medium">
+              Drip Sequences
+            </span>{" "}
+            (scheduled follow-up DMs). They&apos;ll light up in your dashboard
+            the moment Meta approves them — no action needed from you.
+          </p>
+        </div>
+
         {/* FAQ Teaser */}
         <div className="text-center mt-16">
           <p className="text-muted-foreground">

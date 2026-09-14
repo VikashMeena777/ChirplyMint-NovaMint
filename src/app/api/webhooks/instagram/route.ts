@@ -19,6 +19,7 @@ import {
 } from "@/lib/instagram/send-dm";
 import { getCachedAttachmentId, cacheAttachment } from "@/lib/instagram/attachment-cache";
 import { canSendDM, type PlanKey } from "@/lib/utils/plan-limits";
+import { isFeatureBlocked } from "@/lib/features";
 import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-limiter";
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
@@ -542,7 +543,8 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
       .eq("is_active", true)
       .single();
 
-    const hasDrip = !!activeDripSeq;
+    // Drip sequences are pending Meta App Review — treat as none active
+    const hasDrip = !isFeatureBlocked("dripSequences") && !!activeDripSeq;
     const templateType = (automation.template_type as string) || "text";
     let sendResult: { success: boolean; messageId?: string; recipientId?: string; error?: string };
 
@@ -779,7 +781,7 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
 
       // AUTO-LIKE the triggering comment (all template types). No extra Meta
       // setup needed — uses the already-approved instagram_manage_comments.
-      if (automation.auto_react === true && commentId) {
+      if (automation.auto_react === true && commentId && !isFeatureBlocked("autoLike")) {
         likeComment(igUserId, commentId, accessToken).then((r) => {
           if (r.success) {
             console.log(`[Meta Webhook] ❤️ Auto-liked comment ${commentId}`);
@@ -1052,7 +1054,7 @@ async function deliverPendingStack(params: {
     `[Meta Webhook] Stack delivered -> @${(stackRow.recipient_username as string) || senderId}: ${stackResult.sentBlocks}/${stackResult.totalBlocks} blocks ${fullSuccess ? "OK" : "PARTIAL/FAILED"}`
   );
 
-  if (stackAuto?.auto_react === true && messageMid) {
+  if (stackAuto?.auto_react === true && messageMid && !isFeatureBlocked("autoLike")) {
     reactToMessage(recipientId, accessToken, senderId, messageMid, "❤️").catch(() => {});
   }
 
@@ -1247,7 +1249,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
         );
 
         // AUTO-REACT: heart the lead's message that opened the window
-        if ((automation as Record<string, unknown>).auto_react === true) {
+        if ((automation as Record<string, unknown>).auto_react === true && !isFeatureBlocked("autoLike")) {
           const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
           if (reactMid) {
             reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
@@ -1548,7 +1550,7 @@ async function handlePostback(event: Record<string, unknown>) {
       );
 
       // AUTO-REACT: heart the lead's message that opened the window
-      if ((automation as Record<string, unknown>).auto_react === true) {
+      if ((automation as Record<string, unknown>).auto_react === true && !isFeatureBlocked("autoLike")) {
         const reactMid = ((event.message as Record<string, unknown>)?.mid as string) || "";
         if (reactMid) {
           reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});
@@ -1843,7 +1845,7 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
 
   // AUTO-REACT (v26 sender_action react): option to drop a ❤️ on the
   // lead's story-reply message the moment the automation answers.
-  if (sendResult.success && matchedAutomation.auto_react === true) {
+  if (sendResult.success && matchedAutomation.auto_react === true && !isFeatureBlocked("autoLike")) {
     const reactMid = ((messagingEvent.message as Record<string, unknown>)?.mid as string) || "";
     if (reactMid) {
       reactToMessage(recipientId, accessToken, senderId, reactMid, "❤️").catch(() => {});

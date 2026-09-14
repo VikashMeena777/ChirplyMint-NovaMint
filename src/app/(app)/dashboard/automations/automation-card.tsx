@@ -22,12 +22,29 @@ import {
 } from "lucide-react";
 import DripSequenceBuilder from "@/components/dashboard/drip-sequence-builder";
 import ABTestPanel from "@/components/dashboard/ab-test-panel";
+import { Lock } from "lucide-react";
 import PostbackFlowPanel from "@/components/dashboard/postback-flow-panel";
 import type { Automation } from "./automation-types";
+import { isFeatureBlocked } from "@/lib/features";
 
-/* ── Collapsible Drip Sequence Builder ── */
+/* ── Collapsible Drip Sequence Builder ──
+   Locked pending Meta App Review (Human Agent permission) — see
+   src/lib/features.ts. */
 function DripToggle({ automationId, userPlan }: { automationId: string; userPlan: string }) {
   const [open, setOpen] = useState(false);
+
+  if (isFeatureBlocked("dripSequences")) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/10 px-3 py-2.5">
+        <GitBranch className="w-3.5 h-3.5 text-indigo-500/50" />
+        <span className="text-xs font-semibold text-muted-foreground">Drip Sequence</span>
+        <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+          <Lock className="h-3 w-3" /> Pending Meta approval
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div>
       <button

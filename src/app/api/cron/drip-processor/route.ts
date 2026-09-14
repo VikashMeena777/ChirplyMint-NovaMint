@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isFeatureBlocked } from "@/lib/features";
 import { createClient } from "@supabase/supabase-js";
 import {
   sendInstagramDM,
@@ -32,6 +33,12 @@ function getAdminSupabase() {
  * Max 50 enrollments per batch to avoid timeout.
  */
 export async function GET(request: Request) {
+  // Drip sequences are pending Meta App Review (Human Agent permission) —
+  // see src/lib/features.ts. Exit before touching any enrollments.
+  if (isFeatureBlocked("dripSequences")) {
+    console.log("[Drip] Feature pending Meta approval — skipping run");
+    return NextResponse.json({ status: "skipped", reason: "pending_meta_approval" });
+  }
   // Verify cron secret
   const authHeader = request.headers.get("authorization");
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

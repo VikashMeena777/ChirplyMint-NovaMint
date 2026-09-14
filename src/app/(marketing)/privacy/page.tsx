@@ -98,6 +98,7 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside text-muted-foreground space-y-1.5">
             <li><strong className="text-foreground">Meta/Instagram</strong> — DM automation via official APIs</li>
             <li><strong className="text-foreground">Supabase</strong> — database and authentication</li>
+            <li><strong className="text-foreground">Groq &amp; NVIDIA (AI providers)</strong> — generate AI replies; your persona settings and message context are sent for generation, never for training, with automatic failover between providers</li>
             <li><strong className="text-foreground">Cashfree</strong> — payment processing (INR)</li>
             <li><strong className="text-foreground">Resend</strong> — transactional emails</li>
             <li><strong className="text-foreground">PostHog</strong> — analytics (consent-based only)</li>

@@ -62,7 +62,8 @@ export default function TermsPage() {
               Auto-reply to comments with customizable response templates
             </li>
             <li>
-              AI-powered DM generation with custom personas using NVIDIA NIM
+              AI-powered DM generation with custom personas (with automatic
+              provider failover for reliability)
             </li>
             <li>
               Follower verification — optionally require users to follow your

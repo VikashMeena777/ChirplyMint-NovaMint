@@ -48,7 +48,15 @@ const categories = [
       },
       {
         q: "How does AI Smart Replies work?",
-        a: "When AI Smart Replies is enabled, instead of sending a fixed template, our AI (powered by NVIDIA NIM) generates a personalized, context-aware DM based on the user's comment and your automation settings. It's like having a 24/7 virtual assistant.",
+        a: "When AI Smart Replies is enabled, instead of sending a fixed template, our AI generates a personalized, context-aware DM based on the user's comment and your automation settings. It's like having a 24/7 virtual assistant.",
+      },
+      {
+        q: "What is the AI Agent?",
+        a: "The AI Agent replies to your DMs as you — trained on your persona, your content, your offers and your FAQs. It goes through a 2-minute guided setup (you can test it in a sandbox chat before it goes live), and it never invents facts you didn't give it — it politely deflects instead. Manage it under Dashboard → AI Agent.",
+      },
+      {
+        q: "Why are Auto-like and Drip Sequences marked 'Pending Meta approval'?",
+        a: "These features are fully built but rely on Instagram permissions (auto-like reactions and business-initiated follow-up messages) that require Meta's App Review. While we're pending approval, they're locked in the dashboard. The moment Meta approves them, they'll unlock automatically — nothing needed from you.",
       },
       {
         q: "Can I have multiple automations per post?",
@@ -67,7 +75,7 @@ const categories = [
     faqs: [
       {
         q: "What permissions does ChirplyMint need?",
-        a: "We request: instagram_manage_messages (to send DMs), instagram_manage_comments (to read comments), and pages_read_engagement (required by Meta). We never post on your behalf or access your personal data.",
+        a: "We request: instagram_business_basic (your account profile), instagram_business_manage_messages (to send DMs), and instagram_business_manage_comments (to read and reply to comments). We never post on your behalf beyond the comment replies you configure, and we never access your personal data.",
       },
       {
         q: "Does it work with personal accounts?",
@@ -90,7 +98,7 @@ const categories = [
       },
       {
         q: "How do I upgrade my plan?",
-        a: "Go to Settings → Subscription and choose Pro (₹999/mo) or Business (₹2,999/mo). Payment is processed securely through our payment gateway.",
+        a: "Go to Settings → Billing and choose Pro (₹499/mo) or Business (₹1,499/mo). Payment is processed securely through Cashfree. You can also top up DMs anytime without changing plans.",
       },
       {
         q: "Can I cancel anytime?",
