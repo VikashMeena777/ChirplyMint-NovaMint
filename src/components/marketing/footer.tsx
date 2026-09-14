@@ -2,7 +2,7 @@
 
 import { Globe, Send } from "lucide-react";
 import { InstagramIcon } from "@/components/icons/instagram/instagram";
-import { TwitterIcon } from "@/components/icons/twitter/twitter";
+import { XLogo } from "@/components/icons/x-logo/x-logo";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -34,13 +34,13 @@ export function Footer() {
                 <InstagramIcon size={18} />
               </a>
               <a
-                href="https://twitter.com/chirplymint"
+                href="https://x.com/chirplymint"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-mint hover:border-mint/30 transition-colors"
-                aria-label="Twitter"
+                aria-label="X (Twitter)"
               >
-                <TwitterIcon size={18} />
+                <XLogo size={16} />
               </a>
             </div>
           </div>
