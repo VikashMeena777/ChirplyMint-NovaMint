@@ -37,6 +37,50 @@ export async function POST(request: Request) {
     if (!entry) {
       return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
     }
+
+    // ── Purchase sanity guards (server-side — the UI can be bypassed) ──
+    // 1. No downgrade purchases: a Business subscriber buying Pro (monthly
+    //    or annual) pays for a plan they already exceed.
+    // 2. No duplicate annual purchases: an active annual subscriber buying
+    //    the same annual plan again double-charges for overlapping time.
+    {
+      const { data: current } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .single();
+      const currentPlan = ((current as Record<string, unknown> | null)?.plan as string) || "free";
+
+      const buyingPro = rawPlan === "pro" || rawPlan === "pro_annual";
+      if (currentPlan === "business" && buyingPro) {
+        return NextResponse.json(
+          { error: "You're already on Business — it includes everything in Pro. No need to buy Pro." },
+          { status: 400 }
+        );
+      }
+
+      if (entry.kind === "annual") {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("current_period_end, status")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const row = sub as { current_period_end?: string; status?: string } | null;
+        const isAnnualActive =
+          row?.status === "active" &&
+          !!row?.current_period_end &&
+          new Date(row.current_period_end).getTime() - Date.now() > 150 * 24 * 60 * 60 * 1000;
+        if (isAnnualActive) {
+          return NextResponse.json(
+            { error: "Your annual plan is already active — it renews nothing to buy again now." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const plan = rawPlan as PlanKey;
     const planConfig = { price: entry.amount };
     const orderId = `CM_${user.id.slice(0, 8)}_${Date.now()}`;

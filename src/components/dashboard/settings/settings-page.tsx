@@ -1096,6 +1096,11 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   const allPlans = getPlanDisplayData();
   // Only show Pro and Business as upgrade options
   const tiers = allPlans.filter((p) => p.key !== "free");
+  // Is the CURRENT subscription annual? The profile only stores the plan
+  // key, so infer it from the period end (annual = far out, monthly = ~30d).
+  const isOnAnnual =
+    !!subscription?.currentPeriodEnd &&
+    new Date(subscription.currentPeriodEnd).getTime() - Date.now() > 150 * 24 * 60 * 60 * 1000;
 
   const currentPlan = profile?.plan ?? "free";
 
@@ -1332,17 +1337,33 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
           <div className="flex gap-2 mt-3 flex-wrap">
             <button
               onClick={() => handleUpgrade("pro_annual")}
-              disabled={upgradingPlan !== null || currentPlan === "pro"}
-              className="px-4 py-2 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-xs font-semibold disabled:opacity-40"
+              disabled={
+                upgradingPlan !== null ||
+                currentPlan === "business" || // Business includes everything in Pro — this would be a downgrade
+                (currentPlan === "pro" && isOnAnnual) // already on Pro annual
+              }
+              className="px-4 py-2 rounded-xl bg-[oklch(0.52 0.19_162)] text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {upgradingPlan === "pro_annual" ? "Processing…" : "Pro Annual ₹4,990"}
+              {upgradingPlan === "pro_annual"
+                ? "Processing…"
+                : currentPlan === "business"
+                  ? "Included in Business"
+                  : currentPlan === "pro" && isOnAnnual
+                    ? "Current plan (annual)"
+                    : "Pro Annual ₹4,990"}
             </button>
             <button
               onClick={() => handleUpgrade("business_annual")}
-              disabled={upgradingPlan !== null || currentPlan === "business"}
-              className="px-4 py-2 rounded-xl border border-[oklch(0.52_0.19_162)] text-[oklch(0.52_0.19_162)] text-xs font-semibold disabled:opacity-40"
+              disabled={upgradingPlan !== null || (currentPlan === "business" && isOnAnnual)}
+              className="px-4 py-2 rounded-xl border border-[oklch(0.52 0.19_162)] text-[oklch(0.52 0.19_162)] text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {upgradingPlan === "business_annual" ? "Processing…" : "Business Annual ₹14,990"}
+              {upgradingPlan === "business_annual"
+                ? "Processing…"
+                : currentPlan === "business" && isOnAnnual
+                  ? "Current plan (annual)"
+                  : currentPlan === "business"
+                    ? "Switch to Annual — save 2 months"
+                    : "Business Annual ₹14,990"}
             </button>
           </div>
         </div>
