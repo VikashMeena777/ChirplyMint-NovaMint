@@ -1,6 +1,65 @@
 {
   "entries": [
     {
+      "date": "Sep 14, 2026",
+      "version": "auto",
+      "title": "Annual-plan purchase buttons respect the current plan + server-side purchase guards",
+      "description": "Pro Annual: disabled with 'Included in Business' for Business",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Pro Annual: disabled with 'Included in Business' for Business",
+        "Business Annual: 'Current plan (annual)' (disabled) for Business-annual",
+        "Annual state inferred from the subscription period end (>150 days",
+        "Business subscribers cannot buy Pro or Pro Annual (would be paying",
+        "Nobody with an active ANNUAL subscription can buy an annual plan"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "auto",
+      "title": "Annual-plan display bug + AI inbox showing numeric IG ids",
+      "description": "The billing banner (and the cancel + resume banners) formatted the",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "The billing banner (and the cancel + resume banners) formatted the",
+        "The DM usage widget hardcoded a 'Resets in N days' monthly countdown"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "auto",
+      "title": "Server-side plan enforcement everywhere + confirmation dialogs for destructive actions",
+      "description": "AI Agent (Pro+): createAIAgent, updateAIAgent and",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "AI Agent (Pro+): createAIAgent, updateAIAgent and",
+        "'Advanced AI' (Business) was pure marketing copy — now real: Business",
+        "A/B testing + Postback Flow Builder (Pro+): createABVariant,",
+        "Lead export: CSV is Pro+; webhook export + test are Business-only",
+        "Follow-check: free plan forces require_follow=true SERVER-side in",
+        "DM quota hole: AI replies, postback responses, story-reply DMs,"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "auto",
+      "title": "Gate Meta-pending features, Refresh pricing/help/roadmap, Compliance accuracy",
+      "description": "src/lib/features.ts — central META_APPROVAL flags; flipping one constant",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "src/lib/features.ts — central META_APPROVAL flags; flipping one constant",
+        "Dashboard blocks: the Auto-react toggle in the automation wizard and the",
+        "Backend guards (defense in depth): all five auto-react call sites in the",
+        "Plan feature lists: Drip Steps removed from all tiers; Shared Team",
+        "Help center: fixed WRONG prices (said ₹999/₹2,999), the permission list",
+        "Roadmap: Drip moved from 'Shipped' to in-progress with the approval"
+      ]
+    },
+    {
       "date": "Sep 13, 2026",
       "version": "auto",
       "title": "AI agent onboarding system — the agent cannot activate (or reply) without real information",
