@@ -209,11 +209,13 @@ export async function generateAgentReply(params: {
   }
 
   // Inbox takeover: if the owner paused the AI for this lead, stay silent —
-  // they're answering personally from the inbox.
+  // they're answering personally from the inbox. The same row carries the
+  // lead's real handle: the webhook only knows the numeric IG id, and the
+  // inbox should show @username, not @17841400000000000.
   const admin = getSupabase();
   const { data: pausedLead } = await admin
     .from("leads")
-    .select("ai_paused")
+    .select("ai_paused, ig_username")
     .eq("user_id", params.userId)
     .eq("ig_user_id", params.senderIgId)
     .limit(1)
@@ -222,6 +224,10 @@ export async function generateAgentReply(params: {
     console.log(`[AI Agent] Paused for ${params.senderIgId} (inbox takeover) — no reply`);
     return null;
   }
+
+  const senderUsername =
+    ((pausedLead as Record<string, unknown> | null)?.ig_username as string | undefined)?.trim() ||
+    (/^\d+$/.test(params.senderUsername) ? params.senderIgId : params.senderUsername);
 
   const config = agent as AgentConfig;
 
@@ -359,7 +365,7 @@ CONVERSATION AWARENESS:
     agent_id: config.id,
     user_id: params.userId,
     sender_ig_id: params.senderIgId,
-    sender_username: params.senderUsername,
+    sender_username: senderUsername,
     role: "user",
     content: params.incomingMessage,
   });
@@ -376,7 +382,7 @@ CONVERSATION AWARENESS:
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
-      sender_username: params.senderUsername,
+      sender_username: senderUsername,
       role: "assistant",
       content: config.greeting_message,
     });
@@ -392,7 +398,7 @@ CONVERSATION AWARENESS:
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
-      sender_username: params.senderUsername,
+      sender_username: senderUsername,
       role: "assistant",
       content: config.fallback_message,
     });
@@ -444,19 +450,19 @@ CONVERSATION AWARENESS:
       presence_penalty: 0.2,
     });
     if (fallbackUsed) {
-      console.warn(`[AI-FALLBACK] AI agent ${config.id} using fallback_message for @${params.senderUsername} (all providers failed)`);
+      console.warn(`[AI-FALLBACK] AI agent ${config.id} using fallback_message for @${senderUsername} (all providers failed)`);
       supabase.from("activity_log").insert({
         user_id: params.userId,
         action: "ai.fallback_used",
-        metadata: { agent_id: config.id, recipient: params.senderUsername },
+        metadata: { agent_id: config.id, recipient: senderUsername },
       }).then(() => {});
     } else if (!primary && provider) {
       // provider failover must be visible outside Vercel logs
-      console.warn(`[AI-FALLBACK] answered by ${provider} for @${params.senderUsername}`);
+      console.warn(`[AI-FALLBACK] answered by ${provider} for @${senderUsername}`);
       supabase.from("activity_log").insert({
         user_id: params.userId,
         action: "ai.provider_fallback",
-        metadata: { agent_id: config.id, provider, recipient: params.senderUsername },
+        metadata: { agent_id: config.id, provider, recipient: senderUsername },
       }).then(() => {});
     }
 
@@ -491,7 +497,7 @@ CONVERSATION AWARENESS:
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
-      sender_username: params.senderUsername,
+      sender_username: senderUsername,
       role: "assistant",
       content: reply,
     });
@@ -504,7 +510,7 @@ CONVERSATION AWARENESS:
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
-      sender_username: params.senderUsername,
+      sender_username: senderUsername,
       role: "assistant",
       content: config.fallback_message,
     });

@@ -1252,7 +1252,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
             <p className="text-sm font-medium text-foreground">Subscription</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {subscription?.currentPeriodEnd
-                ? `Your ${currentPlan} plan is active until ${new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. Cancel keeps every feature until then.`
+                ? `Your ${currentPlan} plan is active until ${new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. Cancel keeps every feature until then.`
                 : "No renewal is charged automatically — your plan simply ends when the period does."}
             </p>
           </div>
@@ -1281,7 +1281,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
         <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4">
           <div>
             <p className="text-sm font-medium text-foreground">
-              Cancels on {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "the end of your period"}
+              Cancels on {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "the end of your period"}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               All {currentPlan} features stay until then. Changed your mind?
@@ -1550,7 +1550,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
             <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <p className="font-semibold text-foreground">Keep until the end — recommended</p>
               <p className="mt-0.5">
-                Every feature stays until {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "your period end"}. Resume anytime in one click.
+                Every feature stays until {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "your period end"}. Resume anytime in one click.
               </p>
             </div>
             <div className="flex flex-col gap-2">

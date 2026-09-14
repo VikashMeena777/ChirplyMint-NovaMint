@@ -74,7 +74,9 @@ export function AnimatedPlanCard({
         ? "bg-yellow-400"
         : "bg-white/90";
 
-  // Days until reset (1st of next month for free, or billing cycle end for paid)
+  // Days until the monthly DM quota resets (1st of next month). Only
+  // meaningful for capped plans — unlimited plans never reset, so the
+  // badge shows 'Unlimited' instead of a misleading countdown.
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const daysUntilReset = Math.ceil((nextMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -89,7 +91,7 @@ export function AnimatedPlanCard({
             {plan.charAt(0).toUpperCase() + plan.slice(1)} Plan
           </span>
           <span className="text-xs opacity-70">
-            Resets in {daysUntilReset} day{daysUntilReset !== 1 ? "s" : ""}
+            {isUnlimited ? "Unlimited DMs" : `Resets in ${daysUntilReset} day${daysUntilReset !== 1 ? "s" : ""}`}
           </span>
         </div>
         <p className="text-lg font-bold">
