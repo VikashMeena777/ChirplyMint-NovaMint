@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 
@@ -61,6 +63,9 @@ export async function savePostbackFlows(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessABTesting(plan)) return { error: "Postback Flow Builder is a Pro feature — upgrade to unlock it." };
 
   // Verify the automation belongs to this user
   const { data: automation } = await supabase

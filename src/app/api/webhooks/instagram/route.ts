@@ -23,6 +23,7 @@ import { isFeatureBlocked } from "@/lib/features";
 import { checkRateLimit, getDmLimiter, getAiLimiter } from "@/lib/utils/rate-limiter";
 import { trackDMFailure, resetFailureCount } from "@/lib/utils/failure-tracker";
 import crypto from "crypto";
+
 import { checkDmMilestones } from "@/lib/email/dm-milestones";
 import { pickABVariant } from "@/lib/actions/ab-test";
 import { sendMessageStack, type MessageBlock } from "@/lib/instagram/message-stack";
@@ -39,6 +40,59 @@ const SIGNING_SECRETS: string[] = [
 ].filter((s): s is string => Boolean(s));
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
+// ── Plan quota for NON-comment send paths (AI replies, postbacks, story
+// replies, quick replies). The comment path checks inline; these use the
+// shared helper so every outbound DM counts against the plan. ──
+async function checkAndConsumeDmQuota(
+  userId: string,
+  automationId: string | null,
+  igAccountId: string | null,
+  recipientIgId: string,
+  recipientUsername: string,
+  context: string
+): Promise<boolean> {
+  const supabase = getSupabase();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan, dm_count_this_month, dm_limit, dm_topup_balance")
+    .eq("id", userId)
+    .single();
+
+  const plan = (((profile as Record<string, unknown> | null)?.plan as string) || "free") as PlanKey;
+  const currentCount = ((profile as Record<string, unknown> | null)?.dm_count_this_month as number) || 0;
+  const storedLimit = (profile as Record<string, unknown> | null)?.dm_limit as number | null;
+  const topupBalance = (profile as Record<string, unknown> | null)?.dm_topup_balance as number | null;
+  const check = canSendDM(plan, currentCount, storedLimit, topupBalance);
+
+  if (!check.allowed) {
+    console.log(`[Meta Webhook] ${context}: user ${userId} hit DM limit (${check.limit}) — skipping`);
+    try {
+      await supabase.from("dm_logs").insert({
+        user_id: userId,
+        automation_id: automationId,
+        instagram_account_id: igAccountId,
+        recipient_ig_id: recipientIgId,
+        recipient_username: recipientUsername,
+        message_text: `[SKIPPED] Plan DM limit reached (${check.limit}/month)`,
+        status: "skipped_plan_limit",
+      } as never);
+    } catch {}
+    return false;
+  }
+
+  try {
+    await supabase.rpc("increment_field", {
+      table_name: "profiles",
+      row_id: userId,
+      field_name: "dm_count_this_month",
+      increment_by: 1,
+    });
+  } catch (e) {
+    console.error("[Quota] increment failed:", e);
+  }
+  return true;
+}
 
 function getSupabase() {
   return createClient(
@@ -1207,6 +1261,7 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
           aiEnabled: (automation.ai_enabled as boolean) ?? false,
         });
 
+        if (!(await checkAndConsumeDmQuota(userId, (automation as Record<string, unknown>)?.id as string | null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "AI fallback DM"))) return;
         templateSendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
       }
 
@@ -1276,6 +1331,17 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
     });
 
     if (agentResult) {
+      // AI replies count against the plan's DM quota, same as every send
+      const quotaOk = await checkAndConsumeDmQuota(
+        userId,
+        null,
+        (igAccount as Record<string, unknown>)?.id as string | null,
+        senderId,
+        senderId,
+        "AI reply"
+      );
+      if (!quotaOk) return;
+
       const sendResult = await sendInstagramDM(recipientId, accessToken, senderId, agentResult.reply);
 
       await supabase.from("dm_logs").insert({
@@ -1406,6 +1472,7 @@ async function handlePostback(event: Record<string, unknown>) {
           .limit(1)
           .maybeSingle();
         if (!recent) {
+          if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "resend reminder"))) return;
           await sendInstagramDM(recipientId, accessToken, senderId,
             "You're all set! ✅ Your content was already sent above — scroll up to grab it."
           ).catch(() => {});
@@ -1508,6 +1575,7 @@ async function handlePostback(event: Record<string, unknown>) {
         aiEnabled: (automation.ai_enabled as boolean) ?? false,
       });
 
+      if (!(await checkAndConsumeDmQuota(userId, (automation as Record<string, unknown>)?.id as string | null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "drip opener"))) return;
       templateSendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
     }
 
@@ -1635,6 +1703,7 @@ async function handlePostback(event: Record<string, unknown>) {
   } else {
     // Send plain text response
     const responseText = (flow.response_text as string) || "Thanks for your response!";
+    if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "postback reply"))) return;
     sendResult = await sendInstagramDM(recipientId, accessToken, senderId, responseText);
   }
 
@@ -1836,8 +1905,9 @@ async function handleStoryReplyDM(messagingEvent: Record<string, unknown>) {
     } else {
       const dmTemplate = (matchedAutomation.dm_template as string) || "Thanks for replying to my story! 💜";
       const dmText = dmTemplate
-        .replace(/\{name\}/gi, senderId)
-        .replace(/\{story_reply\}/gi, messageText || "");
+        .replace(/\{name}/gi, senderId)
+        .replace(/\{story_reply}/gi, messageText || "");
+      if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "story reply DM"))) return;
       sendResult = await sendInstagramDM(recipientId, accessToken, senderId, dmText);
     }
     logText = "";
@@ -2032,6 +2102,7 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
             ? "Sure — just type your email here and I'll save it 📧"
             : "Sure — just type your phone number here and I'll save it 📱";
       console.log("[Meta Webhook] Ask-contact chip tapped by " + senderId + " — asking to type it once");
+      if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "ask-contact"))) return;
       await sendInstagramDM(recipientId, accessToken, senderId, askText).catch(() => {});
       return;
     }
@@ -2094,6 +2165,7 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
     const confirmText = isEmail
       ? "Got it - thanks! 📩 We'll reach out at this email."
       : "Got it - thanks! 📲 We'll reach out on this number.";
+    if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "contact confirmation"))) return;
     await sendInstagramDM(recipientId, accessToken, senderId, confirmText).catch(() => {});
   }
 
@@ -2104,6 +2176,7 @@ async function handleQuickReply(messagingEvent: Record<string, unknown>) {
     const responseText = ((flow.response_text as string) || "")
       .replace(/\{name\}/gi, senderId);
 
+    if (!(await checkAndConsumeDmQuota(userId, null, (igAccount as Record<string, unknown>)?.id as string | null, senderId, senderId, "quick-reply flow"))) return;
     if (responseType === "text" && responseText) {
       await sendInstagramDM(recipientId, accessToken, senderId, responseText).catch(() => {});
     } else if (responseType === "button" && flow.response_template_title) {

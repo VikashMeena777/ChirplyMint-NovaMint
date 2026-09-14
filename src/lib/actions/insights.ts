@@ -1,5 +1,7 @@
 "use server";
 
+import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
 
 export interface InsightData {
@@ -23,9 +25,29 @@ export interface InsightData {
 /**
  * Get audience insights for the logged-in user
  */
+function emptyInsightsForStarter(): InsightData {
+  return {
+    topEngagers: [],
+    peakHours: [],
+    topKeywords: [],
+    sourceBreakdown: [],
+    totalDMs: 0,
+    totalLeads: 0,
+    avgResponseTime: "—",
+    bestDay: "—",
+    dailyTrend: [],
+  };
+}
+
 export async function getAudienceInsights(): Promise<InsightData> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Insights is a Pro+ feature — return the empty dataset for Starter.
+  // (canAccessABTesting is the same pro+ rule; reusing it keeps the helper
+  // set small. The UI shows the upgrade gate.)
+  const plan = await getUserPlan();
+  if (!canAccessABTesting(plan)) return emptyInsightsForStarter();
 
   const empty: InsightData = {
     topEngagers: [],

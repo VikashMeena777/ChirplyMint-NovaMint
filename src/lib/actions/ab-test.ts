@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
 
 export interface ABVariant {
@@ -57,6 +59,9 @@ export async function createABVariant(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessABTesting(plan)) return { success: false, error: "A/B Testing is a Pro feature — upgrade to unlock it." };
 
   // Max 3 variants per automation
   const { count } = await supabase
@@ -126,6 +131,9 @@ export async function declareABWinner(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessABTesting(plan)) return { success: false, error: "A/B Testing is a Pro feature — upgrade to unlock it." };
 
   // Reset all variants
   await supabase

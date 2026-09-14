@@ -179,6 +179,25 @@ export async function generateAgentReply(params: {
 
   if (!agent) return null;
 
+  // Plan gate (server-side — the dashboard UI hides the feature, but a
+  // free user could still have flipped is_active before downgrading).
+  // AI Agent is Pro+. Fetch the plan and stay silent on anything else.
+  {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", params.userId)
+      .single();
+    const plan = ((profile as Record<string, unknown> | null)?.plan as string) || "free";
+    if (plan !== "pro" && plan !== "business") {
+      console.warn(`[AI Agent] ${params.userId} is on ${plan} — AI Agent is Pro+, skipping reply`);
+      return null;
+    }
+    // "Advanced AI" (Business): longer conversation memory + generation room.
+    var aiHistoryLimit = plan === "business" ? 24 : 14;
+    var aiMaxTokens = plan === "business" ? 600 : 450;
+  }
+
   // Setup gate (defense in depth — the toggle is already gated in the
   // action): an agent that hasn't been through onboarding has a placeholder
   // persona and WILL invent facts. Stay silent and tell the owner once.
@@ -221,7 +240,7 @@ export async function generateAgentReply(params: {
     .eq("agent_id", config.id)
     .eq("sender_ig_id", params.senderIgId)
     .order("created_at", { ascending: false })
-    .limit(14);
+    .limit(aiHistoryLimit);
 
   const conversationHistory = (history ?? [])
     .reverse()
@@ -419,7 +438,7 @@ CONVERSATION AWARENESS:
       // Reasoning models spend part of the budget on hidden thinking —
       // 450 leaves room for it while reply LENGTH is still enforced by the
       // prompt + post-truncation, not by the token cap.
-      max_tokens: 450,
+      max_tokens: aiMaxTokens,
       temperature: 0.5,
       frequency_penalty: 0.4,
       presence_penalty: 0.2,

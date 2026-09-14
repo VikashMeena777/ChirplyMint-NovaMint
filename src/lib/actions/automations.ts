@@ -1,5 +1,7 @@
 "use server";
 
+import { canConfigureFollowCheck } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { sendGenericTemplateDM } from "@/lib/instagram/send-dm";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 
@@ -99,8 +101,12 @@ export async function createAutomation(formData: FormData) {
   const commentReplyTemplate =
     (formData.get("comment_reply_template") as string) || null;
 
-  // New fields: Follow-for-DM toggle
-  const requireFollow = formData.get("require_follow") === "true";
+  // Follow-for-DM toggle — SERVER-side plan enforcement: free plan is
+  // always followers-only; Pro+ may toggle.
+  const planForFollow = await getUserPlan();
+  const requireFollow = canConfigureFollowCheck(planForFollow)
+    ? formData.get("require_follow") === "true"
+    : true;
 
   // New fields: Button template
   const templateType = (formData.get("template_type") as string) || "text";
@@ -375,7 +381,10 @@ export async function updateAutomation(
   const aiPersona = (formData.get("ai_persona") as string) || null;
   const commentReplyEnabled = formData.get("comment_reply_enabled") === "true";
   const commentReplyTemplate = (formData.get("comment_reply_template") as string) || null;
-  const requireFollow = formData.get("require_follow") === "true";
+  const planForFollow = await getUserPlan();
+  const requireFollow = canConfigureFollowCheck(planForFollow)
+    ? formData.get("require_follow") === "true"
+    : true;
   const templateType = (formData.get("template_type") as string) || "text";
   const templateTitle = (formData.get("template_title") as string) || null;
   const templateSubtitle = (formData.get("template_subtitle") as string) || null;

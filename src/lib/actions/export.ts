@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { canAccessLeads } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 
@@ -70,6 +72,9 @@ export async function exportLeadsCSV() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { data: null, error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessLeads(plan)) return { error: "Lead export is a Pro feature — upgrade to unlock it." };
 
   const { data: leads, error } = await supabase
     .from("leads")
@@ -161,6 +166,9 @@ export async function exportLeadsWebhook(webhookUrl: string): Promise<{ error?: 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (plan !== "business") return { error: "Webhook lead export is a Business-plan feature." };
 
   // SSRF guard (scheme + private-address blocking)
   const urlError = assertSafeWebhookUrl(webhookUrl);
@@ -256,6 +264,9 @@ export async function testWebhook(webhookUrl: string) : Promise<{ error?: string
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (plan !== "business") return { error: "Webhook lead export is a Business-plan feature." };
 
   const urlError2 = assertSafeWebhookUrl(webhookUrl);
   if (urlError2.error) return urlError2;

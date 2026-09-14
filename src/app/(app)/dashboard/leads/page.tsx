@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useEffect, useState, useCallback } from "react";
 import {
   Users, Search, Download, Trash2, ChevronLeft, ChevronRight,
@@ -258,7 +259,16 @@ export default function LeadsPage() {
     setExporting(false);
   }
 
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
   async function handleDelete(id: string) {
+    setPendingDelete(id);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete;
+    setPendingDelete(null);
     setLeads((prev) => prev.filter((l) => l.id !== id));
     setTotal((prev) => prev - 1);
     const result = await deleteLead(id);

@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -226,9 +227,17 @@ export default function BioBuilderPage() {
 
   // ─── Delete Link ───────────────────────────────────────
 
+  const [pendingDeleteLink, setPendingDeleteLink] = useState<string | null>(null);
+
   async function handleDeleteLink(linkId: string) {
-    await deleteBioLink(linkId);
-    setLinks(links.filter(l => l.id !== linkId));
+    setPendingDeleteLink(linkId);
+  }
+
+  async function confirmDeleteLink() {
+    if (!pendingDeleteLink) return;
+    await deleteBioLink(pendingDeleteLink);
+    setLinks(links.filter(l => l.id !== pendingDeleteLink));
+    setPendingDeleteLink(null);
     toast.success("Link removed");
   }
 
@@ -789,6 +798,16 @@ export default function BioBuilderPage() {
           </div>
         </div>
       </div>
-    </div>
+          {pendingDeleteLink && (
+        <ConfirmDialog
+          open
+          title="Remove this link?"
+          body="The link disappears from your public bio page immediately."
+          confirmLabel="Remove link"
+          onConfirm={confirmDeleteLink}
+          onCancel={() => setPendingDeleteLink(null)}
+        />
+      )}
+</div>
   );
 }

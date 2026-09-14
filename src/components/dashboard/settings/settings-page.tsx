@@ -29,6 +29,7 @@ import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
 import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, getTrialEligibility, type InvoiceRow, type SubscriptionStatusRow } from "@/lib/actions/billing";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   inviteTeamMember,
   revokeInvite,
@@ -68,6 +69,8 @@ export default function SettingsPage({ section }: { section: TabId }) {
   const [teamBusy, setTeamBusy] = useState(false);
   const [apiKeys, setApiKeys] = useState<{ id: string; name: string; key_prefix: string; last_used_at: string | null; revoked: boolean }[]>([]);
   const [apiKeyName, setApiKeyName] = useState("");
+  const [pendingInviteRevoke, setPendingInviteRevoke] = useState<string | null>(null);
+  const [pendingKeyAction, setPendingKeyAction] = useState<{ id: string; mode: "revoke" | "delete" } | null>(null);
   const [newApiKey, setNewApiKey] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
@@ -540,7 +543,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
                     Copy link
                   </button>
                   <button
-                    onClick={async () => { const r = await revokeInvite(inv.id); if (r.error) toast.error(r.error); else { toast.success("Invite revoked"); loadTeam(); } }}
+                    onClick={() => { setPendingInviteRevoke(inv.id); }}
                     className="text-xs text-red-400 hover:underline"
                   >
                     Revoke
@@ -612,7 +615,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
                     </p>
                   </div>
                   <button
-                    onClick={async () => { const r = await revokeApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key revoked — integrations using it will stop working"); loadApiKeys(); } }}
+                    onClick={() => { setPendingKeyAction({ id: k.id, mode: "revoke" }); }}
                     className="text-xs text-red-400 hover:underline shrink-0"
                   >
                     Revoke
@@ -635,7 +638,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
                           <p className="text-[11px] text-muted-foreground">Revoked</p>
                         </div>
                         <button
-                          onClick={async () => { const r = await deleteApiKey(k.id); if (r.error) toast.error(r.error); else { toast.success("Key deleted"); loadApiKeys(); } }}
+                          onClick={() => { setPendingKeyAction({ id: k.id, mode: "delete" }); }}
                           className="text-xs text-muted-foreground hover:text-red-400 hover:underline shrink-0"
                         >
                           Delete
@@ -680,7 +683,40 @@ export default function SettingsPage({ section }: { section: TabId }) {
           </div>
           ))}
       </div>
-    </div>
+            {pendingInviteRevoke && (
+          <ConfirmDialog
+            open
+            title="Revoke this invite?"
+            body="The teammate loses access immediately and their invite link stops working."
+            confirmLabel="Revoke invite"
+            onConfirm={async () => {
+              const id = pendingInviteRevoke;
+              setPendingInviteRevoke(null);
+              const r = await revokeInvite(id);
+              if (r.error) toast.error(r.error); else { toast.success("Invite revoked"); loadTeam(); }
+            }}
+            onCancel={() => setPendingInviteRevoke(null)}
+          />
+        )}
+        {pendingKeyAction && (
+          <ConfirmDialog
+            open
+            title={pendingKeyAction.mode === "revoke" ? "Revoke this API key?" : "Delete this API key?"}
+            body={pendingKeyAction.mode === "revoke"
+              ? "Any integration using this key will stop working immediately."
+              : "The key is permanently removed. Integrations using it will stop working."}
+            confirmLabel={pendingKeyAction.mode === "revoke" ? "Revoke key" : "Delete key"}
+            onConfirm={async () => {
+              const { id, mode } = pendingKeyAction;
+              setPendingKeyAction(null);
+              const r = mode === "revoke" ? await revokeApiKey(id) : await deleteApiKey(id);
+              if (r.error) toast.error(r.error);
+              else { toast.success(mode === "revoke" ? "Key revoked" : "Key deleted"); loadApiKeys(); }
+            }}
+            onCancel={() => setPendingKeyAction(null)}
+          />
+        )}
+</div>
   );
 }
 
@@ -1055,6 +1091,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   const [subscription, setSubscription] = useState<SubscriptionStatusRow | null>(null);
   const [trialEligible, setTrialEligible] = useState<boolean | null>(null); // null = still checking
   const [downgrading, setDowngrading] = useState(false);
+  const [showSwitchToPro, setShowSwitchToPro] = useState(false);
 
   const allPlans = getPlanDisplayData();
   // Only show Pro and Business as upgrade options
@@ -1222,7 +1259,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
           <div className="flex gap-2 shrink-0">
             {currentPlan === "business" && (
               <button
-                onClick={handleDowngradeToPro}
+                onClick={() => setShowSwitchToPro(true)}
                 disabled={downgrading}
                 className="px-4 py-2 rounded-xl border border-border text-muted-foreground text-sm font-medium hover:border-[oklch(0.52_0.19_162/40%)] hover:text-foreground disabled:opacity-40"
               >
@@ -1471,6 +1508,18 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
       </div>
 
       {/* Cancel survey modal */}
+      {showSwitchToPro && (
+        <ConfirmDialog
+          open
+          title="Switch from Business to Pro?"
+          body="You'll move to the Pro plan at the end of your current billing period. Pro includes 2,000 DMs/month and 10 automations — you'll lose unlimited DMs, unlimited automations, team seats and API access. Your data is kept."
+          confirmLabel="Switch to Pro"
+          destructive={false}
+          busy={downgrading}
+          onConfirm={() => { handleDowngradeToPro(); setShowSwitchToPro(false); }}
+          onCancel={() => setShowSwitchToPro(false)}
+        />
+      )}
       {showCancelSurvey && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCancelSurvey(false)}>
           <div className="bg-card rounded-2xl border border-border shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>

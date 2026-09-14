@@ -11,11 +11,41 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { getAudienceInsights } from "@/lib/actions/insights";
+import { getUserPlan } from "@/lib/actions/dashboard";
+import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { Lock } from "lucide-react";
+import Link from "next/link";
 import { FadeInSection, AnimatedBar } from "@/components/dashboard/animated-insights";
 import InsightsTrendChart from "@/components/dashboard/insights-trend-chart";
 import { getContentInsights } from "@/lib/actions/instagram-api";
 
 export default async function InsightsPage() {
+
+  // Insights is a Pro+ feature — show the upgrade gate for Starter.
+  const plan = await getUserPlan();
+  if (!canAccessABTesting(plan)) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-sky-500/20 to-indigo-600/20 flex items-center justify-center mb-6 border border-sky-500/30">
+          <Lock className="w-10 h-10 text-sky-400" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground mb-3">
+          Audience Insights — Pro Feature
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-md mb-8">
+          Unlock engagement leaderboards, peak-hour heatmaps, keyword
+          conversion tracking and 30-day trends. Upgrade to Pro to see
+          exactly what your audience responds to.
+        </p>
+        <Link
+          href="/pricing"
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-semibold hover:shadow-lg hover:shadow-sky-500/25 transition-all"
+        >
+          Upgrade Now
+        </Link>
+      </div>
+    );
+  }
   const content = await getContentInsights();
   const insights = await getAudienceInsights();
   const maxHourCount = Math.max(...insights.peakHours.map((h) => h.count), 1);

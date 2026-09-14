@@ -1,5 +1,7 @@
 "use server";
 
+import { PLANS, canCustomizeBioStyle, canHideBranding, type PlanKey } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
@@ -117,6 +119,19 @@ export async function updateBioPage(updates: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  // Server-side white-label enforcement: custom font (Pro+) and
+  // hide-branding (Business) are plan features — strip them for lower plans
+  // instead of trusting the client.
+  {
+    const plan = await getUserPlan();
+    if (!canCustomizeBioStyle(plan) && "custom_font" in (updates as Record<string, unknown>)) {
+      delete (updates as Record<string, unknown>).custom_font;
+    }
+    if (!canHideBranding(plan) && "hide_branding" in (updates as Record<string, unknown>)) {
+      delete (updates as Record<string, unknown>).hide_branding;
+    }
+  }
+
   const { error } = await supabase
     .from("bio_pages")
     .update({ ...updates, updated_at: new Date().toISOString() })
@@ -155,6 +170,19 @@ export async function addBioLink(pageId: string, link: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Plan limit: Starter caps bio links (5); Pro+ unlimited
+  const plan = await getUserPlan();
+  const bioLinkLimit = PLANS[plan]?.bioLinkLimit ?? 5;
+  if (bioLinkLimit !== -1) {
+    const { count } = await supabase
+      .from("bio_links")
+      .select("id", { count: "exact", head: true })
+      .eq("page_id", (await supabase.from("bio_pages").select("id").eq("user_id", user.id).single()).data?.id ?? "");
+    if ((count ?? 0) >= bioLinkLimit) {
+      return { error: `Your plan allows ${bioLinkLimit} bio links — upgrade to Pro for unlimited links.` };
+    }
+  }
 
   // Get next sort order
   const { count } = await supabase

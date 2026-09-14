@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useEffect, useState, useCallback } from "react";
 import {
   Bot,
@@ -86,7 +87,16 @@ export default function AutomationsPage() {
     }
   }
 
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
   async function handleDelete(id: string) {
+    setPendingDelete(id);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    const id = pendingDelete;
+    setPendingDelete(null);
     const result = await deleteAutomation(id);
     if (result.error) {
       toast.error(result.error);

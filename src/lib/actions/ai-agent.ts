@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 import { agentSetupMissing, assemblePersona } from "@/lib/ai/agent-setup";
+import { canAccessAIAgent } from "@/lib/utils/plan-limits";
+import { getUserPlan } from "@/lib/actions/dashboard";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -71,6 +73,11 @@ export async function createAIAgent(agentName: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, error: "Not authenticated" };
 
+  const plan = await getUserPlan();
+  if (!canAccessAIAgent(plan)) {
+    return { data: null, error: "AI Agent is a Pro feature — upgrade to Pro to unlock it." };
+  }
+
   // Check if user already has an agent
   const { data: existing } = await supabase
     .from("ai_agents")
@@ -111,6 +118,11 @@ export async function updateAIAgent(updates: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessAIAgent(plan)) {
+    return { error: "AI Agent is a Pro feature — upgrade to Pro to unlock it." };
+  }
 
   // ── ACTIVATION GATE ── the agent may only go live when the owner has
   // given it enough information to reply as them. A placeholder persona
@@ -177,6 +189,11 @@ export async function saveAIAgentOnboarding(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: null, missing: [], error: "Not authenticated" };
+
+  const plan = await getUserPlan();
+  if (!canAccessAIAgent(plan)) {
+    return { data: null, missing: [], error: "AI Agent is a Pro feature — upgrade to Pro to unlock it." };
+  }
 
   const { data: existing } = await supabase
     .from("ai_agents")
