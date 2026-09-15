@@ -101,10 +101,10 @@ export default function SecurityPage() {
           <p className="text-sm text-muted-foreground">
             Found something we should know about? Email{" "}
             <a
-              href="mailto:security@novamintnetworks.in"
+              href="mailto:ChirplyMint@gmail.com"
               className="text-[oklch(0.52_0.19_162)] font-semibold hover:underline"
             >
-              security@novamintnetworks.in
+              ChirplyMint@gmail.com
             </a>{" "}
             and we&apos;ll take it seriously.
           </p>

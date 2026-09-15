@@ -121,7 +121,7 @@ export default function TermsPage() {
             <li>
               Notify us immediately at{" "}
               <strong className="text-foreground">
-                security@novamintnetworks.in
+                ChirplyMint@gmail.com
               </strong>{" "}
               if you suspect unauthorized access
             </li>
@@ -340,7 +340,7 @@ export default function TermsPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Email:{" "}
               <strong className="text-foreground">
-                legal@novamintnetworks.in
+                ChirplyMint@gmail.com
               </strong>
             </p>
             <p className="text-sm text-muted-foreground">

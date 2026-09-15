@@ -265,7 +265,7 @@ export default function DataPolicyPage() {
               <strong className="text-foreground">Via Email:</strong> Send a
               deletion request to{" "}
               <strong className="text-foreground">
-                privacy@novamintnetworks.in
+                ChirplyMint@gmail.com
               </strong>{" "}
               with your registered email address
             </li>
@@ -334,7 +334,7 @@ export default function DataPolicyPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Email:{" "}
               <strong className="text-foreground">
-                privacy@novamintnetworks.in
+                ChirplyMint@gmail.com
               </strong>
             </p>
             <p className="text-sm text-muted-foreground">

@@ -42,6 +42,7 @@ export function siteGraph() {
         logo: `${SITE_URL}/logo.png`,
         description:
           "NovaMint Networks builds ChirplyMint — an Instagram DM and comment automation platform for creators, coaches and small businesses in India.",
+        email: "ChirplyMint@gmail.com",
         sameAs: SOCIAL_PROFILES,
       },
       {

@@ -225,10 +225,10 @@ export default function PrivacyPage() {
           <p className="text-muted-foreground leading-relaxed">
             For privacy-related questions, contact us at{" "}
             <a
-              href="mailto:privacy@novamintnetworks.in"
+              href="mailto:ChirplyMint@gmail.com"
               className="text-primary hover:underline font-medium"
             >
-              privacy@novamintnetworks.in
+              ChirplyMint@gmail.com
             </a>
           </p>
         </section>

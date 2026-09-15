@@ -1433,7 +1433,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
                           </div></div>
                         </div>
                         <div class="parties">
-                          <div class="party"><h4>From</h4><p><strong>NovaMint Networks</strong><br/>${process.env.NEXT_PUBLIC_SELLER_ADDRESS || "India"}<br/>chirplymint.novamintnetworks.in · support@novamintnetworks.in${process.env.NEXT_PUBLIC_SELLER_PAN ? "<br/>PAN: " + process.env.NEXT_PUBLIC_SELLER_PAN : ""}</p></div>
+                          <div class="party"><h4>From</h4><p><strong>NovaMint Networks</strong><br/>${process.env.NEXT_PUBLIC_SELLER_ADDRESS || "India"}<br/>chirplymint.novamintnetworks.in · ChirplyMint@gmail.com${process.env.NEXT_PUBLIC_SELLER_PAN ? "<br/>PAN: " + process.env.NEXT_PUBLIC_SELLER_PAN : ""}</p></div>
                           <div class="party"><h4>Billed To</h4><p><strong>${profile?.name || "Customer"}</strong><br/>${profile?.email || ""}</p></div>
                         </div>
                         <table>

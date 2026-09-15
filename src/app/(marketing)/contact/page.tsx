@@ -44,7 +44,7 @@ export default function ContactPage() {
               <h3 className="font-semibold text-foreground">Email</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              hello@chirplymint.novamintnetworks.in
+              ChirplyMint@gmail.com
             </p>
           </div>
           <div className="p-5 rounded-2xl bg-card border border-border shadow-sm">
