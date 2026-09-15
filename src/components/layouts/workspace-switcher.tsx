@@ -73,7 +73,11 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
   }
 
   return (
-    <div className={`relative ${collapsed ? "px-0 mb-2 flex justify-center" : "px-3 mb-2"}`}>
+    <div
+      className={`relative ${
+        collapsed ? "px-0 pt-3 mb-2 flex justify-center" : "px-3 pt-3 mb-2"
+      }`}
+    >
       <button
         onClick={() => setOpen(!open)}
         title={collapsed ? (active === "team" ? "Team workspace" : "My workspace") : undefined}
