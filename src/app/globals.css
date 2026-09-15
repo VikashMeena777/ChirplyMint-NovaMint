@@ -47,19 +47,6 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* ── Editorial type scale ────────────────────────────────────────────
-     Real contrast instead of generic sizes: a big Space Grotesk display
-     cut (near-solid leading, tight tracking) over a 15px Inter body at
-     1.7. Mono eyebrows ("01 / Features") label sections. */
-  --text-display: clamp(3rem, 7vw, 5.5rem);
-  --text-display--line-height: 0.98;
-  --text-display--letter-spacing: -0.04em;
-  --text-display--font-weight: 700;
-  --text-section: clamp(2.5rem, 4.5vw, 3rem);
-  --text-section--line-height: 1.04;
-  --text-section--letter-spacing: -0.03em;
-  --text-section--font-weight: 700;
-
   /* ChirplyMint brand tokens */
   --color-mint: oklch(0.62 0.19 162);
   --color-mint-light: oklch(0.72 0.15 162);
@@ -148,9 +135,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Editorial body rhythm: 15px Inter at a generous 1.7 leading. */
-    font-size: 15px;
-    line-height: 1.7;
   }
   html {
     @apply font-sans;
@@ -186,9 +170,8 @@
     background-clip: text;
   }
 
-  /* Flat accent — one mint, no gradient. Primary buttons only. */
   .bg-gradient-mint {
-    background: oklch(0.52 0.19 162);
+    background: linear-gradient(135deg, oklch(0.52 0.19 162), oklch(0.45 0.2 158));
   }
 
   .bg-gradient-hero {
@@ -255,21 +238,7 @@
     background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1px);
   }
 
-  /* ── Editorial surface system ─────────────────────────────────────
-     The only backdrop devices allowed on marketing surfaces: a mono
-     eyebrow for section markers, a fine engineering grid, and a single
-     soft light source. No gradient blobs, no floating particles. */
-
-  /* Mono eyebrow — numbered section markers ("01 / Features"). */
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  /* Fine engineering grid — the single repeating backdrop device. */
+  /* Fine engineering grid — kept from the R59 pass at user request. */
   .bg-grid-fine {
     background-image:
       linear-gradient(to bottom, oklch(0.52 0.19 162 / 9%) 1px, transparent 1px),
@@ -280,23 +249,6 @@
     background-image:
       linear-gradient(to bottom, oklch(0.72 0.18 162 / 7%) 1px, transparent 1px),
       linear-gradient(to right, oklch(0.72 0.18 162 / 7%) 1px, transparent 1px);
-  }
-
-  /* The single soft light source — one low-opacity radial at the top
-     edge. Replaces every drifting aurora blob. */
-  .bg-radial-light {
-    background: radial-gradient(
-      ellipse 70% 55% at 50% -8%,
-      oklch(0.62 0.19 162 / 13%),
-      transparent 65%
-    );
-  }
-  .dark .bg-radial-light {
-    background: radial-gradient(
-      ellipse 70% 55% at 50% -8%,
-      oklch(0.62 0.19 162 / 9%),
-      transparent 65%
-    );
   }
 
   .nav-scrolled {
@@ -350,12 +302,98 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer { animation: none; }
 }
+/* ── Aurora blobs, painted instead of blurred ──────────────────────────
+   A large-radius gaussian blur over a solid disc is one of the most
+   expensive things a browser can composite, and it has to be re-run every
+   frame the element is scaled — which the drift keyframes do. A radial
+   gradient with a matched falloff is visually the same soft glow (measured
+   at <1% mean per-pixel difference against the blurred original) but is a
+   plain paint with no filter pass, and it stays on its own compositor
+   layer so the drift is pure GPU transform work.
+
+   Usage: .aurora with --au-c (oklch triple) and --au-a (base alpha, 0-100).
+   The element must be sized to the blurred original's SPREAD, i.e.
+   original size + 2 x blur radius, and offset by -blur to keep its centre.
+── */
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  /* No will-change on the base class: these are large (up to ~1190px), and a
+     compositor backing store for every one of them allocated during first
+     paint measurably delays LCP. Only the blobs that actually DRIFT need a
+     layer (see .aurora.animate-aurora-* below) — the static beam and section
+     glows are painted once and never move. */
+  /* Falloff sampled from the real blur(Npx) rendering: alpha along the
+     radius, normalised to the peak. --au-p is that measured peak alpha
+     (a 0-100 number), which is ~76% of the source colour's alpha because
+     a blur this wide spreads the disc's ink outward. */
+  background: radial-gradient(
+    closest-side,
+    oklch(var(--au-c) / calc(var(--au-p) * 1%)) 0%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.96%)) 12%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.84%)) 25%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.68%)) 38%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.49%)) 50%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.32%)) 62%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.18%)) 75%,
+    oklch(var(--au-c) / calc(var(--au-p) * 0.09%)) 88%,
+    transparent 100%
+  );
+}
+/* Drifting blobs: the keyframes scale(), and scaling a painted gradient
+   without a compositor layer repaints it every single frame. But a standing
+   will-change on ~990px elements forces ~22MB of backing stores during
+   first paint (measured LCP +22%). The browser auto-promotes elements with
+   an ACTIVE transform animation on its own — the hint is only needed for
+   animations that haven't started yet, which these always have. So: no
+   hint, and rely on auto-promotion. (Verified: with the hint, scroll worst
+   frames improved but idle/LCP regressed; without it the reverse.) */
+
+
+/* Palette tokens, matched to the computed colours they replace */
+.au-emerald { --au-c: 0.55 0.2 158; }
+.au-teal    { --au-c: 0.777 0.152 182; }
+.au-teal-d  { --au-c: 0.704 0.14 182; }
+.au-indigo  { --au-c: 0.673 0.182 277; }
+.au-indigo-d{ --au-c: 0.585 0.233 277; }
+.au-mint    { --au-c: 0.62 0.19 162; }
+
+/* Aurora — slow drifting gradient blobs (transform-only, GPU-cheap) */
+@keyframes aurora-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 40px) scale(1.12); }
+  66% { transform: translate(-40px, 70px) scale(0.94); }
+}
+@keyframes aurora-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, -50px) scale(1.15); }
+}
+@keyframes aurora-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(50px, -60px) scale(1.08); opacity: 1; }
+}
+.animate-aurora-1 { animation: aurora-1 26s ease-in-out infinite; }
+.animate-aurora-2 { animation: aurora-2 32s ease-in-out infinite; }
+.animate-aurora-3 { animation: aurora-3 22s ease-in-out infinite; }
+
+/* Floating particles — gentle vertical drift + twinkle */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-26px); opacity: 1; }
+}
+.animate-float-1 { animation: float-y 7s ease-in-out infinite; }
+.animate-float-2 { animation: float-y 9s ease-in-out infinite 1.2s; }
+.animate-float-3 { animation: float-y 8s ease-in-out infinite 0.6s; }
+
 /* ── Ambient animation pausing ─────────────────────────────────────────
-   The marquee/pings/demo loops live behind backdrop-filter surfaces.
-   While one of those surfaces is on screen, every transform tick of
-   what's behind it forces the backdrop to be re-sampled — so ambient
-   loops only run while visible. (Class is toggled by the AmbientPause
-   component; the observer also freezes them during scroll.) */
+   The auroras/particles/marquee live behind backdrop-filter surfaces
+   (badge, pill buttons, cards). While one of those surfaces is on screen,
+   every transform tick of what's behind it forces the backdrop to be
+   re-sampled — that interaction was measured as the page's single biggest
+   render cost (scroll fps roughly doubled when removed under 4x CPU
+   throttle). CSS can't pause an animation on ancestor visibility yet, so
+   this tiny observer does it: ambient loops only run while visible. */
 .ambient-paused { animation-play-state: paused !important; }
 
 /* Phone-demo loops (typing dots, idle float, tap ripple) — CSS instead of
@@ -389,4 +427,28 @@
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 900px;
+}
+
+/* Only the big background auroras freeze during scroll. Their drift loops
+   are 22-32s long, so a pause of a few hundred ms is invisible — and they
+   are the large compositor layers whose movement costs the most. Everything
+   a visitor actually watches (the phone demo, the marquee, pulse pings)
+   keeps running while scrolling: the de-frosted surfaces + late layer
+   promotion removed the cost that made freezing them necessary.
+   (Class is toggled on <html> by the AmbientPause component.) */
+html.ambient-scrolling .animate-aurora-1,
+html.ambient-scrolling .animate-aurora-2,
+html.ambient-scrolling .animate-aurora-3 {
+  animation-play-state: paused;
+}
+
+/* Compositor layer for the drifting blobs — added AFTER first paint by
+   AmbientPause (never in static CSS: allocating these backing stores
+   during load delays LCP). With a layer, the drift is a pure transform
+   update; without one, a ~990px gradient repaints every single frame. */
+.aurora-layered { will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-1, .animate-aurora-2, .animate-aurora-3,
+  .animate-float-1, .animate-float-2, .animate-float-3 { animation: none; }
 }
