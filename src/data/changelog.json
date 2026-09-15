@@ -1,6 +1,59 @@
 {
   "entries": [
     {
+      "date": "Sep 15, 2026",
+      "version": "auto",
+      "title": "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids",
+      "description": "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids"
+      ]
+    },
+    {
+      "date": "Sep 15, 2026",
+      "version": "auto",
+      "title": "De-slop the marketing site — editorial type system, Grid + light instead of aurora blobs, ",
+      "description": "Typography: real display scale (hero clamp 3-5.5rem, -0.04em tracking,",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "Typography: real display scale (hero clamp 3-5.5rem, -0.04em tracking,",
+        "Hero: left-aligned editorial composition, fine hairline grid + ONE",
+        "Sections: hairline border-t separators, left-aligned headers,",
+        "Cards: rounded-lg borderless bg-muted/40 surfaces; ONE bordered card",
+        "Removed ~110 lines of aurora machinery; all animations, copy, phone"
+      ]
+    },
+    {
+      "date": "Sep 15, 2026",
+      "version": "auto",
+      "title": "Link-in-Bio redesign — featured CTA, Theme tokens, Restrained motion + fix tracking that n",
+      "description": "Anatomy per the research: header (avatar → name → one-liner → share",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "Anatomy per the research: header (avatar → name → one-liner → share",
+        "Motion, restrained per bio.link's production values: one 1.2s fade-up",
+        "Theme system rebuilt on a Campsite-style token model (bg, text,",
+        "Mobile-first for Instagram's in-app browser: safe-area insets,",
+        "Share button (copies the page link), refined branding chip.",
+        "Builder theme swatches updated to the new palettes."
+      ]
+    },
+    {
+      "date": "Sep 15, 2026",
+      "version": "auto",
+      "title": "Twitter bird → official X logo in the footer",
+      "description": "Twitter bird → official X logo in the footer",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "Twitter bird → official X logo in the footer"
+      ]
+    },
+    {
       "date": "Sep 14, 2026",
       "version": "auto",
       "title": "Annual-plan purchase buttons respect the current plan + server-side purchase guards",
