@@ -57,7 +57,10 @@ export async function sendEmail({
 
   try {
     const { error } = await getResend().emails.send({
-      from: from || process.env.DEFAULT_FROM_EMAIL || "ChirplyMint <noreply@chirplymint.com>",
+      // Fallback mirrors the configured DEFAULT_FROM_EMAIL — the old
+      // noreply@chirplymint.com fallback pointed at an unverified domain,
+      // so a missing env var would have silently failed every send.
+      from: from || process.env.DEFAULT_FROM_EMAIL || "ChirplyMint <noreply@novamintnetworks.in>",
       to,
       subject,
       html: finalHtml,
