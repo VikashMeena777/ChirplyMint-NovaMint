@@ -1180,7 +1180,7 @@ export default function CreateAutomationWizard({
                     aria-checked={formData.auto_react}
                     onClick={() => setFormData((f) => ({ ...f, auto_react: !f.auto_react }))}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                      formData.auto_react ? "bg-[oklch(0.52 0.19 162)]" : "bg-muted-foreground/30"
+                      formData.auto_react ? "bg-[oklch(0.52_0.19_162)]" : "bg-muted-foreground/30"
                     }`}
                   >
                     <span

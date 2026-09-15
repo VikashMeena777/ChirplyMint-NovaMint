@@ -87,7 +87,7 @@ export function ConfirmDialog({
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 ${
               destructive
                 ? "bg-red-600 hover:bg-red-700"
-                : "bg-[oklch(0.52_0.19_162)] hover:bg-[oklch(0.48 0.19 162)]"
+                : "bg-[oklch(0.52_0.19_162)] hover:bg-[oklch(0.48_0.19_162)]"
             }`}
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}

@@ -1342,7 +1342,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
                 currentPlan === "business" || // Business includes everything in Pro — this would be a downgrade
                 (currentPlan === "pro" && isOnAnnual) // already on Pro annual
               }
-              className="px-4 py-2 rounded-xl bg-[oklch(0.52 0.19_162)] text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {upgradingPlan === "pro_annual"
                 ? "Processing…"
@@ -1355,7 +1355,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
             <button
               onClick={() => handleUpgrade("business_annual")}
               disabled={upgradingPlan !== null || (currentPlan === "business" && isOnAnnual)}
-              className="px-4 py-2 rounded-xl border border-[oklch(0.52 0.19_162)] text-[oklch(0.52 0.19_162)] text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl border border-[oklch(0.52_0.19_162)] text-[oklch(0.52_0.19_162)] text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {upgradingPlan === "business_annual"
                 ? "Processing…"
