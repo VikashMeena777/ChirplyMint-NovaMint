@@ -5,8 +5,13 @@ import { motion } from "motion/react";
 /**
  * HeroHeadline — word-level premium entrance + hover.
  * Each word rises from behind a mask with blur; on hover a word lifts
- * and glows mint. The accent word carries the gradient + a hand-drawn
- * underline that draws itself in.
+ * and turns mint. The accent word carries the solid accent colour and a
+ * hand-drawn underline that draws itself in.
+ *
+ * The display scale (clamp 3rem→5.5rem, -0.04em tracking, 0.98 leading)
+ * comes from the `text-display` token in globals.css. The line-height is
+ * near-solid, so each mask span carries em-based bottom padding so glyph
+ * descenders and the underline stay visible inside the overflow clip.
  */
 
 const WORDS = ["Turn", "every", "comment"];
@@ -18,12 +23,13 @@ export function HeroHeadline() {
   const next = () => (delay += 0.09);
 
   const wordClass =
-    "inline-block cursor-default transition-[color,text-shadow] duration-300 hover:text-mint hover:[text-shadow:0_0_30px_oklch(0.62_0.19_162/45%)]";
+    "inline-block cursor-default transition-colors duration-300 hover:text-primary";
 
   return (
-    <h1 className="text-[2.9rem] sm:text-6xl lg:text-7xl font-bold font-heading tracking-tight leading-[1.05] text-foreground">
-      {/* line 1 */}
-      <span className="block overflow-hidden pb-1">
+    <h1 className="text-display font-bold font-heading text-foreground">
+      {/* line 1 — padding keeps the "y" descender inside the 0.98 mask;
+          negative margin restores the tight inter-line rhythm */}
+      <span className="block overflow-hidden pb-[0.16em] -mb-[0.1em]">
         {WORDS.map((w) => (
           <motion.span
             key={w}
@@ -37,8 +43,8 @@ export function HeroHeadline() {
           </motion.span>
         ))}
       </span>
-      {/* line 2 */}
-      <span className="block overflow-hidden pb-2">
+      {/* line 2 — room for the hand-drawn underline that hangs below */}
+      <span className="block overflow-hidden pb-[0.18em]">
         <motion.span
           className="inline-block mr-[0.25em]"
           initial={{ y: "110%", opacity: 0, filter: "blur(8px)" }}
@@ -54,13 +60,11 @@ export function HeroHeadline() {
           transition={{ delay: next(), duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }}
           whileHover={{ scale: 1.04, transition: { type: "spring", stiffness: 350, damping: 14 } }}
         >
-          <span className="bg-gradient-to-r from-mint-dark via-mint to-emerald bg-clip-text text-transparent">
-            {ACCENT}
-          </span>
+          <span className="text-primary">{ACCENT}</span>
           {/* hand-drawn underline that draws itself */}
           <svg
             aria-hidden
-            className="absolute -bottom-2 left-0 w-full"
+            className="absolute -bottom-[0.1em] left-0 w-full"
             viewBox="0 0 120 8"
             fill="none"
             preserveAspectRatio="none"

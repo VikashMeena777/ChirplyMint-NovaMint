@@ -45,19 +45,16 @@ export function GenZCard() {
   const current = OUT_WORDS[idx];
 
   return (
-    <div ref={cardRef} className="group relative h-full overflow-hidden rounded-3xl border border-border bg-card/75 p-8 transition-colors hover:border-mint/30">
-      {/* soft radial glow */}
-      <div aria-hidden className="absolute -right-16 -top-16 size-48 rounded-full bg-mint/10 blur-3xl" />
-
+    <div ref={cardRef} className="group relative h-full overflow-hidden rounded-lg border border-border bg-card p-8">
       <div className="relative flex h-full flex-col gap-6 sm:flex-row sm:gap-8">
         {/* ── left: the message ── */}
         <div className="flex flex-1 flex-col justify-end">
-          <div className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          <div className="mb-3 inline-flex w-fit items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
             <MessageCircle className="h-3 w-3" />
             comment section = sales team
           </div>
 
-          <h3 className="text-3xl font-bold font-heading tracking-tight text-foreground md:text-4xl">
+          <h3 className="text-3xl font-bold font-heading tracking-[-0.03em] text-foreground md:text-4xl">
             comments in.
             <br />
             {/* grid-stack swap: no overflow-hidden anywhere, so the emoji
@@ -72,9 +69,9 @@ export function GenZCard() {
                   exit={{ y: -14, opacity: 0 }}
                   transition={{ duration: 0.32, ease: [0.21, 0.47, 0.32, 0.98] }}
                 >
-                  {/* gradient on the WORD only — the emoji needs its own
+                  {/* solid accent on the WORD only — the emoji needs its own
                       colors, bg-clip-text would paint it solid green */}
-                  <span className="bg-gradient-to-r from-mint-light via-mint to-emerald bg-clip-text text-transparent">
+                  <span className="text-primary">
                     {current.word}
                   </span>{" "}
                   <span aria-hidden>{current.emoji}</span>
@@ -84,7 +81,7 @@ export function GenZCard() {
             out.
           </h3>
 
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-sm text-[15px] leading-[1.7] text-muted-foreground">
             Someone types one word on your reel — ChirplyMint handles the whole
             funnel. PDFs, links, follow-ups, lead tags. You quite literally do
             nothing.
