@@ -138,10 +138,16 @@ export function Sidebar() {
         ? pathname.startsWith("/dashboard/settings")
         : pathname.startsWith(href);
 
-  const SidebarContent = () => (
+  // `collapsed` is passed explicitly: the mobile drawer always renders the
+  // full sidebar, only the desktop rail collapses.
+  const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-border">
+      <div
+        className={`border-b border-border py-5 ${
+          collapsed ? "flex justify-center px-0" : "px-4"
+        }`}
+      >
         <Link href="/" className="flex items-center gap-2.5">
           <Image src="/logo.png" alt="ChirplyMint" width={36} height={36} className="w-9 h-9 rounded-xl shrink-0" />
           {!collapsed && (
@@ -152,7 +158,7 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <WorkspaceSwitcher />
+      <WorkspaceSwitcher collapsed={collapsed} />
 
       {/* Main nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -163,7 +169,10 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
             onMouseEnter={() => iconRefs.current[item.href]?.startAnimation()}
             onMouseLeave={() => iconRefs.current[item.href]?.stopAnimation()}
+            title={collapsed ? item.label : undefined}
             className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              collapsed ? "justify-center px-0" : ""
+            } ${
               isActive(item.href)
                 ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -202,7 +211,10 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
             onMouseEnter={() => iconRefs.current[item.href]?.startAnimation()}
             onMouseLeave={() => iconRefs.current[item.href]?.stopAnimation()}
+            title={collapsed ? item.label : undefined}
             className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              collapsed ? "justify-center px-0" : ""
+            } ${
               isActive(item.href)
                 ? "bg-[oklch(0.52_0.19_162/12%)] text-[oklch(0.52_0.19_162)] shadow-[inset_0_0_0_1px_oklch(0.52_0.19_162/20%)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -226,7 +238,10 @@ export function Sidebar() {
 
         {/* Logout */}
         <button
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all ${
+            collapsed ? "justify-center px-0" : ""
+          }`}
+          title={collapsed ? "Sign Out" : undefined}
           onClick={() => setShowSignOutConfirm(true)}
         >
           <LogoutIcon size={20} className="shrink-0" />
@@ -287,16 +302,19 @@ export function Sidebar() {
         >
           <X className="w-5 h-5" />
         </button>
-        <SidebarContent />
+        <SidebarContent collapsed={false} />
       </div>
 
-      {/* Desktop sidebar — sticky so it stays visible regardless of page scroll */}
+      {/* Desktop sidebar — sticky so it stays visible regardless of page scroll.
+          Collapsed: overflow-visible so the workspace flyout can escape the
+          72px rail (overflow-y-auto would clip it); the icon-only content
+          never needs vertical scrolling. */}
       <aside
-        className={`hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto border-r border-border bg-card transition-all duration-200 ${
-          collapsed ? "w-[72px]" : "w-[240px]"
+        className={`hidden lg:flex flex-col sticky top-0 h-screen border-r border-border bg-card transition-all duration-200 ${
+          collapsed ? "w-[72px] overflow-visible" : "w-[240px] overflow-y-auto"
         }`}
       >
-        <SidebarContent />
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
       {/* ── Graceful sign-out farewell ──

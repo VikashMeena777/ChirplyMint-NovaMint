@@ -17,7 +17,7 @@ interface SwitcherState {
  * and/or member). State is cached in localStorage so navigation never
  * flashes the switcher away while the fresh state loads.
  */
-export function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }) {
   // Hydrate instantly from cache → no flicker between page navigations
   const [state, setState] = useState<SwitcherState | null>(() => {
     if (typeof window === "undefined") return null;
@@ -73,31 +73,48 @@ export function WorkspaceSwitcher() {
   }
 
   return (
-    <div className="relative px-3 mb-2">
+    <div className={`relative ${collapsed ? "px-0 mb-2 flex justify-center" : "px-3 mb-2"}`}>
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card/60 text-left hover:border-[oklch(0.52_0.19_162/30%)] transition-colors"
+        title={collapsed ? (active === "team" ? "Team workspace" : "My workspace") : undefined}
+        className={
+          collapsed
+            ? "flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card/60 hover:border-[oklch(0.52_0.19_162/30%)] transition-colors"
+            : "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-border bg-card/60 text-left hover:border-[oklch(0.52_0.19_162/30%)] transition-colors"
+        }
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.52_0.19_162/12%)]">
+        <span className={`flex items-center justify-center rounded-lg bg-[oklch(0.52_0.19_162/12%)] ${collapsed ? "h-7 w-7" : "h-7 w-7 shrink-0"}`}>
           {active === "team" ? (
             <Users className="h-3.5 w-3.5 text-[oklch(0.52_0.19_162)]" />
           ) : (
             <User className="h-3.5 w-3.5 text-[oklch(0.52_0.19_162)]" />
           )}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-semibold text-foreground">
-            {active === "team" ? "Team workspace" : "My workspace"}
-          </span>
-          <span className="block truncate text-[10px] text-muted-foreground">
-            {active === "team" ? state.ownerName : "Personal"}
-          </span>
-        </span>
-        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-foreground">
+                {active === "team" ? "Team workspace" : "My workspace"}
+              </span>
+              <span className="block truncate text-[10px] text-muted-foreground">
+                {active === "team" ? state.ownerName : "Personal"}
+              </span>
+            </span>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-border bg-card shadow-xl overflow-hidden">
+        // Collapsed: fly out to the RIGHT of the 72px rail (a dropdown inside
+        // it would be crushed). Expanded: normal below-the-button popover.
+        <div
+          className={
+            collapsed
+              ? "absolute left-full top-0 ml-2 z-50 w-56 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+              : "absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+          }
+        >
           {options.map((o) => (
             <button
               key={o.key}
