@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "System Status — ChirplyMint",
+  title: "System Status",
+  alternates: { canonical: "/status" },
   description:
     "Current operational status of ChirplyMint services: webhooks, DM delivery, dashboard, payments, and email.",
 };

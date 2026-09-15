@@ -15,7 +15,8 @@ import {
 import changelogData from "@/data/changelog.json";
 
 export const metadata: Metadata = {
-  title: "Changelog — ChirplyMint",
+  title: "Changelog",
+  alternates: { canonical: "/changelog" },
   description:
     "See what's new in ChirplyMint. Feature updates, improvements, and bug fixes.",
 };

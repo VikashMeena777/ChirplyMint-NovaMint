@@ -4,7 +4,8 @@ import { Check, X, Zap, Crown, Building2, Clock } from "lucide-react";
 import { getPlanDisplayData } from "@/lib/utils/plan-limits";
 
 export const metadata: Metadata = {
-  title: "Pricing — ChirplyMint",
+  title: "Pricing",
+  alternates: { canonical: "/pricing" },
   description:
     "Simple, transparent pricing for Instagram DM automation. Start free, scale as you grow.",
 };
@@ -139,6 +140,55 @@ export default function PricingPage() {
             the moment Meta approves them — no action needed from you.
           </p>
         </div>
+
+        {/* INR vs USD pricing context — the India wedge */}
+        <section className="mt-16 max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold font-heading tracking-tight text-foreground text-center">
+            Priced in rupees, not converted dollars
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground text-center leading-relaxed">
+            Most DM-automation tools bill in USD — with conversion fees and no
+            Indian invoicing. Checked September 2026.
+          </p>
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Tool</th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Entry paid plan</th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Currency</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/60 odd:bg-muted/20">
+                  <td className="px-4 py-3 font-medium text-foreground">ManyChat</td>
+                  <td className="px-4 py-3 text-muted-foreground">From ~$15/mo (≈ ₹1,300+) + contact tiers</td>
+                  <td className="px-4 py-3 text-muted-foreground">USD only</td>
+                </tr>
+                <tr className="border-b border-border/60 odd:bg-muted/20">
+                  <td className="px-4 py-3 font-medium text-foreground">ChirplyMint Pro</td>
+                  <td className="px-4 py-3 text-muted-foreground">₹499/mo — 2,000 DMs included</td>
+                  <td className="px-4 py-3 text-muted-foreground">INR (UPI / cards)</td>
+                </tr>
+                <tr className="odd:bg-muted/20">
+                  <td className="px-4 py-3 font-medium text-foreground">ChirplyMint Business</td>
+                  <td className="px-4 py-3 text-muted-foreground">₹1,499/mo — unlimited DMs</td>
+                  <td className="px-4 py-3 text-muted-foreground">INR (UPI / cards)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground text-center">
+            See the full honest comparison —{" "}
+            <Link
+              href="/compare/manychat-alternative"
+              className="text-[oklch(0.52_0.19_162)] font-semibold hover:underline"
+            >
+              ChirplyMint vs ManyChat
+            </Link>{" "}
+            (including where ManyChat wins).
+          </p>
+        </section>
 
         {/* FAQ Teaser */}
         <div className="text-center mt-16">

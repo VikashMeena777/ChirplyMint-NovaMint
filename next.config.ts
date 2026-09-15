@@ -28,6 +28,18 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Vercel serves production at both the custom domain and
+      // *.vercel.app — keep the duplicate out of search indexes
+      // (Vercel's own duplicate-content guidance).
+      {
+        source: "/(.*)",
+        has: [
+          { type: "host", value: "chirplymint.vercel.app" },
+        ],
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex" },
+        ],
+      },
       {
         source: "/(.*)",
         headers: [

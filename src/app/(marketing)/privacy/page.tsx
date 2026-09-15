@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — ChirplyMint",
+  title: "Privacy Policy",
+  alternates: { canonical: "/privacy" },
   description: "How ChirplyMint collects, uses, and protects your data.",
 };
 

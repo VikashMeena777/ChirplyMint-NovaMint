@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "About — ChirplyMint",
+  title: "About",
+  alternates: { canonical: "/about" },
   description: "Learn about ChirplyMint and our mission to help creators automate Instagram growth.",
 };
 
@@ -76,6 +78,38 @@ export default function AboutPage() {
             We&apos;re a small, focused team passionate about automation and
             helping creators grow.
           </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-semibold mb-3">The founder</h2>
+          <div className="rounded-2xl border border-border bg-card/75 p-6">
+            <p className="text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Vikash Meena</strong> is the
+              founder of NovaMint Networks and builds ChirplyMint himself —
+              every feature, every fix. He started it for a simple reason:
+              Indian creators were paying dollar-priced tools (with conversion
+              fees on top) for something that should cost rupees. ChirplyMint
+              runs on Instagram&apos;s official API only, prices in INR from
+              day one, and ships improvements weekly.
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Don&apos;t take our word for it —{" "}
+              <Link
+                href="/changelog"
+                className="text-[oklch(0.52_0.19_162)] font-semibold hover:underline"
+              >
+                read the changelog
+              </Link>{" "}
+              to see exactly what shipped and when, or{" "}
+              <Link
+                href="/roadmap"
+                className="text-[oklch(0.52_0.19_162)] font-semibold hover:underline"
+              >
+                check the public roadmap
+              </Link>{" "}
+              for what&apos;s next.
+            </p>
+          </div>
         </section>
       </div>
     </div>

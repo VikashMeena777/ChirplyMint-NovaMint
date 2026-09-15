@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Security — ChirplyMint",
+  title: "Security",
+  alternates: { canonical: "/security" },
   description:
     "How ChirplyMint protects your account and data: row-level security, hashed API keys, webhook signature verification, and more.",
 };

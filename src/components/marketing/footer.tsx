@@ -10,7 +10,7 @@ export function Footer() {
   return (
     <footer className="relative border-t border-border bg-muted/30 py-16">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-4">
@@ -59,6 +59,22 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/use-cases"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Use Cases
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/use-cases/comment-to-dm-automation"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Comment-to-DM Automation
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/pricing"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -79,6 +95,45 @@ export function Footer() {
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Changelog
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Compare & guides */}
+          <div>
+            <h4 className="font-semibold text-sm text-foreground mb-4">Compare &amp; Guides</h4>
+            <ul className="space-y-3">
+              <li>
+                <Link
+                  href="/compare/manychat-alternative"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ManyChat Alternative
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/blog/manychat-pricing-in-india"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ManyChat Pricing in India
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/blog"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Blog
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/compare"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  All Comparisons
                 </Link>
               </li>
             </ul>

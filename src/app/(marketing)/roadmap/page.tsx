@@ -3,7 +3,8 @@ import Link from "next/link";
 import { AtSign, MousePointerClick, MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Public Roadmap — ChirplyMint",
+  title: "Public Roadmap",
+  alternates: { canonical: "/roadmap" },
   description:
     "What's shipped, what we're building, and what we're considering for ChirplyMint.",
 };

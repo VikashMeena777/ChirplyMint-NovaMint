@@ -4,6 +4,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { CookieConsent } from "@/components/ui/cookie-consent";
 import { Toaster } from "sonner";
+import { JsonLd } from "@/components/seo/json-ld";
+import { SITE_URL, siteGraph } from "@/lib/seo";
 import "./globals.css";
 
 // Premium pairing: Space Grotesk for display, Inter for everything else.
@@ -42,8 +44,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   manifest: "/manifest.json",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://chirplymint.com"),
-  title: "ChirplyMint — Automate Instagram DMs & Comments",
+  metadataBase: new URL(SITE_URL),
+  // Template applies to child segments only; the root segment uses `default`.
+  // Child pages set bare titles ("Pricing") → "Pricing — ChirplyMint".
+  title: {
+    default: "ChirplyMint — Automate Instagram DMs & Comments",
+    template: "%s — ChirplyMint",
+  },
   description:
     "Turn every Instagram comment into a customer. ChirplyMint automates your DMs with AI-powered responses, lead capture, and smart content delivery.",
   keywords: [
@@ -55,6 +62,14 @@ export const metadata: Metadata = {
     "Instagram DM bot",
     "social media automation",
   ],
+  // Search Console / Bing Webmaster verification tokens (set on Vercel when
+  // the founder generates them — no tags render until then).
+  verification: {
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_VERIFICATION }
+      : undefined,
+  },
   openGraph: {
     title: "ChirplyMint — Automate Instagram DMs & Comments",
     description:
@@ -98,6 +113,10 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} font-sans h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
+        {/* Sitewide entity graph: Organization (logo/sameAs) + WebSite
+            (site name in Google results). Rendered from the root layout so
+            the homepage can never miss it. */}
+        <JsonLd data={siteGraph()} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

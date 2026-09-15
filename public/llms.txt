@@ -1,0 +1,37 @@
+# ChirplyMint
+
+> ChirplyMint is Instagram DM and comment automation for Indian creators,
+> coaches, and small businesses. When a follower comments your chosen
+> keyword on a post or Reel, ChirplyMint automatically sends them a DM
+> with your link, PDF, or an AI-generated reply. It also builds your
+> link-in-bio page and captures leads. Freemium with INR pricing.
+
+ChirplyMint turns Instagram comments into automated DMs (comment-to-DM
+keyword automation), delivers lead magnets, replies with AI, and stores
+captured leads — built and priced for the Indian market by NovaMint
+Networks.
+
+## Product
+
+- [Home / product overview](https://chirplymint.novamintnetworks.in/): what ChirplyMint does and how comment-to-DM automation works
+- [Comment-to-DM automation](https://chirplymint.novamintnetworks.in/use-cases/comment-to-dm-automation): the flagship use-case guide — triggers, PDF/link/button DMs, AI replies
+- [ManyChat alternative comparison](https://chirplymint.novamintnetworks.in/compare/manychat-alternative): honest feature comparison with INR pricing
+- [Pricing](https://chirplymint.novamintnetworks.in/pricing): free plan (50 DMs/month), Pro ₹499/mo, Business ₹1,499/mo — INR, annual saves 2 months
+- [Use cases](https://chirplymint.novamintnetworks.in/use-cases): who comment-to-DM automation is for
+- [Compare](https://chirplymint.novamintnetworks.in/compare): alternatives and pricing comparisons in INR
+- [Blog / guides](https://chirplymint.novamintnetworks.in/blog): Instagram DM automation guides for Indian creators
+
+## Company
+
+- [About](https://chirplymint.novamintnetworks.in/about): NovaMint Networks and why ChirplyMint exists
+- [Help Center](https://chirplymint.novamintnetworks.in/help): FAQs on connecting Instagram, automations, billing, security
+- [Changelog](https://chirplymint.novamintnetworks.in/changelog): what we ship, week by week
+- [Contact / support](https://chirplymint.novamintnetworks.in/contact)
+
+## Optional
+
+- [Terms of Service](https://chirplymint.novamintnetworks.in/terms)
+- [Privacy Policy](https://chirplymint.novamintnetworks.in/privacy)
+- [Data Policy](https://chirplymint.novamintnetworks.in/data-policy)
+- [Security](https://chirplymint.novamintnetworks.in/security)
+- [System Status](https://chirplymint.novamintnetworks.in/status)
