@@ -81,15 +81,6 @@ function Hero() {
       {/* Living aurora backdrop — drifting gradient blobs, grid, vignette */}
       <div aria-hidden className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.93_0.02_200/50%),transparent)]" />
-        <div
-          className="absolute inset-0 bg-grid-fine opacity-75"
-          style={{
-            maskImage:
-              "radial-gradient(ellipse 90% 70% at 50% 32%, black 25%, transparent 72%)",
-            WebkitMaskImage:
-              "radial-gradient(ellipse 90% 70% at 50% 32%, black 25%, transparent 72%)",
-          }}
-        />
         {/* ── colour psychology, theme-aware ──
              light: airy white + VISIBLE pastel aurora (saturation turned up)
              dark:  ink-navy depth (trust) + emerald/teal/indigo glow ── */}
@@ -103,6 +94,18 @@ function Hero() {
         <div className="aurora au-indigo dark:au-indigo-d animate-aurora-3 top-[calc(30%-221px)] left-[calc(45%-221px)] h-[822px] w-[822px] [--au-p:13.07] dark:[--au-p:6.54]" />
         {/* soft top beam */}
         <div className="aurora au-mint left-1/2 -top-[204px] h-[688px] w-[1128px] -translate-x-1/2 [--au-p:15.29] dark:[--au-p:6.12]" />
+        {/* fine engineering grid — OVERLAY on top of the washes and aurora
+            glow (glow behind, grid in front). It must come after the base
+            washes: they are 75-100% opaque and bury anything under them. */}
+        <div
+          className="absolute inset-0 bg-grid-fine opacity-75"
+          style={{
+            maskImage:
+              "radial-gradient(ellipse 90% 70% at 50% 32%, black 25%, transparent 72%)",
+            WebkitMaskImage:
+              "radial-gradient(ellipse 90% 70% at 50% 32%, black 25%, transparent 72%)",
+          }}
+        />
         {/* floating particles */}
         <div className="animate-float-1 absolute left-[18%] top-[30%] h-1.5 w-1.5 rounded-full bg-emerald/70" />
         <div className="animate-float-2 absolute left-[70%] top-[22%] h-1 w-1 rounded-full bg-teal-500/70" />
@@ -527,12 +530,13 @@ export default function Home() {
                 palette) covers everything evenly — no localized blobs that
                 read as glow behind a specific section */}
             <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(0.16_0.025_250/60%)_0%,oklch(0.14_0.035_168/45%)_25%,oklch(0.14_0.035_168/45%)_75%,oklch(0.16_0.025_250/60%)_100%)]" />
-            {/* the hero's grid, continued */}
-            <div className="absolute inset-0 bg-grid-fine opacity-30" />
             {/* drifting auroras — evenly spaced down the page, diffuse */}
             <div className="aurora au-emerald animate-aurora-1 top-[calc(10%-289px)] -left-[289px] h-[1118px] w-[1118px] [--au-p:7.3]" />
             <div className="aurora au-teal-d animate-aurora-2 top-[calc(45%-306px)] right-[calc(-2%-306px)] h-[1192px] w-[1192px] [--au-p:6.57]" />
             <div className="aurora au-indigo-d animate-aurora-3 top-[calc(80%-272px)] left-[calc(28%-272px)] h-[1084px] w-[1084px] [--au-p:6]" />
+            {/* the hero's grid, continued — on top of the auroras, matching
+                the hero's grid-over-glow layering */}
+            <div className="absolute inset-0 bg-grid-fine opacity-30" />
           </div>
           <div className="relative z-10">
             <NicheMarquee />
