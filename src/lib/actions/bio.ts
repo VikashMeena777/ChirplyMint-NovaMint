@@ -3,8 +3,16 @@
 import { PLANS, canCustomizeBioStyle, canHideBranding, type PlanKey } from "@/lib/utils/plan-limits";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
+
+function getAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -287,11 +295,16 @@ export async function getPublicBioPage(slug: string) {
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
-  // Increment view count (fire-and-forget)
-  supabase
-    .from("bio_pages")
-    .update({ total_views: ((page as BioPage).total_views || 0) + 1 })
-    .eq("id", (page as BioPage).id)
+  // Increment view count (fire-and-forget). Anonymous visitors → the
+  // service-role client, or RLS silently drops the write (views never
+  // counted before this fix). RPC increment = race-free.
+  getAdmin()
+    .rpc("increment_field", {
+      table_name: "bio_pages",
+      row_id: (page as BioPage).id,
+      field_name: "total_views",
+      increment_by: 1,
+    })
     .then(() => {});
 
   return { page: page as BioPage, links: (links as BioLink[]) ?? [] };
@@ -302,26 +315,38 @@ export async function trackBioLinkClick(
   pageId: string,
   leadIgId?: string
 ) {
-  const supabase = await createClient();
+  // Public visitors are ANONYMOUS — the session client's writes are silently
+  // blocked by RLS, which is why click counts never moved before. Use the
+  // service-role client, but only after validating the page is a real,
+  // published bio page (this action is callable by anyone).
+  const admin = getAdmin();
 
-  // Increment click count
-  supabase
-    .from("bio_links")
-    .select("click_count")
-    .eq("id", linkId)
-    .single()
-    .then(({ data }) => {
-      const current = ((data as Record<string, number> | null)?.click_count) || 0;
-      supabase
-        .from("bio_links")
-        .update({ click_count: current + 1 })
-        .eq("id", linkId)
-        .then(() => {});
-    });
+  const { data: page } = await admin
+    .from("bio_pages")
+    .select("id, user_id, is_published")
+    .eq("id", pageId)
+    .single();
+  const pageRow = page as { id: string; user_id: string; is_published: boolean } | null;
+  if (!pageRow || !pageRow.is_published) {
+    // Unpublished or unknown page — don't record anything
+    return { success: false };
+  }
+
+  // Race-free increment via the shared RPC (read-modify-write lost clicks
+  // under concurrent taps)
+  admin
+    .rpc("increment_field", {
+      table_name: "bio_links",
+      row_id: linkId,
+      field_name: "click_count",
+      increment_by: 1,
+    })
+    .then(() => {});
+  // (RPC returns PromiseLike; errors surface in server logs via Next)
 
   // Insert click record — attributed to a lead when the DM link carried
   // the ?cmk_lead= tag (D9 revenue attribution)
-  await supabase.from("bio_link_clicks").insert({
+  await admin.from("bio_link_clicks").insert({
     link_id: linkId,
     page_id: pageId,
     ...(leadIgId ? { lead_ig_id: leadIgId } : {}),
@@ -329,23 +354,16 @@ export async function trackBioLinkClick(
 
   // A lead clicking through from their DM = strong interest
   if (leadIgId) {
-    const { data: page } = await supabase
-      .from("bio_pages")
-      .select("user_id")
-      .eq("id", pageId)
-      .single();
-    if (page) {
-      const { data: lead } = await supabase
-        .from("leads")
-        .select("id, engagement")
-        .eq("user_id", (page as Record<string, string>).user_id)
-        .eq("ig_user_id", leadIgId)
-        .limit(1)
-        .maybeSingle();
-      const row = lead as Record<string, unknown> | null;
-      if (row && row.engagement !== "converted") {
-        await supabase.from("leads").update({ engagement: "interested" }).eq("id", row.id as string);
-      }
+    const { data: lead } = await admin
+      .from("leads")
+      .select("id, engagement")
+      .eq("user_id", pageRow.user_id)
+      .eq("ig_user_id", leadIgId)
+      .limit(1)
+      .maybeSingle();
+    const row = lead as Record<string, unknown> | null;
+    if (row && row.engagement !== "converted") {
+      await admin.from("leads").update({ engagement: "interested" }).eq("id", row.id as string);
     }
   }
 

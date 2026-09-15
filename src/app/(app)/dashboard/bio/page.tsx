@@ -68,12 +68,12 @@ const BORDER_RADIUS_OPTIONS = [
 // ─── Theme Presets ───────────────────────────────────────
 
 const THEMES = [
-  { id: "midnight", label: "Midnight", bg: "bg-[#0f0f23]", text: "text-white" },
-  { id: "ocean", label: "Ocean", bg: "bg-gradient-to-br from-[#0c1445] to-[#1a3a6c]", text: "text-white" },
-  { id: "forest", label: "Forest", bg: "bg-gradient-to-br from-[#0a1f0a] to-[#1a3d1a]", text: "text-white" },
-  { id: "sunset", label: "Sunset", bg: "bg-gradient-to-br from-[#2d1b42] to-[#441a2a]", text: "text-white" },
-  { id: "snow", label: "Snow", bg: "bg-[#f8f9fa]", text: "text-gray-900" },
-  { id: "lavender", label: "Lavender", bg: "bg-gradient-to-br from-[#e8e0f0] to-[#d4c5e8]", text: "text-gray-900" },
+  { id: "midnight", label: "Midnight", bg: "bg-[linear-gradient(180deg,#0b0b16,#12122a)]", text: "text-white" },
+  { id: "ocean", label: "Ocean", bg: "bg-[linear-gradient(180deg,#071a2e,#0a2942)]", text: "text-white" },
+  { id: "forest", label: "Forest", bg: "bg-[linear-gradient(180deg,#0a1710,#10271a)]", text: "text-white" },
+  { id: "sunset", label: "Sunset", bg: "bg-[linear-gradient(180deg,#221226,#331b2e)]", text: "text-white" },
+  { id: "snow", label: "Snow", bg: "bg-[linear-gradient(180deg,#fafafa,#f0f1f3)]", text: "text-gray-900" },
+  { id: "lavender", label: "Lavender", bg: "bg-[linear-gradient(180deg,#f2edf7,#e6def0)]", text: "text-gray-900" },
 ];
 
 const EMOJIS = ["🔗", "🌐", "📸", "🎵", "🎬", "📱", "💼", "🛒", "📧", "💬", "🎯", "🚀", "❤️", "⭐", "🎨", "📝"];
