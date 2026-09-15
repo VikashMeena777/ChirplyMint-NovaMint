@@ -228,6 +228,17 @@ export default function AutomationsPage() {
           onCreated={loadAutomations}
         />
       )}
+
+      {/* Delete confirmation — R53's confirm sweep set the state but never
+          rendered this dialog, so the delete button silently did nothing. */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete this automation?"
+        body="The keyword stops triggering immediately and its DM history stays in your logs. Leads who already received DMs are not affected. This cannot be undone."
+        confirmLabel="Delete automation"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

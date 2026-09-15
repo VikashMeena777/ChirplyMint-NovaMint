@@ -721,6 +721,17 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation — the import + state existed but the dialog
+          was never rendered, so the delete action silently did nothing. */}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete this lead?"
+        body="The lead and their conversation history are removed from your list. This cannot be undone."
+        confirmLabel="Delete lead"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
