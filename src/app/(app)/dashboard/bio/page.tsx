@@ -57,6 +57,12 @@ const FONTS = [
   { id: "dm-sans", label: "DM Sans", family: "'DM Sans', sans-serif" },
   { id: "space-grotesk", label: "Space Grotesk", family: "'Space Grotesk', sans-serif" },
   { id: "plus-jakarta", label: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', sans-serif" },
+  { id: "sora", label: "Sora", family: "'Sora', sans-serif" },
+  { id: "manrope", label: "Manrope", family: "'Manrope', sans-serif" },
+  { id: "playfair-display", label: "Playfair Display", family: "'Playfair Display', serif" },
+  { id: "lora", label: "Lora", family: "'Lora', serif" },
+  { id: "bebas-neue", label: "Bebas Neue", family: "'Bebas Neue', sans-serif" },
+  { id: "caveat", label: "Caveat", family: "'Caveat', cursive" },
 ] as const;
 
 const BORDER_RADIUS_OPTIONS = [
@@ -74,6 +80,12 @@ const THEMES = [
   { id: "sunset", label: "Sunset", bg: "bg-[linear-gradient(180deg,#221226,#331b2e)]", text: "text-white" },
   { id: "snow", label: "Snow", bg: "bg-[linear-gradient(180deg,#fafafa,#f0f1f3)]", text: "text-gray-900" },
   { id: "lavender", label: "Lavender", bg: "bg-[linear-gradient(180deg,#f2edf7,#e6def0)]", text: "text-gray-900" },
+  { id: "noir", label: "Noir", bg: "bg-[linear-gradient(180deg,#08080a,#111114)]", text: "text-white" },
+  { id: "ember", label: "Ember", bg: "bg-[linear-gradient(180deg,#1c0e08,#2e150b)]", text: "text-white" },
+  { id: "sand", label: "Sand", bg: "bg-[linear-gradient(180deg,#f6f1e9,#ede5d8)]", text: "text-gray-900" },
+  { id: "rose", label: "Rose", bg: "bg-[linear-gradient(180deg,#f9eef0,#f0dde1)]", text: "text-gray-900" },
+  { id: "mono", label: "Mono", bg: "bg-white border border-black/20", text: "text-black" },
+  { id: "sky", label: "Sky", bg: "bg-[linear-gradient(180deg,#e8f1f8,#d9e8f3)]", text: "text-gray-900" },
 ];
 
 const EMOJIS = ["🔗", "🌐", "📸", "🎵", "🎬", "📱", "💼", "🛒", "📧", "💬", "🎯", "🚀", "❤️", "⭐", "🎨", "📝"];

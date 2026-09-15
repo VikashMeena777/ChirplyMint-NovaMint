@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { trackBioLinkClick, type BioPage, type BioLink } from "@/lib/actions/bio";
 import { ArrowUpRight, Share2, Check } from "lucide-react";
@@ -93,6 +93,72 @@ const THEMES: Record<string, BioTheme> = {
     footer: "rgba(250,243,246,0.34)",
     swatch: ["#221226", "#3d2338"],
   },
+  noir: {
+    bg: "linear-gradient(180deg, #08080a 0%, #111114 100%)",
+    text: "#f5f5f6",
+    muted: "rgba(245,245,246,0.55)",
+    card: "#16161a",
+    border: "rgba(255,255,255,0.06)",
+    borderActive: "rgba(255,255,255,0.14)",
+    shadow: "0 1px 2px rgba(0,0,0,0.5)",
+    footer: "rgba(245,245,246,0.3)",
+    swatch: ["#08080a", "#16161a"],
+  },
+  ember: {
+    bg: "linear-gradient(180deg, #1c0e08 0%, #2e150b 100%)",
+    text: "#fbf3ee",
+    muted: "rgba(251,243,238,0.6)",
+    card: "#3a1c10",
+    border: "rgba(255,190,140,0.1)",
+    borderActive: "rgba(255,190,140,0.22)",
+    shadow: "0 1px 2px rgba(0,0,0,0.4)",
+    footer: "rgba(251,243,238,0.32)",
+    swatch: ["#1c0e08", "#3a1c10"],
+  },
+  sand: {
+    bg: "linear-gradient(180deg, #f6f1e9 0%, #ede5d8 100%)",
+    text: "#2b241a",
+    muted: "rgba(43,36,26,0.58)",
+    card: "#fffdf9",
+    border: "rgba(43,36,26,0.09)",
+    borderActive: "rgba(43,36,26,0.2)",
+    shadow: "0 1px 3px rgba(43,36,26,0.07)",
+    footer: "rgba(43,36,26,0.36)",
+    swatch: ["#f6f1e9", "#fffdf9"],
+  },
+  rose: {
+    bg: "linear-gradient(180deg, #f9eef0 0%, #f0dde1 100%)",
+    text: "#2e1a20",
+    muted: "rgba(46,26,32,0.58)",
+    card: "#fef8f9",
+    border: "rgba(46,26,32,0.09)",
+    borderActive: "rgba(46,26,32,0.2)",
+    shadow: "0 1px 3px rgba(46,26,32,0.06)",
+    footer: "rgba(46,26,32,0.36)",
+    swatch: ["#f9eef0", "#fef8f9"],
+  },
+  mono: {
+    bg: "#ffffff",
+    text: "#000000",
+    muted: "rgba(0,0,0,0.55)",
+    card: "#ffffff",
+    border: "rgba(0,0,0,0.22)",
+    borderActive: "rgba(0,0,0,0.45)",
+    shadow: "3px 3px 0 rgba(0,0,0,1)",
+    footer: "rgba(0,0,0,0.4)",
+    swatch: ["#ffffff", "#000000"],
+  },
+  sky: {
+    bg: "linear-gradient(180deg, #e8f1f8 0%, #d9e8f3 100%)",
+    text: "#122432",
+    muted: "rgba(18,36,50,0.58)",
+    card: "#f8fbfe",
+    border: "rgba(18,36,50,0.09)",
+    borderActive: "rgba(18,36,50,0.2)",
+    shadow: "0 1px 3px rgba(18,36,50,0.06)",
+    footer: "rgba(18,36,50,0.36)",
+    swatch: ["#e8f1f8", "#f8fbfe"],
+  },
   snow: {
     bg: "linear-gradient(180deg, #fafafa 0%, #f0f1f3 100%)",
     text: "#17181c",
@@ -126,6 +192,30 @@ const FONT_MAP: Record<string, string> = {
   "dm-sans": "'DM Sans', sans-serif",
   "space-grotesk": "'Space Grotesk', sans-serif",
   "plus-jakarta": "'Plus Jakarta Sans', sans-serif",
+  sora: "'Sora', sans-serif",
+  manrope: "'Manrope', sans-serif",
+  "playfair-display": "'Playfair Display', serif",
+  lora: "'Lora', serif",
+  "bebas-neue": "'Bebas Neue', sans-serif",
+  caveat: "'Caveat', cursive",
+};
+
+// Google Fonts family per key — the page must LOAD the font for the
+// font-family to actually apply (it silently fell back to the system
+// default before, which is why custom fonts never showed).
+const FONT_GOOGLE: Record<string, string> = {
+  inter: "Inter:wght@400;600;700;800",
+  poppins: "Poppins:wght@400;600;700;800",
+  outfit: "Outfit:wght@400;600;700;800",
+  "dm-sans": "DM+Sans:wght@400;600;700;800",
+  "space-grotesk": "Space+Grotesk:wght@400;600;700",
+  "plus-jakarta": "Plus+Jakarta+Sans:wght@400;600;700;800",
+  sora: "Sora:wght@400;600;700;800",
+  manrope: "Manrope:wght@400;600;700;800",
+  "playfair-display": "Playfair+Display:wght@400;600;700;800",
+  lora: "Lora:wght@400;600;700",
+  "bebas-neue": "Bebas+Neue",
+  caveat: "Caveat:wght@400;700",
 };
 
 const RADIUS_MAP: Record<string, string> = {
@@ -151,6 +241,24 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
   const fontFamily = page.custom_font ? FONT_MAP[page.custom_font] : undefined;
   const radius = RADIUS_MAP[page.card_border_radius] || "16px";
   const cardOpacity = page.card_opacity ?? 100;
+
+  // load the chosen font from Google Fonts (display=swap so text renders
+  // immediately in the fallback and swaps in)
+  useEffect(() => {
+    if (!page.custom_font || !FONT_GOOGLE[page.custom_font]) return;
+    const id = "cm-bio-font";
+    let link = document.getElementById(id) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = `https://fonts.googleapis.com/css2?family=${FONT_GOOGLE[page.custom_font]}&display=swap`;
+    return () => {
+      link?.remove();
+    };
+  }, [page.custom_font]);
 
   const [featured, ...rest] = links;
   const entrance = reduceMotion ? { initial: false, animate: undefined } : ENTRANCE;
