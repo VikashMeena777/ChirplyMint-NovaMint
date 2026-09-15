@@ -10,9 +10,10 @@ import { TextRoll } from "@/components/motion/text-roll";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { User } from "@supabase/supabase-js";
 
+// Real pages only — the homepage anchors (#features/#demo) live on the
+// homepage itself; keeping this list short is what lets the bar fit at
+// every width.
 const navLinks = [
-  { label: "Features", href: "/#features" },
-  { label: "How it Works", href: "/#demo" },
   { label: "Use Cases", href: "/use-cases" },
   { label: "Compare", href: "/compare" },
   { label: "Pricing", href: "/pricing" },
@@ -77,9 +78,9 @@ export function Navbar() {
         }`}
       >
         <div
-          className={`flex items-center justify-between gap-6 w-full transition-[max-width,padding,background-color,border-color,box-shadow] duration-500 ${
+          className={`flex items-center justify-between gap-4 md:gap-6 w-full transition-[max-width,padding,background-color,border-color,box-shadow] duration-500 ${
             isScrolled
-              ? "max-w-4xl rounded-2xl border border-border/70 bg-card/70 px-5 py-2.5 shadow-[0_8px_32px_-12px_oklch(0_0_0/40%)] backdrop-blur-xl"
+              ? "max-w-5xl rounded-2xl border border-border/70 bg-card/70 px-5 py-2.5 shadow-[0_8px_32px_-12px_oklch(0_0_0/40%)] backdrop-blur-xl"
               : "max-w-6xl bg-transparent px-6 py-2"
           }`}
         >
@@ -91,13 +92,14 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Desktop Nav — lg+ only: at md widths the hamburger takes over,
+              otherwise 5 links + CTAs overlap */}
+          <div className="hidden lg:flex items-center gap-6">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
-                className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground whitespace-nowrap"
               >
                 <TextRoll text={link.label} />
                 <span className="absolute -bottom-1 left-1/2 h-px w-full -translate-x-1/2 scale-x-0 bg-gradient-to-r from-transparent via-mint to-transparent transition-transform duration-300 group-hover:scale-x-100" />
@@ -139,10 +141,10 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
+          {/* Mobile Menu Toggle — visible below lg (desktop links start at lg) */}
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="md:hidden p-2 rounded-lg border border-border bg-card"
+            className="lg:hidden p-2 rounded-lg border border-border bg-card"
             aria-label="Toggle menu"
           >
             {isMobileOpen ? (
@@ -162,7 +164,7 @@ export function Navbar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-x-0 top-20 z-40 p-4 md:hidden"
+            className="fixed inset-x-0 top-20 z-40 p-4 lg:hidden"
           >
             <div className="bg-card rounded-2xl p-6 space-y-4 shadow-xl border border-border">
               {navLinks.map((link) => (
