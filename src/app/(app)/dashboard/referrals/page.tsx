@@ -140,15 +140,15 @@ export default function ReferralsPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Share Link</label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <input
               readOnly
               value={shareLink}
-              className="flex-1 px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground truncate"
+              className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground truncate"
             />
             <button
               onClick={copyLink}
-              className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-emerald-500/10 text-emerald-600 text-sm font-medium hover:bg-emerald-500/20 transition-all border border-emerald-500/30"
+              className="flex items-center justify-center gap-1.5 px-4 py-3 w-full sm:w-auto shrink-0 rounded-xl bg-emerald-500/10 text-emerald-600 text-sm font-medium hover:bg-emerald-500/20 transition-all border border-emerald-500/30"
             >
               <Copy className="w-3.5 h-3.5" />
               Copy

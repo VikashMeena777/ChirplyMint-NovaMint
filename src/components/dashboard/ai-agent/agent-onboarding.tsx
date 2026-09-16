@@ -542,12 +542,12 @@ export function AgentOnboarding({
                           onChange={(e) => setTestInput(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && runTest()}
                           placeholder="Type a test message…"
-                          className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-mint/50"
+                          className="flex-1 min-w-0 h-10 px-3.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-mint/50"
                         />
                         <button
                           onClick={runTest}
                           disabled={testing || !testInput.trim()}
-                          className="size-10 rounded-xl bg-mint text-white flex items-center justify-center disabled:opacity-50"
+                          className="size-10 shrink-0 rounded-xl bg-mint text-white flex items-center justify-center disabled:opacity-50"
                           aria-label="Send test message"
                         >
                           {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

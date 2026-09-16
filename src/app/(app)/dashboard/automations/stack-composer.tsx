@@ -649,7 +649,7 @@ function CarouselEditor({
           />
           <div className="space-y-1">
             {(card.buttons || []).map((btn, j) => (
-              <div key={j} className="flex items-center gap-2">
+              <div key={j} className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <input
                   value={btn.title}
                   onChange={(e) => {

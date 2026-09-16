@@ -242,13 +242,13 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                     : "You signed in with Google. Setting a password also lets you log in with email."}
                 </p>
                 <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="New password"
-                    className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                    className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
                   />
                   <button
                     onClick={async () => {
@@ -262,7 +262,7 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                       else { toast.success("Password updated!"); setNewPassword(""); }
                     }}
                     disabled={!newPassword || newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword)}
-                    className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                    className="h-10 px-4 w-full sm:w-auto shrink-0 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
                   >
                     Update
                   </button>
@@ -612,13 +612,13 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <input
                   type="email"
                   value={teamInviteEmail}
                   onChange={(e) => setTeamInviteEmail(e.target.value)}
                   placeholder="teammate@example.com"
-                  className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                  className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
                 />
                 <button
                   onClick={async () => {
@@ -638,7 +638,7 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                     }
                   }}
                   disabled={teamBusy || !teamInviteEmail.trim()}
-                  className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                  className="h-10 px-4 w-full sm:w-auto shrink-0 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
                 >
                   {teamBusy ? "Inviting..." : "Invite"}
                 </button>
@@ -716,12 +716,12 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                   <code className="block text-xs bg-background rounded p-2 break-all select-all">{newApiKey}</code>
                 </div>
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <input
                   value={apiKeyName}
                   onChange={(e) => setApiKeyName(e.target.value)}
                   placeholder="Key name (e.g. Zapier integration)"
-                  className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
+                  className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)]"
                 />
                 <button
                   onClick={async () => {
@@ -736,7 +736,7 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                     }
                   }}
                   disabled={teamBusy}
-                  className="h-10 px-4 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
+                  className="h-10 px-4 w-full sm:w-auto shrink-0 rounded-xl bg-[oklch(0.52_0.19_162)] text-white text-sm font-semibold disabled:opacity-50"
                 >
                   {teamBusy ? "Creating..." : "Create key"}
                 </button>

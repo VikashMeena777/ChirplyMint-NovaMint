@@ -138,11 +138,11 @@ function NotesEditor({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
-          className="h-7 px-2 text-xs rounded-lg border border-border bg-background w-full focus:outline-none focus:ring-1 focus:ring-[oklch(0.52_0.19_162)]"
+          className="h-7 px-2 text-xs rounded-lg border border-border bg-background w-full min-w-0 focus:outline-none focus:ring-1 focus:ring-[oklch(0.52_0.19_162)]"
           placeholder="Add a note..."
         />
-        <button onClick={save} className="p-1 rounded hover:bg-emerald-500/10"><Check className="w-3.5 h-3.5 text-emerald-400" /></button>
-        <button onClick={() => setEditing(false)} className="p-1 rounded hover:bg-red-500/10"><X className="w-3.5 h-3.5 text-red-400" /></button>
+        <button onClick={save} className="p-1 shrink-0 rounded hover:bg-emerald-500/10"><Check className="w-3.5 h-3.5 text-emerald-400" /></button>
+        <button onClick={() => setEditing(false)} className="p-1 shrink-0 rounded hover:bg-red-500/10"><X className="w-3.5 h-3.5 text-red-400" /></button>
       </div>
     );
   }
