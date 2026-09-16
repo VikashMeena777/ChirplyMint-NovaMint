@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getWorkspaceContext } from "@/lib/workspace";
+import { getWorkspaceContext, requireWorkspaceRole, resolveWorkspaceScope } from "@/lib/workspace";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 /**
@@ -156,16 +156,12 @@ export async function replyInThread(
   recipientIgId: string,
   text: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: guard.error };
+  const { user, targetId: targetId2 } = guard;
   if (!text.trim()) return { error: "Message is empty" };
 
   // Shared workspace: members reply from the OWNER's connected account
-  const ws2 = await getWorkspaceContext();
-  const targetId2 = ws2?.workspaceUserId ?? user.id;
   const cross2 = targetId2 !== user.id ? getAdmin() : undefined;
   const acc = await getAccount(targetId2, cross2);
   if (!acc) return { error: "Connect Instagram first" };
@@ -191,31 +187,27 @@ export async function setLeadAiPaused(
   leadIgId: string,
   paused: boolean
 ): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: guard.error };
+  const { targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("leads")
     .update({ ai_paused: paused })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("ig_user_id", leadIgId);
 
   return error ? { error: error.message } : {};
 }
 
 export async function getLeadAiPaused(leadIgId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-  const { data } = await supabase
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return false;
+  const { targetId, client: db } = scope;
+  const { data } = await db
     .from("leads")
     .select("ai_paused")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("ig_user_id", leadIgId)
     .limit(1)
     .maybeSingle();

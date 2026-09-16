@@ -35,6 +35,7 @@ export interface TeamInviteRow {
   email: string;
   token: string;
   status: string;
+  role: string;
   created_at: string;
 }
 
@@ -58,7 +59,7 @@ export async function getTeam(): Promise<{
       .order("created_at", { ascending: true }),
     admin
       .from("team_invites")
-      .select("id, email, token, status, created_at")
+      .select("id, email, token, status, role, created_at")
       .eq("owner_id", user.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false }),
@@ -71,14 +72,23 @@ export async function getTeam(): Promise<{
   };
 }
 
+const MEMBER_ROLES = ["viewer", "editor", "admin"] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
 export async function inviteTeamMember(
-  email: string
+  email: string,
+  role: MemberRole = "viewer"
 ): Promise<{ inviteUrl?: string; error?: string; emailSent?: boolean; emailError?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Role is validated server-side — never trusted from the client payload
+  if (!MEMBER_ROLES.includes(role)) {
+    return { error: "Invalid role" };
+  }
 
   // Business plan only
   const { data: profile } = await supabase
@@ -126,6 +136,7 @@ export async function inviteTeamMember(
     owner_id: user.id,
     email: cleanEmail,
     token,
+    role,
     invited_by_email: p?.email || null,
   });
   if (error) return { error: error.message };
@@ -149,7 +160,7 @@ export async function inviteTeamMember(
     console.error("[Team] Invite email failed:", emailResult.error);
   }
 
-  logActivity(user.id, "team.invited", { email: cleanEmail }).catch(() => {});
+  logActivity(user.id, "team.invited", { email: cleanEmail, role }).catch(() => {});
   revalidatePath("/dashboard/settings");
   return {
     inviteUrl,
@@ -193,6 +204,35 @@ export async function removeTeamMember(id: string): Promise<{ error?: string }> 
   return {};
 }
 
+/** Owner changes a member's role. Scoped to the CALLER's own team — a
+ *  forged call from a member targets their own (empty) team and no-ops. */
+export async function changeTeamMemberRole(
+  memberId: string,
+  role: MemberRole
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  if (!MEMBER_ROLES.includes(role)) {
+    return { error: "Invalid role" };
+  }
+
+  const admin = getAdmin();
+  const { error } = await admin
+    .from("team_members")
+    .update({ role })
+    .eq("id", memberId)
+    .eq("owner_id", user.id);
+  if (error) return { error: error.message };
+
+  logActivity(user.id, "team.member_role_changed", { member_id: memberId, role }).catch(() => {});
+  revalidatePath("/dashboard/settings");
+  return {};
+}
+
 /**
  * Accept an invite — called by the /invite/[token] page while logged in.
  * Only works if the logged-in user's account email matches the invite.
@@ -209,7 +249,7 @@ export async function acceptTeamInvite(
   const admin = getAdmin();
   const { data: inv } = await admin
     .from("team_invites")
-    .select("id, owner_id, email, status")
+    .select("id, owner_id, email, status, role")
     .eq("token", token)
     .single();
   const invite = inv as Record<string, string> | null;
@@ -243,11 +283,14 @@ export async function acceptTeamInvite(
     return { error: "The team is full." };
   }
 
+  const invitedRole = MEMBER_ROLES.includes(invite.role as MemberRole)
+    ? (invite.role as MemberRole)
+    : "viewer";
   const { error: joinErr } = await admin.from("team_members").upsert({
     owner_id: invite.owner_id,
     member_user_id: user.id,
     member_email: myEmail,
-    role: "member",
+    role: invitedRole,
   }, { onConflict: "owner_id,member_user_id" });
   if (joinErr) return { error: joinErr.message };
 

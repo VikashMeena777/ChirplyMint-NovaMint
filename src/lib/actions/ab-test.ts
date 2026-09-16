@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { canAccessABTesting } from "@/lib/utils/plan-limits";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
@@ -27,15 +29,15 @@ export interface ABVariant {
  * Get all A/B test variants for an automation
  */
 export async function getABVariants(automationId: string): Promise<ABVariant[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return [];
+  const { targetId, client: db } = scope;
 
-  const { data } = await supabase
+  const { data } = await db
     .from("ab_test_variants")
     .select("*")
     .eq("automation_id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: true });
 
   return (data as unknown as ABVariant[]) || [];
@@ -56,27 +58,27 @@ export async function createABVariant(
     template_buttons?: unknown[];
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessABTesting(plan)) return { success: false, error: "A/B Testing is a Pro feature — upgrade to unlock it." };
 
   // Max 3 variants per automation
-  const { count } = await supabase
+  const { count } = await db
     .from("ab_test_variants")
     .select("*", { count: "exact", head: true })
     .eq("automation_id", automationId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if ((count ?? 0) >= 3) {
     return { success: false, error: "Maximum 3 variants allowed per automation" };
   }
 
-  const { error } = await supabase.from("ab_test_variants").insert({
+  const { error } = await db.from("ab_test_variants").insert({
     automation_id: automationId,
-    user_id: user.id,
+    user_id: targetId,
     variant_name: variant.variant_name,
     dm_template: variant.dm_template,
     template_type: variant.template_type || "text",
@@ -102,15 +104,15 @@ export async function createABVariant(
 export async function deleteABVariant(
   variantId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("ab_test_variants")
     .delete()
     .eq("id", variantId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { success: false, error: error.message };
 
@@ -128,38 +130,38 @@ export async function declareABWinner(
   automationId: string,
   winnerVariantId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessABTesting(plan)) return { success: false, error: "A/B Testing is a Pro feature — upgrade to unlock it." };
 
   // Reset all variants
-  await supabase
+  await db
     .from("ab_test_variants")
     .update({ is_winner: false, status: "completed" })
     .eq("automation_id", automationId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   // Set the winner
-  const { error } = await supabase
+  const { error } = await db
     .from("ab_test_variants")
     .update({ is_winner: true, status: "winner" })
     .eq("id", winnerVariantId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { success: false, error: error.message };
 
   // Get the winner variant's template and apply to the automation
-  const { data: winner } = await supabase
+  const { data: winner } = await db
     .from("ab_test_variants")
     .select("dm_template, template_type, template_title, template_subtitle, template_image_url, template_buttons")
     .eq("id", winnerVariantId)
     .single();
 
   if (winner) {
-    await supabase
+    await db
       .from("automations")
       .update({
         dm_template: (winner as Record<string, unknown>).dm_template,
@@ -170,7 +172,7 @@ export async function declareABWinner(
         template_buttons: (winner as Record<string, unknown>).template_buttons,
       })
       .eq("id", automationId)
-      .eq("user_id", user.id);
+      .eq("user_id", targetId);
   }
 
   logActivity(user.id, "ab_test.winner_declared", {

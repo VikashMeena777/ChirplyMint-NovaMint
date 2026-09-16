@@ -9,6 +9,23 @@ export async function getUserPlan(): Promise<PlanKey> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return "free";
+
+  // Team members inherit the workspace OWNER's plan for feature gating —
+  // a free-plan member inside a Business workspace must not hit upgrade
+  // walls on the team's features. (Their own plan still governs their own
+  // personal workspace, which is what they see when isMember=false.)
+  const ws = await getWorkspaceContext();
+  const targetId = ws?.isMember ? ws.workspaceUserId : user.id;
+  if (targetId !== user.id) {
+    const admin = getWorkspaceAdminClient();
+    const { data: ownerProfile } = await admin
+      .from("profiles")
+      .select("plan")
+      .eq("id", targetId)
+      .single();
+    return ((ownerProfile as Record<string, unknown>)?.plan as PlanKey) || "free";
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("plan")
@@ -85,7 +102,9 @@ export async function getDashboardStats() {
     .limit(5);
 
   return {
-    workspace: isMember ? { isMember: true, ownerName: ws?.ownerName ?? "" } : { isMember: false, ownerName: "" },
+    workspace: isMember
+      ? { isMember: true, ownerName: ws?.ownerName ?? "", role: ws?.role ?? "viewer" }
+      : { isMember: false, ownerName: "", role: "owner" as const },
     user: {
       id: user.id,
       email: user.email,

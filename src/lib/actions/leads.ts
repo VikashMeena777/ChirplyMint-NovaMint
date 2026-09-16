@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
@@ -92,17 +93,15 @@ export async function exportLeadsCSV() {
 }
 
 export async function deleteLead(id: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("leads")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -114,17 +113,15 @@ export async function deleteLead(id: string) {
 // ─── NEW: Update lead tags ──────────────────────────────
 
 export async function updateLeadTags(leadId: string, tags: string[]) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("leads")
     .update({ tags })
     .eq("id", leadId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -139,17 +136,15 @@ export async function updateLeadTags(leadId: string, tags: string[]) {
 // ─── NEW: Update lead custom notes ──────────────────────
 
 export async function updateLeadNotes(leadId: string, customNotes: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("leads")
     .update({ custom_notes: customNotes })
     .eq("id", leadId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -164,20 +159,18 @@ export async function updateLeadNotes(leadId: string, customNotes: string) {
 // ─── NEW: Bulk tag leads ────────────────────────────────
 
 export async function bulkTagLeads(leadIds: string[], tag: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   let updated = 0;
   for (const id of leadIds) {
     // Fetch current tags
-    const { data: lead } = await supabase
+    const { data: lead } = await db
       .from("leads")
       .select("tags")
       .eq("id", id)
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .single();
 
     if (!lead) continue;
@@ -188,11 +181,11 @@ export async function bulkTagLeads(leadIds: string[], tag: string) {
       continue;
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("leads")
       .update({ tags: [...currentTags, tag] })
       .eq("id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", targetId);
 
     if (!error) updated++;
   }
@@ -209,17 +202,15 @@ export async function bulkTagLeads(leadIds: string[], tag: string) {
 // ─── NEW: Bulk delete leads ─────────────────────────────
 
 export async function bulkDeleteLeads(leadIds: string[]) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("leads")
     .delete()
     .in("id", leadIds)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 

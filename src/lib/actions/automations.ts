@@ -1,6 +1,7 @@
 "use server";
 
 import { canConfigureFollowCheck } from "@/lib/utils/plan-limits";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { sendGenericTemplateDM } from "@/lib/instagram/send-dm";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
@@ -34,14 +35,12 @@ export async function getAutomations() {
 }
 
 export async function createAutomation(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // ── PLAN LIMIT CHECK: Automation count ──
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
@@ -49,10 +48,10 @@ export async function createAutomation(formData: FormData) {
 
   const userPlan = ((profile?.plan as string) || "free") as PlanKey;
 
-  const { count: activeAutomationCount } = await supabase
+  const { count: activeAutomationCount } = await db
     .from("automations")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("status", ["active", "paused"]);
 
   const automationCheck = canCreateAutomation(userPlan, activeAutomationCount ?? 0);
@@ -63,10 +62,10 @@ export async function createAutomation(formData: FormData) {
   }
 
   // Check if user has an instagram account connected
-  const { data: igAccounts } = await supabase
+  const { data: igAccounts } = await db
     .from("instagram_accounts")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true);
 
   if (!igAccounts || igAccounts.length === 0) {
@@ -135,10 +134,10 @@ export async function createAutomation(formData: FormData) {
   // ── DUPLICATE KEYWORD CHECK ──
   // Prevent two automations from triggering on the same keyword for the same IG account
   const keywordsToCheck = keyword.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
-  const { data: existingAutomations } = await supabase
+  const { data: existingAutomations } = await db
     .from("automations")
     .select("id, name, keyword")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("instagram_account_id", targetAccountId)
     .in("status", ["active", "paused"]);
 
@@ -225,8 +224,8 @@ export async function createAutomation(formData: FormData) {
     }
   }
 
-  const { data: inserted, error } = await supabase.from("automations").insert({
-    user_id: user.id,
+  const { data: inserted, error } = await db.from("automations").insert({
+    user_id: targetId,
     instagram_account_id: targetAccountId,
     name: name.trim(),
     keyword: keyword.trim().toLowerCase(),
@@ -272,16 +271,10 @@ export async function toggleAutomation(
   id: string,
   newStatus: "active" | "paused"
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  // Shared workspace: members may pause/resume the owner's automations
-  const ws = await getWorkspaceContext();
-  const targetId = ws?.workspaceUserId ?? user.id;
-  const client = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: guard.error };
+  const { user, targetId } = guard;
+  const client = guard.client;
 
   const { error } = await client
     .from("automations")
@@ -301,17 +294,15 @@ export async function toggleAutomation(
 }
 
 export async function deleteAutomation(id: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("automations")
     .update({ status: "deleted" })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -328,17 +319,15 @@ export async function toggleAutoWinner(
   id: string,
   enabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("automations")
     .update({ ab_auto_winner: enabled })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { success: false, error: error.message };
 
@@ -354,18 +343,16 @@ export async function updateAutomation(
   id: string,
   formData: FormData
 ): Promise<{ success?: boolean; error?: string; id?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Ownership check
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("automations")
     .select("id, instagram_account_id, status")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
   if (!existing) return { error: "Automation not found" };
 
@@ -409,10 +396,10 @@ export async function updateAutomation(
   // Duplicate keyword check — EXCLUDE this automation itself
   const keywordsToCheck = keyword.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
   const targetAccountId = ((existing as Record<string, unknown>).instagram_account_id as string) || "";
-  const { data: existingAutomations } = await supabase
+  const { data: existingAutomations } = await db
     .from("automations")
     .select("id, name, keyword")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("instagram_account_id", targetAccountId)
     .in("status", ["active", "paused"])
     .neq("id", id);
@@ -489,7 +476,7 @@ export async function updateAutomation(
     }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("automations")
     .update({
       name: name.trim(),
@@ -518,7 +505,7 @@ export async function updateAutomation(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -536,32 +523,30 @@ export async function updateAutomation(
 export async function cloneAutomation(
   id: string
 ): Promise<{ success?: boolean; error?: string; newId?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { data: original } = await supabase
+  const { data: original } = await db
     .from("automations")
     .select("*")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
   if (!original) return { error: "Automation not found" };
 
   const o = original as Record<string, unknown>;
 
   // Check plan limit
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
     .single();
-  const { count: activeCount } = await supabase
+  const { count: activeCount } = await db
     .from("automations")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("status", ["active", "paused"]);
   const { canCreateAutomation } = await import("@/lib/utils/plan-limits");
   const check = canCreateAutomation(((profile as Record<string, string> | null)?.plan || "free") as PlanKey, activeCount ?? 0);
@@ -570,10 +555,10 @@ export async function cloneAutomation(
   }
 
   // Clone with a "- copy" name, reset stats, paused state
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await db
     .from("automations")
     .insert({
-      user_id: user.id,
+      user_id: targetId,
       instagram_account_id: o.instagram_account_id,
       name: `${o.name} (copy)`,
       keyword: `${o.keyword}-copy`,
@@ -615,21 +600,15 @@ export async function bulkSetAutomationStatus(
   ids: string[],
   status: "active" | "paused"
 ): Promise<{ success?: boolean; updated?: number; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const ws = await getWorkspaceContext();
-  const targetId = ws?.workspaceUserId ?? user.id;
-  const client = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: guard.error };
+  const { targetId, client } = guard;
 
   const { error, count } = await client
     .from("automations")
     .update({ status })
     .in("id", ids)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/automations");
@@ -645,17 +624,15 @@ export async function testAutomation(
   id: string,
   testKeyword: string
 ): Promise<{ success?: boolean; error?: string; message?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { data: automation } = await supabase
+  const { data: automation } = await db
     .from("automations")
     .select("*, instagram_accounts!inner(ig_user_id, ig_username, page_access_token, access_token, is_active)")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
   if (!automation) return { error: "Automation not found" };
 
@@ -739,8 +716,8 @@ export async function testAutomation(
     // Arm delivery so tapping the button plays the full stack — same table and
     // same pre_sent_count maths the webhook uses.
     const preSentCount = captionConsumed && cardTitle.length <= 80 && blocks.length > 1 ? 1 : 0;
-    await supabase.from("stack_pending").insert({
-      user_id: user.id,
+    await db.from("stack_pending").insert({
+      user_id: targetId,
       automation_id: id,
       instagram_account_id: a.instagram_account_id as string,
       recipient_ig_id: ownId,
@@ -749,8 +726,8 @@ export async function testAutomation(
       status: "waiting",
     });
 
-    await supabase.from("dm_logs").insert({
-      user_id: user.id,
+    await db.from("dm_logs").insert({
+      user_id: targetId,
       automation_id: id,
       instagram_account_id: a.instagram_account_id as string,
       recipient_ig_id: ownId,
@@ -785,8 +762,8 @@ export async function testAutomation(
       return { error: msg };
     }
 
-    await supabase.from("dm_logs").insert({
-      user_id: user.id,
+    await db.from("dm_logs").insert({
+      user_id: targetId,
       automation_id: id,
       instagram_account_id: a.instagram_account_id as string,
       recipient_ig_id: ownId,
@@ -822,8 +799,8 @@ export async function testAutomation(
     return { error: msg };
   }
 
-  await supabase.from("dm_logs").insert({
-    user_id: user.id,
+  await db.from("dm_logs").insert({
+    user_id: targetId,
     automation_id: id,
     instagram_account_id: a.instagram_account_id as string,
     recipient_ig_id: ownId,

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 
 export interface AutomationStat {
   automationId: string;
@@ -16,15 +17,15 @@ export interface AutomationStat {
  * Get performance stats per automation: DMs sent, leads captured, conversion rate.
  */
 export async function getPerAutomationStats(): Promise<AutomationStat[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return [];
+  const { targetId, client: db } = scope;
 
   // Fetch all active/paused automations
-  const { data: automations } = await supabase
+  const { data: automations } = await db
     .from("automations")
     .select("id, name, keyword, status, trigger_type, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("status", ["active", "paused"])
     .order("created_at", { ascending: false });
 
@@ -37,26 +38,26 @@ export async function getPerAutomationStats(): Promise<AutomationStat[]> {
     const autoId = a.id as string;
 
     // Count DMs sent by this automation
-    const { count: dmsSent } = await supabase
+    const { count: dmsSent } = await db
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .eq("automation_id", autoId)
       .eq("status", "sent");
 
     // Count DMs failed
-    const { count: dmsFailed } = await supabase
+    const { count: dmsFailed } = await db
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .eq("automation_id", autoId)
       .eq("status", "failed");
 
     // Count leads from this automation
-    const { count: leadsCount } = await supabase
+    const { count: leadsCount } = await db
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .eq("automation_id", autoId);
 
     const sent = dmsSent ?? 0;

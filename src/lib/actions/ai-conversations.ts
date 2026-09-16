@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 
 /**
  * Get list of unique conversations grouped by sender, with last message preview.
@@ -13,16 +14,16 @@ export async function getConversationList(
   conversations: Record<string, unknown>[];
   total: number;
 }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { conversations: [], total: 0 };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { conversations: [], total: 0 };
+  const { targetId, client: db } = scope;
 
   // Get distinct sender conversations with their latest message
   // We use a raw query approach: fetch recent conversations ordered by time
-  let query = supabase
+  let query = db
     .from("ai_conversations")
     .select("id, agent_id, sender_ig_id, sender_username, role, content, created_at", { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: false });
 
   if (search) {
@@ -71,14 +72,14 @@ export async function getConversationList(
 export async function getConversationThread(
   senderIgId: string
 ): Promise<Record<string, unknown>[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return [];
+  const { targetId, client: db } = scope;
 
-  const { data } = await supabase
+  const { data } = await db
     .from("ai_conversations")
     .select("id, agent_id, sender_ig_id, sender_username, role, content, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("sender_ig_id", senderIgId)
     .order("created_at", { ascending: true })
     .limit(200);
@@ -94,31 +95,31 @@ export async function getConversationStats(): Promise<{
   messages_today: number;
   total_messages: number;
 }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { total_conversations: 0, messages_today: 0, total_messages: 0 };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { total_conversations: 0, messages_today: 0, total_messages: 0 };
+  const { targetId, client: db } = scope;
 
   // Total messages
-  const { count: totalMessages } = await supabase
+  const { count: totalMessages } = await db
     .from("ai_conversations")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   // Messages today
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const { count: messagesToday } = await supabase
+  const { count: messagesToday } = await db
     .from("ai_conversations")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .gte("created_at", todayStart.toISOString());
 
   // Distinct senders (unique conversations)
-  const { data: senders } = await supabase
+  const { data: senders } = await db
     .from("ai_conversations")
     .select("sender_ig_id")
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   const uniqueSenders = new Set((senders ?? []).map((s) => (s as Record<string, string>).sender_ig_id));
 

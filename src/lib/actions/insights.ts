@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,8 +41,9 @@ function emptyInsightsForStarter(): InsightData {
 }
 
 export async function getAudienceInsights(): Promise<InsightData> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return emptyInsightsForStarter();
+  const { targetId, client: db } = scope;
 
   // Insights is a Pro+ feature — return the empty dataset for Starter.
   // (canAccessABTesting is the same pro+ rule; reusing it keeps the helper
@@ -61,26 +63,25 @@ export async function getAudienceInsights(): Promise<InsightData> {
     dailyTrend: [],
   };
 
-  if (!user) return empty;
 
   // ── Total DMs ──
-  const { count: totalDMs } = await supabase
+  const { count: totalDMs } = await db
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "sent");
 
   // ── Total Leads ──
-  const { count: totalLeads } = await supabase
+  const { count: totalLeads } = await db
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   // ── Top Engagers (users who received the most DMs) ──
-  const { data: dmLogs } = await supabase
+  const { data: dmLogs } = await db
     .from("dm_logs")
     .select("recipient_username, sent_at")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "sent")
     .order("sent_at", { ascending: false })
     .limit(500);
@@ -117,10 +118,10 @@ export async function getAudienceInsights(): Promise<InsightData> {
   const peakHours = hourCounts.map((count, hour) => ({ hour, count }));
 
   // ── Top Keywords ──
-  const { data: automations } = await supabase
+  const { data: automations } = await db
     .from("automations")
     .select("id, keyword, dms_sent, leads_captured")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .not("keyword", "is", null);
 
   const topKeywords = (automations || [])
@@ -137,10 +138,10 @@ export async function getAudienceInsights(): Promise<InsightData> {
     .slice(0, 8);
 
   // ── Source Breakdown ──
-  const { data: leads } = await supabase
+  const { data: leads } = await db
     .from("leads")
     .select("source")
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   const sourceMap = new Map<string, number>();
   for (const lead of leads || []) {
@@ -181,18 +182,18 @@ export async function getAudienceInsights(): Promise<InsightData> {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const { count: dayDMs } = await supabase
+    const { count: dayDMs } = await db
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .eq("status", "sent")
       .gte("sent_at", start.toISOString())
       .lt("sent_at", end.toISOString());
 
-    const { count: dayLeads } = await supabase
+    const { count: dayLeads } = await db
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .gte("captured_at", start.toISOString())
       .lt("captured_at", end.toISOString());
 

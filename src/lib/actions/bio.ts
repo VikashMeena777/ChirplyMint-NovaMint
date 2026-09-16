@@ -1,6 +1,8 @@
 "use server";
 
 import { PLANS, canCustomizeBioStyle, canHideBranding, type PlanKey } from "@/lib/utils/plan-limits";
+import { requireWorkspaceRole } from "@/lib/workspace";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
@@ -52,14 +54,14 @@ export interface BioLink {
 // ─── Page CRUD ───────────────────────────────────────────
 
 export async function getBioPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: null, error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("bio_pages")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (error && error.code !== "PGRST116") return { data: null, error: error.message };
@@ -67,16 +69,16 @@ export async function getBioPage() {
 }
 
 export async function createBioPage(slug: string, displayName: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { data: null, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Validate slug
   const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 30);
   if (cleanSlug.length < 3) return { data: null, error: "Slug must be at least 3 characters" };
 
   // Check if slug is taken
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("bio_pages")
     .select("id")
     .eq("slug", cleanSlug)
@@ -85,18 +87,18 @@ export async function createBioPage(slug: string, displayName: string) {
   if (existing) return { data: null, error: "This username is already taken" };
 
   // Check if user already has a page
-  const { data: userPage } = await supabase
+  const { data: userPage } = await db
     .from("bio_pages")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (userPage) return { data: null, error: "You already have a bio page" };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("bio_pages")
     .insert({
-      user_id: user.id,
+      user_id: targetId,
       slug: cleanSlug,
       display_name: displayName || cleanSlug,
     })
@@ -123,9 +125,9 @@ export async function updateBioPage(updates: {
   card_border_radius?: string;
   card_opacity?: number;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Server-side white-label enforcement: custom font (Pro+) and
   // hide-branding (Business) are plan features — strip them for lower plans
@@ -140,10 +142,10 @@ export async function updateBioPage(updates: {
     }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("bio_pages")
     .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -155,15 +157,15 @@ export async function updateBioPage(updates: {
 // ─── Link CRUD ───────────────────────────────────────────
 
 export async function getBioLinks(pageId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("bio_links")
     .select("*")
     .eq("page_id", pageId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("sort_order", { ascending: true });
 
   if (error) return { data: [], error: error.message };
@@ -175,34 +177,34 @@ export async function addBioLink(pageId: string, link: {
   url: string;
   emoji?: string;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Plan limit: Starter caps bio links (5); Pro+ unlimited
   const plan = await getUserPlan();
   const bioLinkLimit = PLANS[plan]?.bioLinkLimit ?? 5;
   if (bioLinkLimit !== -1) {
-    const { count } = await supabase
+    const { count } = await db
       .from("bio_links")
       .select("id", { count: "exact", head: true })
-      .eq("page_id", (await supabase.from("bio_pages").select("id").eq("user_id", user.id).single()).data?.id ?? "");
+      .eq("page_id", (await db.from("bio_pages").select("id").eq("user_id", targetId).single()).data?.id ?? "");
     if ((count ?? 0) >= bioLinkLimit) {
       return { error: `Your plan allows ${bioLinkLimit} bio links — upgrade to Pro for unlimited links.` };
     }
   }
 
   // Get next sort order
-  const { count } = await supabase
+  const { count } = await db
     .from("bio_links")
     .select("id", { count: "exact", head: true })
     .eq("page_id", pageId);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("bio_links")
     .insert({
       page_id: pageId,
-      user_id: user.id,
+      user_id: targetId,
       title: link.title,
       url: link.url,
       emoji: link.emoji || "🔗",
@@ -224,15 +226,15 @@ export async function updateBioLink(linkId: string, updates: {
   emoji?: string;
   is_active?: boolean;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("bio_links")
     .update(updates)
     .eq("id", linkId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/bio");
@@ -240,15 +242,15 @@ export async function updateBioLink(linkId: string, updates: {
 }
 
 export async function deleteBioLink(linkId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("bio_links")
     .delete()
     .eq("id", linkId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -258,16 +260,16 @@ export async function deleteBioLink(linkId: string) {
 }
 
 export async function reorderBioLinks(pageId: string, orderedIds: string[]) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   for (let i = 0; i < orderedIds.length; i++) {
-    await supabase
+    await db
       .from("bio_links")
       .update({ sort_order: i })
       .eq("id", orderedIds[i])
-      .eq("user_id", user.id);
+      .eq("user_id", targetId);
   }
 
   revalidatePath("/dashboard/bio");
@@ -373,25 +375,25 @@ export async function trackBioLinkClick(
 // ─── Analytics ──────────────────────────────────────────
 
 export async function getBioAnalytics() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { totalViews: 0, totalClicks: 0, links: [] };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { totalViews: 0, totalClicks: 0, links: [] };
+  const { targetId, client: db } = scope;
 
-  const { data: page } = await supabase
+  const { data: page } = await db
     .from("bio_pages")
     .select("id, total_views")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!page) return { totalViews: 0, totalClicks: 0, links: [] };
 
   const p = page as BioPage;
 
-  const { data: links } = await supabase
+  const { data: links } = await db
     .from("bio_links")
     .select("id, title, emoji, click_count, url")
     .eq("page_id", p.id)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("click_count", { ascending: false });
 
   const totalClicks = (links ?? []).reduce(

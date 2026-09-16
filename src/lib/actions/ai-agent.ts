@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 import { agentSetupMissing, assemblePersona } from "@/lib/ai/agent-setup";
@@ -54,14 +56,14 @@ export interface AIConversation {
 // ─── Agent CRUD ──────────────────────────────────────────
 
 export async function getAIAgent() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: null, error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_agents")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (error && error.code !== "PGRST116") return { data: null, error: error.message };
@@ -69,9 +71,9 @@ export async function getAIAgent() {
 }
 
 export async function createAIAgent(agentName: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { data: null, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessAIAgent(plan)) {
@@ -79,18 +81,18 @@ export async function createAIAgent(agentName: string) {
   }
 
   // Check if user already has an agent
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("ai_agents")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (existing) return { data: null, error: "You already have an AI agent" };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_agents")
     .insert({
-      user_id: user.id,
+      user_id: targetId,
       agent_name: agentName || "Assistant",
       // auto-detect: mirror whatever language the lead writes in (default)
       language: "auto",
@@ -115,9 +117,9 @@ export async function updateAIAgent(updates: {
   fallback_message?: string;
   max_reply_length?: number;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessAIAgent(plan)) {
@@ -128,10 +130,10 @@ export async function updateAIAgent(updates: {
   // given it enough information to reply as them. A placeholder persona
   // hallucinated facts in real DMs; that must be impossible now.
   if (updates.is_active === true) {
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from("ai_agents")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", targetId)
       .single();
 
     const merged = { ...(current ?? {}), ...updates } as Partial<AIAgent>;
@@ -147,10 +149,10 @@ export async function updateAIAgent(updates: {
     }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("ai_agents")
     .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -186,19 +188,19 @@ export async function saveAIAgentOnboarding(
   draft: OnboardingDraft,
   finish: boolean
 ): Promise<{ data: AIAgent | null; missing: string[]; error: string | null }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, missing: [], error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { data: null, missing: [], error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessAIAgent(plan)) {
     return { data: null, missing: [], error: "AI Agent is a Pro feature — upgrade to Pro to unlock it." };
   }
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("ai_agents")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
   if (!existing) {
     return { data: null, missing: [], error: "Create the agent first" };
@@ -242,10 +244,10 @@ export async function saveAIAgentOnboarding(
     updates.is_active = true;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_agents")
     .update(updates)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .select()
     .single();
 
@@ -257,14 +259,14 @@ export async function saveAIAgentOnboarding(
       .filter((f) => f.question.trim() && f.answer.trim())
       .map((f, i) => ({
         agent_id: (data as AIAgent).id,
-        user_id: user.id,
+        user_id: targetId,
         question: f.question.trim(),
         answer: f.answer.trim(),
         sort_order: i,
       }));
     console.log("[AI Agent Onboarding] faq seed:", draft.faqs.length, "raw,", rows.length, "rows");
     if (rows.length) {
-      const { error: faqError } = await supabase.from("ai_agent_faqs").insert(rows);
+      const { error: faqError } = await db.from("ai_agent_faqs").insert(rows);
       if (faqError) {
         console.error("[AI Agent Onboarding] FAQ seed failed:", faqError.message);
       }
@@ -344,14 +346,14 @@ export async function getOnboardingPrefill(): Promise<{
   ig_name: string | null;
   error: string | null;
 }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ig_username: null, ig_name: null, error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { ig_username: null, ig_name: null, error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data } = await supabase
+  const { data } = await db
     .from("instagram_accounts")
     .select("ig_username, ig_name")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -367,15 +369,15 @@ export async function getOnboardingPrefill(): Promise<{
 // ─── FAQ CRUD ────────────────────────────────────────────
 
 export async function getAgentFAQs(agentId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_agent_faqs")
     .select("*")
     .eq("agent_id", agentId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("sort_order", { ascending: true });
 
   if (error) return { data: [], error: error.message };
@@ -383,20 +385,20 @@ export async function getAgentFAQs(agentId: string) {
 }
 
 export async function addFAQ(agentId: string, question: string, answer: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { count } = await supabase
+  const { count } = await db
     .from("ai_agent_faqs")
     .select("id", { count: "exact", head: true })
     .eq("agent_id", agentId);
 
-  const { error } = await supabase
+  const { error } = await db
     .from("ai_agent_faqs")
     .insert({
       agent_id: agentId,
-      user_id: user.id,
+      user_id: targetId,
       question,
       answer,
       sort_order: count ?? 0,
@@ -414,15 +416,15 @@ export async function updateFAQ(faqId: string, updates: {
   answer?: string;
   is_active?: boolean;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("ai_agent_faqs")
     .update(updates)
     .eq("id", faqId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/ai-agent");
@@ -430,15 +432,15 @@ export async function updateFAQ(faqId: string, updates: {
 }
 
 export async function deleteFAQ(faqId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("admin");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("ai_agent_faqs")
     .delete()
     .eq("id", faqId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/ai-agent");
@@ -448,16 +450,16 @@ export async function deleteFAQ(faqId: string) {
 // ─── Conversation History ────────────────────────────────
 
 export async function getRecentConversations(agentId: string, limit = 20) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
   // Get unique senders with latest message
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_conversations")
     .select("sender_ig_id, sender_username, content, role, created_at")
     .eq("agent_id", agentId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -497,15 +499,15 @@ export async function getRecentConversations(agentId: string, limit = 20) {
 }
 
 export async function getConversationThread(agentId: string, senderIgId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_conversations")
     .select("*")
     .eq("agent_id", agentId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("sender_ig_id", senderIgId)
     .order("created_at", { ascending: true })
     .limit(50);
@@ -517,14 +519,14 @@ export async function getConversationThread(agentId: string, senderIgId: string)
 // ─── Agent Stats ─────────────────────────────────────────
 
 export async function getAgentStats() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { totalConversations: 0, totalMessages: 0, activeToday: 0 };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { totalConversations: 0, totalMessages: 0, activeToday: 0 };
+  const { targetId, client: db } = scope;
 
-  const { data: agent } = await supabase
+  const { data: agent } = await db
     .from("ai_agents")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!agent) return { totalConversations: 0, totalMessages: 0, activeToday: 0 };
@@ -532,7 +534,7 @@ export async function getAgentStats() {
   const agentId = (agent as AIAgent).id;
 
   // Total unique conversations
-  const { data: convs } = await supabase
+  const { data: convs } = await db
     .from("ai_conversations")
     .select("sender_ig_id")
     .eq("agent_id", agentId);
@@ -540,7 +542,7 @@ export async function getAgentStats() {
   const uniqueSenders = new Set((convs ?? []).map(c => (c as AIConversation).sender_ig_id));
 
   // Total messages
-  const { count: totalMessages } = await supabase
+  const { count: totalMessages } = await db
     .from("ai_conversations")
     .select("id", { count: "exact", head: true })
     .eq("agent_id", agentId);
@@ -548,7 +550,7 @@ export async function getAgentStats() {
   // Active today
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const { data: todayConvs } = await supabase
+  const { data: todayConvs } = await db
     .from("ai_conversations")
     .select("sender_ig_id")
     .eq("agent_id", agentId)

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -25,11 +26,9 @@ export async function getConversionFunnel(): Promise<{
   automations: AutomationFunnel[];
   overall: FunnelStage[];
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { automations: [], overall: [] };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { automations: [], overall: [] };
+  const { targetId, client: db } = scope;
 
   const admin = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +39,7 @@ export async function getConversionFunnel(): Promise<{
   const { data: autos } = await admin
     .from("automations")
     .select("id, name, keyword")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("status", ["active", "paused"])
     .order("created_at", { ascending: false })
     .limit(10);
@@ -68,32 +67,32 @@ export async function getConversionFunnel(): Promise<{
   const { count: totalDMs } = await admin
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "sent")
     .gte("created_at", since);
 
   const { count: totalSeen } = await admin
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "sent")
     .not("seen_at", "is", null);
 
   const { count: totalLeads } = await admin
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   const { count: totalInterested } = await admin
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("engagement", ["interested", "converted"]);
 
   const { count: totalContacts } = await admin
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .not("email", "is", null)
     .or("phone.not.is.null");
 

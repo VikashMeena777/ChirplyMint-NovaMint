@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
@@ -27,26 +29,24 @@ export async function getIGAccounts(): Promise<{
   canAdd: boolean;
   plan: PlanKey;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { accounts: [], limit: 1, canAdd: false, plan: "free" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { accounts: [], limit: 1, canAdd: false, plan: "free" };
+  const { targetId, client: db } = scope;
 
   // Get user plan
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
-    .eq("id", user.id)
+    .eq("id", targetId)
     .single();
   const plan = ((profile as Record<string, string> | null)?.plan || "free") as PlanKey;
   const planConfig = PLANS[plan] || PLANS.free;
 
   // Get all active accounts
-  const { data: accounts } = await supabase
+  const { data: accounts } = await db
     .from("instagram_accounts")
     .select("id, ig_user_id, ig_username, ig_name, ig_profile_pic, is_active, updated_at, auto_hide_keywords")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 
@@ -66,49 +66,47 @@ export async function disconnectIGAccount(accountId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Verify ownership
-  const { data: account } = await supabase
+  const { data: account } = await db
     .from("instagram_accounts")
     .select("id, ig_username")
     .eq("id", accountId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!account) return { success: false, error: "Account not found" };
 
   // Deactivate the account
-  const { error: updateError } = await supabase
+  const { error: updateError } = await db
     .from("instagram_accounts")
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq("id", accountId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (updateError) return { success: false, error: updateError.message };
 
   // Pause all automations tied to this account
-  await supabase
+  await db
     .from("automations")
     .update({ status: "paused" })
     .eq("instagram_account_id", accountId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .in("status", ["active"]);
 
   // Check if user has ANY remaining active accounts
-  const { count } = await supabase
+  const { count } = await db
     .from("instagram_accounts")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true);
 
   // If no accounts remain, update user_settings to disconnected
   if ((count ?? 0) === 0) {
-    await supabase
+    await db
       .from("user_settings")
       .update({
         instagram_connected: false,
@@ -118,7 +116,7 @@ export async function disconnectIGAccount(accountId: string): Promise<{
         instagram_page_id: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("user_id", targetId);
   }
 
   logActivity(user.id, "instagram.account_disconnected", {
@@ -139,24 +137,22 @@ export async function getIGAccountUsage(): Promise<{
   canAdd: boolean;
   plan: PlanKey;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { current: 0, limit: 1, canAdd: false, plan: "free" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { current: 0, limit: 1, canAdd: false, plan: "free" };
+  const { targetId, client: db } = scope;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
-    .eq("id", user.id)
+    .eq("id", targetId)
     .single();
   const plan = ((profile as Record<string, string> | null)?.plan || "free") as PlanKey;
   const planConfig = PLANS[plan] || PLANS.free;
 
-  const { count } = await supabase
+  const { count } = await db
     .from("instagram_accounts")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true);
 
   const current = count ?? 0;
@@ -175,18 +171,16 @@ export async function setActiveAccount(accountId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Verify the account exists and belongs to user
-  const { data: account } = await supabase
+  const { data: account } = await db
     .from("instagram_accounts")
     .select("id, ig_user_id, ig_username, ig_name, ig_profile_pic, access_token, page_id")
     .eq("id", accountId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .single();
 
@@ -196,7 +190,7 @@ export async function setActiveAccount(accountId: string): Promise<{
 
   // Sync user_settings with the selected primary account
   // (keeps legacy queries working — dashboard, onboarding, etc.)
-  await supabase
+  await db
     .from("user_settings")
     .update({
       instagram_connected: true,
@@ -206,7 +200,7 @@ export async function setActiveAccount(accountId: string): Promise<{
       instagram_page_id: acct.page_id,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   logActivity(user.id, "instagram.primary_account_set", {
     account_id: accountId,
@@ -224,18 +218,16 @@ export async function saveModerationKeywords(
   accountId: string,
   keywords: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Verify ownership
-  const { data: account } = await supabase
+  const { data: account } = await db
     .from("instagram_accounts")
     .select("id, ig_username")
     .eq("id", accountId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
   if (!account) return { success: false, error: "Account not found" };
 
@@ -248,11 +240,11 @@ export async function saveModerationKeywords(
     )
   ).slice(0, 50);
 
-  const { error } = await supabase
+  const { error } = await db
     .from("instagram_accounts")
     .update({ auto_hide_keywords: cleaned })
     .eq("id", accountId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { success: false, error: error.message };
 

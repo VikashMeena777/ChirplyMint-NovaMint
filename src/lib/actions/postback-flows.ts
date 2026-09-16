@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { canAccessABTesting } from "@/lib/utils/plan-limits";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
@@ -58,21 +59,19 @@ export async function savePostbackFlows(
   automationId: string,
   flows: Omit<PostbackFlow, "id" | "user_id" | "automation_id" | "is_active" | "created_at">[]
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessABTesting(plan)) return { error: "Postback Flow Builder is a Pro feature — upgrade to unlock it." };
 
   // Verify the automation belongs to this user
-  const { data: automation } = await supabase
+  const { data: automation } = await db
     .from("automations")
     .select("id")
     .eq("id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!automation) return { error: "Automation not found" };
@@ -97,16 +96,16 @@ export async function savePostbackFlows(
   }
 
   // Delete existing flows for this automation
-  await supabase
+  await db
     .from("postback_flows")
     .delete()
     .eq("automation_id", automationId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   // Insert new flows
   if (flows.length > 0) {
     const rows = flows.map((flow) => ({
-      user_id: user.id,
+      user_id: targetId,
       automation_id: automationId,
       payload: flow.payload.trim().toLowerCase(),
       label: flow.label.trim(),
@@ -119,7 +118,7 @@ export async function savePostbackFlows(
       lead_tag: flow.lead_tag?.trim() || null,
     }));
 
-    const { error } = await supabase.from("postback_flows").insert(rows);
+    const { error } = await db.from("postback_flows").insert(rows);
     if (error) return { error: error.message };
   }
 
@@ -138,17 +137,15 @@ export async function savePostbackFlows(
 export async function deletePostbackFlows(
   automationId: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("postback_flows")
     .delete()
     .eq("automation_id", automationId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 

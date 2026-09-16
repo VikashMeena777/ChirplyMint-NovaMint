@@ -90,7 +90,11 @@ export default async function DashboardPage() {
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-500/25 bg-sky-500/8 px-4 py-3">
             <Users className="h-4 w-4 shrink-0 text-sky-500" />
             <p className="text-sm text-muted-foreground">
-              You&apos;re viewing <span className="font-semibold text-foreground">{data.workspace.ownerName}&apos;s workspace</span> — read-only.
+              You&apos;re viewing <span className="font-semibold text-foreground">{data.workspace.ownerName}&apos;s workspace</span> as{" "}
+              <span className="font-semibold text-foreground">
+                {data.workspace.role === "admin" ? "Admin" : data.workspace.role === "editor" ? "Editor" : "Viewer"}
+              </span>{" "}
+              {data.workspace.role === "viewer" ? "— read-only. " : "— you can reply to messages and edit automations. "}
               Your own account stays separate in Settings.
             </p>
           </div>

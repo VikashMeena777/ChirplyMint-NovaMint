@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canAddDripStep, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
@@ -57,17 +59,15 @@ export interface DripEnrollment {
  * Get the drip sequence (with steps) for an automation.
  */
 export async function getDripSequence(automationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: null, error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("drip_sequences")
     .select("*, drip_steps:drip_steps(*)") // join steps
     .eq("automation_id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (error && error.code !== "PGRST116") {
@@ -89,18 +89,16 @@ export async function getDripSequence(automationId: string) {
  * Create a new drip sequence for an automation (or return existing one).
  */
 export async function createDripSequence(automationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { data: null, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Check if sequence already exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("drip_sequences")
     .select("id")
     .eq("automation_id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (existing) {
@@ -108,20 +106,20 @@ export async function createDripSequence(automationId: string) {
   }
 
   // Verify automation ownership
-  const { data: automation } = await supabase
+  const { data: automation } = await db
     .from("automations")
     .select("id")
     .eq("id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!automation) return { data: null, error: "Automation not found" };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("drip_sequences")
     .insert({
       automation_id: automationId,
-      user_id: user.id,
+      user_id: targetId,
       is_active: false,
     })
     .select("id")
@@ -145,17 +143,15 @@ export async function toggleDripSequence(
   sequenceId: string,
   isActive: boolean
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("drip_sequences")
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq("id", sequenceId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -175,11 +171,9 @@ export async function updateWindowOpener(
   windowOpenerText: string,
   windowOpenerButtons?: QuickReplyBtn[]
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const trimmed = windowOpenerText.trim();
   if (!trimmed) return { error: "Window opener text is required" };
@@ -195,7 +189,7 @@ export async function updateWindowOpener(
     .slice(0, 13)
     .map(b => ({ title: b.title.slice(0, 20), payload: b.payload || b.title.toUpperCase().replace(/\s+/g, "_") }));
 
-  const { error } = await supabase
+  const { error } = await db
     .from("drip_sequences")
     .update({
       window_opener_text: trimmed,
@@ -203,7 +197,7 @@ export async function updateWindowOpener(
       updated_at: new Date().toISOString(),
     })
     .eq("id", sequenceId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -232,14 +226,12 @@ export async function addDripStep(
     template_buttons?: unknown[];
   }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Check plan limits
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
@@ -247,7 +239,7 @@ export async function addDripStep(
   const userPlan = ((profile as Record<string, string>)?.plan || "free") as PlanKey;
 
   // Count existing steps
-  const { count } = await supabase
+  const { count } = await db
     .from("drip_steps")
     .select("id", { count: "exact", head: true })
     .eq("sequence_id", sequenceId);
@@ -260,7 +252,7 @@ export async function addDripStep(
   }
 
   // Get next step number
-  const { data: lastStep } = await supabase
+  const { data: lastStep } = await db
     .from("drip_steps")
     .select("step_number")
     .eq("sequence_id", sequenceId)
@@ -270,7 +262,7 @@ export async function addDripStep(
 
   const nextStepNumber = ((lastStep as Record<string, number>)?.step_number ?? 0) + 1;
 
-  const { data: inserted, error } = await supabase
+  const { data: inserted, error } = await db
     .from("drip_steps")
     .insert({
       sequence_id: sequenceId,
@@ -309,14 +301,12 @@ export async function updateDripStep(
     template_buttons?: unknown[];
   }
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Verify ownership through sequence
-  const { data: step } = await supabase
+  const { data: step } = await db
     .from("drip_steps")
     .select("sequence_id, drip_sequences!inner(user_id)")
     .eq("id", stepId)
@@ -327,7 +317,7 @@ export async function updateDripStep(
   const seqData = stepData.drip_sequences as Record<string, string>;
   if (seqData.user_id !== user.id) return { error: "Unauthorized" };
 
-  const { error } = await supabase
+  const { error } = await db
     .from("drip_steps")
     .update(updates)
     .eq("id", stepId);
@@ -342,14 +332,12 @@ export async function updateDripStep(
  * Delete a drip step and re-number remaining steps.
  */
 export async function deleteDripStep(stepId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Get the step to find its sequence
-  const { data: step } = await supabase
+  const { data: step } = await db
     .from("drip_steps")
     .select("sequence_id, step_number, drip_sequences!inner(user_id)")
     .eq("id", stepId)
@@ -364,7 +352,7 @@ export async function deleteDripStep(stepId: string) {
   const deletedStepNumber = stepData.step_number as number;
 
   // Delete the step
-  const { error } = await supabase
+  const { error } = await db
     .from("drip_steps")
     .delete()
     .eq("id", stepId);
@@ -372,7 +360,7 @@ export async function deleteDripStep(stepId: string) {
   if (error) return { error: error.message };
 
   // Re-number remaining steps
-  const { data: remainingSteps } = await supabase
+  const { data: remainingSteps } = await db
     .from("drip_steps")
     .select("id, step_number")
     .eq("sequence_id", sequenceId)
@@ -382,7 +370,7 @@ export async function deleteDripStep(stepId: string) {
   if (remainingSteps && remainingSteps.length > 0) {
     for (const s of remainingSteps) {
       const sData = s as Record<string, unknown>;
-      await supabase
+      await db
         .from("drip_steps")
         .update({ step_number: (sData.step_number as number) - 1 })
         .eq("id", sData.id as string);
@@ -404,7 +392,7 @@ export async function deleteDripStep(stepId: string) {
  * Enroll a recipient into a drip sequence (called by webhook after initial DM).
  * Uses service role client internally via the webhook handler.
  */
-export async function enrollInDrip(
+async function enrollInDrip(
   sequenceId: string,
   userId: string,
   automationId: string,
@@ -470,18 +458,16 @@ export async function enrollInDrip(
  * Get active enrollments for the current user (dashboard view).
  */
 export async function getActiveEnrollments(limit = 50) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("drip_enrollments")
     .select(
       "*, drip_sequences(id, automation_id, automations:automation_id(name))"
     )
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("enrolled_at", { ascending: false })
     .limit(limit);
 
@@ -492,20 +478,18 @@ export async function getActiveEnrollments(limit = 50) {
  * Cancel a drip enrollment.
  */
 export async function cancelEnrollment(enrollmentId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("drip_enrollments")
     .update({
       status: "cancelled",
       completed_at: new Date().toISOString(),
     })
     .eq("id", enrollmentId)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
 
@@ -521,43 +505,41 @@ export async function cancelEnrollment(enrollmentId: string) {
  * Get drip sequence stats for an automation.
  */
 export async function getDripStats(automationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user)
     return { active: 0, completed: 0, cancelled: 0, failed: 0, total: 0 };
+  const { targetId, client: db } = scope;
 
-  const { data: sequence } = await supabase
+  const { data: sequence } = await db
     .from("drip_sequences")
     .select("id")
     .eq("automation_id", automationId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .single();
 
   if (!sequence) return { active: 0, completed: 0, cancelled: 0, failed: 0, total: 0 };
 
   const seqId = (sequence as Record<string, string>).id;
 
-  const { count: active } = await supabase
+  const { count: active } = await db
     .from("drip_enrollments")
     .select("id", { count: "exact", head: true })
     .eq("sequence_id", seqId)
     .eq("status", "active");
 
-  const { count: completed } = await supabase
+  const { count: completed } = await db
     .from("drip_enrollments")
     .select("id", { count: "exact", head: true })
     .eq("sequence_id", seqId)
     .eq("status", "completed");
 
-  const { count: cancelled } = await supabase
+  const { count: cancelled } = await db
     .from("drip_enrollments")
     .select("id", { count: "exact", head: true })
     .eq("sequence_id", seqId)
     .eq("status", "cancelled");
 
-  const { count: failed } = await supabase
+  const { count: failed } = await db
     .from("drip_enrollments")
     .select("id", { count: "exact", head: true })
     .eq("sequence_id", seqId)

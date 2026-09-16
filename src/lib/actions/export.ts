@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { canAccessLeads } from "@/lib/utils/plan-limits";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { logActivity } from "@/lib/utils/activity-logger";
@@ -67,19 +68,17 @@ export interface WebhookConfig {
  * Export all leads as CSV data. Returns the CSV string directly.
  */
 export async function exportLeadsCSV() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { data: null, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (!canAccessLeads(plan)) return { error: "Lead export is a Pro feature — upgrade to unlock it." };
 
-  const { data: leads, error } = await supabase
+  const { data: leads, error } = await db
     .from("leads")
     .select("ig_username, ig_user_id, email, phone, notes, tags, custom_notes, source, created_at, automations:automation_id(name)")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: false });
 
   if (error) return { data: null, error: error.message };
@@ -125,8 +124,8 @@ export async function exportLeadsCSV() {
   const csv = [headers.join(","), ...rows].join("\n");
 
   // Log the export
-  await supabase.from("lead_exports").insert({
-    user_id: user.id,
+  await db.from("lead_exports").insert({
+    user_id: targetId,
     export_type: "csv",
     destination: null,
     records_exported: leads.length,
@@ -259,11 +258,9 @@ export async function exportLeadsWebhook(webhookUrl: string): Promise<{ error?: 
  * Test a webhook URL by sending a sample payload.
  */
 export async function testWebhook(webhookUrl: string) : Promise<{ error?: string; success?: boolean; message?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const plan = await getUserPlan();
   if (plan !== "business") return { error: "Webhook lead export is a Business-plan feature." };
@@ -319,16 +316,14 @@ export async function testWebhook(webhookUrl: string) : Promise<{ error?: string
  * Get export history for the current user.
  */
 export async function getExportHistory(limit = 20) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { data: [], error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("lead_exports")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .order("created_at", { ascending: false })
     .limit(limit);
 

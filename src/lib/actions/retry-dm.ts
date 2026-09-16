@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canSendDM } from "@/lib/utils/plan-limits";
@@ -18,16 +19,16 @@ function getAdminSupabase() {
  * Validates plan limits before attempting retry.
  */
 export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("editor");
+  if (!guard.ok) return { success: false, error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Fetch the failed DM log
-  const { data: dmLog, error: fetchError } = await supabase
+  const { data: dmLog, error: fetchError } = await db
     .from("dm_logs")
     .select("*")
     .eq("id", dmLogId)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("status", "failed")
     .single();
 
@@ -43,7 +44,7 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
   }
 
   // Check plan limits before retrying (honours purchased dm_limit top-ups)
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan, dm_count_this_month, dm_limit, dm_topup_balance")
     .eq("id", user.id)
@@ -63,10 +64,10 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
   }
 
   // Get the Instagram account's access token
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("access_token, ig_user_id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -102,7 +103,7 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
 
     if (data.error) {
       // Update with new error info
-      await supabase.from("dm_logs").update({
+      await db.from("dm_logs").update({
         error_message: data.error.message || "API error on retry",
         updated_at: new Date().toISOString(),
       }).eq("id", dmLogId);
@@ -111,7 +112,7 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
     }
 
     // Success — update DM log (store Meta id for duplicate protection)
-    await supabase.from("dm_logs").update({
+    await db.from("dm_logs").update({
       status: "sent",
       sent_at: new Date().toISOString(),
       error_message: null,

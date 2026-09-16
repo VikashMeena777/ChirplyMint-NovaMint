@@ -23,6 +23,7 @@ import {
   Mail,
   KeyRound,
   BookOpen,
+  ShieldAlert,
 } from "lucide-react";
 import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
@@ -32,6 +33,7 @@ import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodE
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   inviteTeamMember,
+  changeTeamMemberRole,
   revokeInvite,
   removeTeamMember,
 } from "@/lib/actions/team";
@@ -57,15 +59,20 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "team", label: "Team & API", icon: Users },
 ];
-export default function SettingsPage({ section }: { section: TabId }) {
+export default function SettingsPage({ section, isMember = false }: { section: TabId; isMember?: boolean }) {
   const activeTab = section;
+  // Owner-only surfaces: hidden from members viewing a team workspace
+  const visibleTabs = isMember
+    ? tabs.filter((t) => t.id !== "instagram" && t.id !== "billing" && t.id !== "team")
+    : tabs;
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
-  const [team, setTeam] = useState<{ members: { id: string; member_email: string }[]; invites: { id: string; email: string; token: string }[]; seatLimit: number }>({ members: [], invites: [], seatLimit: 3 });
+  const [team, setTeam] = useState<{ members: { id: string; member_email: string; role: string }[]; invites: { id: string; email: string; token: string; role: string }[]; seatLimit: number }>({ members: [], invites: [], seatLimit: 3 });
   const [teamInviteEmail, setTeamInviteEmail] = useState("");
+  const [teamInviteRole, setTeamInviteRole] = useState<"viewer" | "editor" | "admin">("viewer");
   const [teamBusy, setTeamBusy] = useState(false);
   const [apiKeys, setApiKeys] = useState<{ id: string; name: string; key_prefix: string; last_used_at: string | null; revoked: boolean }[]>([]);
   const [apiKeyName, setApiKeyName] = useState("");
@@ -196,7 +203,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <Link
             key={tab.id}
             href={`/dashboard/settings/${tab.id}`}
@@ -387,11 +394,19 @@ export default function SettingsPage({ section }: { section: TabId }) {
         )}
 
         {activeTab === "instagram" && (
-          <InstagramConnectionTab />
+          isMember ? (
+            <OwnerOnlyNotice label="Instagram connections" />
+          ) : (
+            <InstagramConnectionTab />
+          )
         )}
 
         {activeTab === "billing" && (
-          <BillingTab profile={profile} onProfileRefresh={loadProfile} />
+          isMember ? (
+            <OwnerOnlyNotice label="Billing and plan" />
+          ) : (
+            <BillingTab profile={profile} onProfileRefresh={loadProfile} />
+          )
         )}
 
         {activeTab === "notifications" && (
@@ -487,7 +502,9 @@ export default function SettingsPage({ section }: { section: TabId }) {
         )}
 
         {activeTab === "team" && (
-          profile?.plan !== "business" ? (
+          isMember ? (
+            <OwnerOnlyNotice label="Team management" />
+          ) : profile?.plan !== "business" ? (
             <div className="text-center py-16 space-y-4">
               <div className="mx-auto w-16 h-16 rounded-2xl bg-[oklch(0.52_0.19_162/12%)] flex items-center justify-center">
                 <Users className="w-7 h-7 text-[oklch(0.52_0.19_162)]" />
@@ -524,6 +541,27 @@ export default function SettingsPage({ section }: { section: TabId }) {
                     {m.member_email[0].toUpperCase()}
                   </div>
                   <span className="text-sm text-foreground flex-1 truncate">{m.member_email}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                    m.role === "admin" ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                    : m.role === "editor" ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                    : "bg-muted text-muted-foreground"
+                  }`}>
+                    {m.role === "admin" ? "Admin" : m.role === "editor" ? "Editor" : "Viewer"}
+                  </span>
+                  <select
+                    value={m.role === "admin" || m.role === "editor" || m.role === "viewer" ? m.role : "viewer"}
+                    onChange={async (e) => {
+                      const r = await changeTeamMemberRole(m.id, e.target.value as "viewer" | "editor" | "admin");
+                      if (r.error) toast.error(r.error);
+                      else { toast.success("Role updated"); loadTeam(); }
+                    }}
+                    className="text-xs h-7 px-2 rounded-lg border border-border bg-background text-foreground"
+                    aria-label={`Change role for ${m.member_email}`}
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
                   <button
                     onClick={async () => { const r = await removeTeamMember(m.id); if (r.error) toast.error(r.error); else { toast.success("Member removed"); loadTeam(); } }}
                     className="text-xs text-red-400 hover:underline"
@@ -536,6 +574,9 @@ export default function SettingsPage({ section }: { section: TabId }) {
                 <div key={inv.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-border">
                   <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-sm text-muted-foreground flex-1 truncate">{inv.email}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    {inv.role === "admin" ? "Admin" : inv.role === "editor" ? "Editor" : "Viewer"}
+                  </span>
                   <button
                     onClick={() => { navigator.clipboard.writeText(window.location.origin + "/invite/" + inv.token); toast.success("Invite link copied"); }}
                     className="text-xs text-[oklch(0.52_0.19_162)] hover:underline"
@@ -550,6 +591,27 @@ export default function SettingsPage({ section }: { section: TabId }) {
                   </button>
                 </div>
               ))}
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { id: "viewer", title: "Viewer", desc: "Read only" },
+                  { id: "editor", title: "Editor", desc: "Reply & edit" },
+                  { id: "admin", title: "Admin", desc: "Full access" },
+                ] as const).map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setTeamInviteRole(r.id)}
+                    className={`text-left px-3 py-2 rounded-xl border transition-colors ${
+                      teamInviteRole === r.id
+                        ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/8%)]"
+                        : "border-border hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold text-foreground">{r.title}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-0.5">{r.desc}</span>
+                  </button>
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="email"
@@ -561,7 +623,7 @@ export default function SettingsPage({ section }: { section: TabId }) {
                 <button
                   onClick={async () => {
                     setTeamBusy(true);
-                    const r = await inviteTeamMember(teamInviteEmail);
+                    const r = await inviteTeamMember(teamInviteEmail, teamInviteRole);
                     setTeamBusy(false);
                     if (r.error) { toast.error(r.error); } else {
                       toast.success(
@@ -1596,6 +1658,23 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/** Shown when a member opens an owner-only settings section directly. */
+function OwnerOnlyNotice({ label }: { label: string }) {
+  return (
+    <div className="text-center py-16 space-y-3 max-w-sm mx-auto">
+      <div className="mx-auto w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+        <ShieldAlert className="w-6 h-6 text-muted-foreground" />
+      </div>
+      <h3 className="text-base font-bold text-foreground">{label} is managed by the workspace owner</h3>
+      <p className="text-sm text-muted-foreground">
+        Ask the workspace owner to make changes here. Your own settings live in
+        your personal workspace.
+      </p>
     </div>
   );
 }

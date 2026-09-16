@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveWorkspaceScope } from "@/lib/workspace";
 import { fetchInstagramPosts, fetchInstagramPostByUrl, fetchInstagramStories, getBucUsage, type InstagramPost } from "@/lib/instagram/send-dm";
 import { fetchAccountInsights, fetchRecentMedia } from "@/lib/instagram/insights";
 
@@ -13,17 +14,15 @@ export async function getInstagramPosts(afterCursor?: string): Promise<{
   nextCursor?: string;
   error?: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
   // Get the user's active Instagram account
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("ig_user_id, access_token")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -50,11 +49,9 @@ export async function getInstagramPostByUrl(postUrl: string): Promise<{
   data: InstagramPost | null;
   error?: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: null, error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
   // Validate URL format
   const urlLower = postUrl.toLowerCase();
@@ -62,10 +59,10 @@ export async function getInstagramPostByUrl(postUrl: string): Promise<{
     return { data: null, error: "Please enter a valid Instagram post or reel URL." };
   }
 
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("ig_user_id, access_token")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -95,16 +92,14 @@ export async function getInstagramStories(): Promise<{
   data: InstagramPost[];
   error?: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "Not authenticated" };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { data: [], error: "Not authenticated" };
+  const { targetId, client: db } = scope;
 
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("ig_user_id, access_token")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -140,14 +135,14 @@ export async function getContentInsights(): Promise<{
     comments_count?: number;
   }[];
 }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { connected: false, needsPermission: false, accountMetrics: {}, media: [] };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { connected: false, needsPermission: false, accountMetrics: {}, media: [] };
+  const { targetId, client: db } = scope;
 
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("ig_user_id, access_token, page_access_token")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();
@@ -183,17 +178,15 @@ export async function getRateLimitStatus(): Promise<{
   callCount: number | null;
   readAt: string | null;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { level: "unknown", callCount: null, readAt: null };
+  const scope = await resolveWorkspaceScope();
+  if (!scope.user) return { level: "unknown", callCount: null, readAt: null };
+  const { targetId, client: db } = scope;
 
   // Get the user's active Instagram account
-  const { data: igAccount } = await supabase
+  const { data: igAccount } = await db
     .from("instagram_accounts")
     .select("ig_user_id")
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .eq("is_active", true)
     .limit(1)
     .single();

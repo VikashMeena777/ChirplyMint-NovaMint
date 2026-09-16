@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireWorkspaceRole } from "@/lib/workspace";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
@@ -47,14 +48,12 @@ export async function getApiKeys(): Promise<ApiKeyRow[]> {
 export async function createApiKey(
   name: string
 ): Promise<{ key?: string; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   // Business plan only
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("plan")
     .eq("id", user.id)
@@ -69,7 +68,7 @@ export async function createApiKey(
 
   const admin = getAdmin();
   const { error } = await admin.from("api_keys").insert({
-    user_id: user.id,
+    user_id: targetId,
     name: name.trim().slice(0, 40) || "API key",
     key_prefix: keyPrefix,
     key_hash: keyHash,
@@ -83,17 +82,15 @@ export async function createApiKey(
 }
 
 export async function revokeApiKey(id: string): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("api_keys")
     .update({ revoked: true })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   if (error) return { error: error.message };
   logActivity(user.id, "api_key.revoked", { key_id: id }).catch(() => {});
@@ -106,11 +103,9 @@ export async function revokeApiKey(id: string): Promise<{ error?: string }> {
  * delete removes the clutter). Active keys must be revoked before deletion.
  */
 export async function deleteApiKey(id: string): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
+  const guard = await requireWorkspaceRole("owner");
+  if (!guard.ok) return { error: "Not authenticated" };
+  const { user, targetId, client: db } = guard;
 
   const admin = getAdmin();
 
@@ -119,13 +114,13 @@ export async function deleteApiKey(id: string): Promise<{ error?: string }> {
     .from("api_keys")
     .select("id, revoked")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", targetId)
     .maybeSingle();
   const k = key as { revoked: boolean } | null;
   if (!k) return { error: "Key not found" };
   if (!k.revoked) return { error: "Revoke the key first — then delete it." };
 
-  const { error } = await admin.from("api_keys").delete().eq("id", id).eq("user_id", user.id);
+  const { error } = await admin.from("api_keys").delete().eq("id", id).eq("user_id", targetId);
   if (error) return { error: error.message };
   return {};
 }
