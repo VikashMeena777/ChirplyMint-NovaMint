@@ -511,7 +511,7 @@ export function AgentOnboarding({
                             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                           >
                             <div
-                              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
+                              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm break-words ${
                                 m.role === "user"
                                   ? "bg-mint text-white rounded-br-md"
                                   : "bg-muted text-foreground rounded-bl-md"

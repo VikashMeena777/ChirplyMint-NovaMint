@@ -783,7 +783,7 @@ export default function CreateAutomationWizard({
 
                       {formData.story_link_branches.map((branch, bi) => (
                         <div key={bi} className="space-y-2 rounded-lg border border-border bg-background p-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                             <input
                               value={branch.match}
                               onChange={(e) =>
@@ -1251,14 +1251,14 @@ export default function CreateAutomationWizard({
 
                   {/* Buttons Builder */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                       <label className="text-sm font-medium text-foreground">Buttons <span className="text-red-400">*</span></label>
                       <span className="text-xs text-muted-foreground">{formData.template_buttons.length}/3</span>
                     </div>
 
                     {formData.template_buttons.map((btn, i) => (
                       <div key={i} className="p-3 rounded-xl border border-border bg-background space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                           <span className="text-xs font-medium text-muted-foreground">Button {i + 1}</span>
                           <button
                             type="button"
@@ -1399,7 +1399,7 @@ export default function CreateAutomationWizard({
                     : "border-border"
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                       <Shield className="w-4 h-4 text-cyan-500" />
@@ -1454,7 +1454,7 @@ export default function CreateAutomationWizard({
                     : "border-border"
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-purple-500" />
@@ -1499,7 +1499,7 @@ export default function CreateAutomationWizard({
                     : "border-border"
                 }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
                       <MessageSquareReply className="w-4 h-4 text-blue-500" />
@@ -1605,7 +1605,7 @@ export default function CreateAutomationWizard({
                         const existingFlow = postbackFlows.find((f) => f.payload === btn.payload);
                         return (
                           <div key={btn.payload} className="p-3 rounded-xl border border-border bg-background space-y-3">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                               <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                                 <Zap className="w-3 h-3 text-amber-600" />
                               </div>
@@ -1729,7 +1729,7 @@ export default function CreateAutomationWizard({
                             )}
 
                             {/* Lead Tag */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                               <Tag className="w-3 h-3 text-muted-foreground" />
                               <input
                                 value={existingFlow?.lead_tag || ""}

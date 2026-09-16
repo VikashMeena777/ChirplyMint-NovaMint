@@ -322,11 +322,11 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
             )}
           </div>
 
-          <h1 className="mt-4 text-[22px] font-bold tracking-tight leading-snug">
+          <h1 className="mt-4 text-[22px] font-bold tracking-tight leading-snug break-words">
             {page.display_name || page.slug}
           </h1>
           {page.bio && (
-            <p className="mt-1.5 text-[15px] leading-relaxed max-w-[300px]" style={{ color: theme.muted }}>
+            <p className="mt-1.5 text-[15px] leading-relaxed max-w-[300px] break-words" style={{ color: theme.muted }}>
               {page.bio}
             </p>
           )}
@@ -365,7 +365,7 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
               }}
             >
               <span className="text-[22px]">{featured.emoji}</span>
-              <span className="flex-1 text-[16px] font-bold tracking-tight">{featured.title}</span>
+              <span className="flex-1 min-w-0 break-words text-[16px] font-bold tracking-tight">{featured.title}</span>
               <ArrowUpRight
                 className="size-5 opacity-80 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               />
@@ -410,7 +410,7 @@ export default function BioPageClient({ page, links }: { page: BioPage; links: B
               whileTap={{ scale: 0.985 }}
             >
               <span className="text-[19px]">{link.emoji}</span>
-              <span className="flex-1 text-[15.5px] font-semibold tracking-tight">{link.title}</span>
+              <span className="flex-1 min-w-0 break-words text-[15.5px] font-semibold tracking-tight">{link.title}</span>
               <ArrowUpRight
                 className="size-4.5 opacity-35 transition-all duration-200 group-hover:opacity-70 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               />

@@ -57,7 +57,7 @@ function DripToggle({ automationId, userPlan }: { automationId: string; userPlan
         />
         <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
         <span>Drip Sequence</span>
-        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
@@ -91,7 +91,7 @@ function ABTestToggle({ automationId, userPlan }: { automationId: string; userPl
         />
         <FlaskConical className="w-3.5 h-3.5 text-emerald-500" />
         <span>A/B Testing</span>
-        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
@@ -125,7 +125,7 @@ function PostbackFlowToggle({ automationId, userPlan }: { automationId: string; 
         />
         <Workflow className="w-3.5 h-3.5 text-blue-500" />
         <span>Postback Flows</span>
-        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-[10px] font-normal text-muted-foreground/60 ml-auto opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           {open ? "collapse" : "expand"}
         </span>
       </button>
@@ -169,7 +169,7 @@ export default function AutomationCard({
   return (
     <div className="rounded-2xl bg-card border border-border shadow-sm hover:shadow-md transition-all group overflow-hidden">
       {/* ── Row 1: Title + Status + Actions ── */}
-      <div className="flex items-center gap-3 px-5 pt-5 pb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-5 pb-3">
         {/* Status dot */}
         <div
           className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -178,7 +178,7 @@ export default function AutomationCard({
               : "bg-amber-400"
           }`}
         />
-        <h3 className="text-base font-semibold text-foreground truncate flex-1">
+        <h3 className="text-base font-semibold text-foreground truncate flex-1 min-w-[9rem]">
           {a.name}
         </h3>
         <span
@@ -191,17 +191,17 @@ export default function AutomationCard({
           {a.status === "active" ? "Active" : "Paused"}
         </span>
         {/* Actions */}
-        <div className="flex items-center gap-1.5 ml-2">
+        <div className="flex items-center gap-1.5 ml-auto">
           <button
             onClick={() => onEdit(a)}
-            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             title="Edit automation"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onToggle(a.id, a.status)}
-            className={`p-1.5 rounded-lg border transition-colors ${
+            className={`p-2 rounded-lg border transition-colors ${
               a.status === "active"
                 ? "border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                 : "border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
@@ -216,7 +216,7 @@ export default function AutomationCard({
           </button>
           <button
             onClick={() => onClone(a.id)}
-            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             title="Clone this automation"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -224,14 +224,14 @@ export default function AutomationCard({
           <button
             onClick={() => onTest(a.id, a.keyword)}
             disabled={testing}
-            className="p-1.5 rounded-lg border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 transition-colors disabled:opacity-50"
             title="Test mode — sends the DM to YOURSELF (never public)"
           >
             {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={() => onDelete(a.id)}
-            className="p-1.5 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            className="p-2 rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />

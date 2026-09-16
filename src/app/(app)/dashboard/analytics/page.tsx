@@ -19,7 +19,7 @@ function FunnelBar({ label, count, max, color }: { label: string; count: number;
   const pct = max > 0 ? Math.max(2, Math.round((count / max) * 100)) : 0;
   return (
     <div className="flex items-center gap-3">
-      <span className="w-40 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="w-24 sm:w-40 shrink-0 text-xs text-muted-foreground">{label}</span>
       <div className="flex-1 h-6 rounded-lg bg-muted/40 overflow-hidden">
         <div
           className="h-full rounded-lg flex items-center justify-end px-2 transition-all duration-700"

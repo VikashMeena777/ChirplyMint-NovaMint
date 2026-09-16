@@ -268,7 +268,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <FlaskConical className="w-4 h-4 text-emerald-500" />
           <span>A/B Testing</span>
@@ -307,7 +307,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
       {/* Add Variant Form */}
       {showAdd && (
         <div className="p-4 rounded-xl border border-primary/20 bg-card/60 backdrop-blur-sm space-y-3.5 shadow-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-foreground">New Variant</span>
             <div className="flex gap-1 bg-muted p-0.5 rounded-lg text-[11px]">
               <button
@@ -385,7 +385,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
               />
               {/* Buttons */}
               <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
                   <span>Action Buttons ({buttons.length}/3)</span>
                   {buttons.length < 3 && (
                     <button
@@ -447,7 +447,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
       {/* Performance Comparison Overview (when multiple variants exist) */}
       {variants.length > 1 && (
         <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="font-semibold text-foreground flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
               Comparative Performance
@@ -463,7 +463,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
               const replyRate = getReplyRate(v);
               return (
                 <div key={v.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
                     <span className="font-medium text-foreground truncate max-w-[160px]">
                       {v.variant_name}
                     </span>
@@ -524,7 +524,7 @@ export default function ABTestPanel({ automationId, userPlan }: ABTestPanelProps
                 }`}
               >
                 {/* Badges */}
-                <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 gap-2 mb-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-bold text-foreground">
                       {v.variant_name}

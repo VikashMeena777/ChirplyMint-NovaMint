@@ -77,7 +77,7 @@ const STEPS = [
 /* ─── HERO ─── */
 function Hero() {
   return (
-    <section className="relative min-h-[92vh] flex items-center overflow-hidden pt-28 pb-16">
+    <section className="relative min-h-[92dvh] flex items-center overflow-hidden pt-28 pb-16">
       {/* Living aurora backdrop — drifting gradient blobs, grid, vignette */}
       <div aria-hidden className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,oklch(0.93_0.02_200/50%),transparent)]" />

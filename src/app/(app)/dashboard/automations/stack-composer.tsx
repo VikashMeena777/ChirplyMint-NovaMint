@@ -237,7 +237,7 @@ function BlockEditor({
         <div className="space-y-3">
           <div className="space-y-2">
             {(urls.length ? urls : [""]).map((url, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <span className="w-6 text-xs text-muted-foreground">{i + 1}.</span>
                 <input
                   type="url"
@@ -396,7 +396,7 @@ function ButtonCardEditor({
           Buttons ({buttons.length}/{MAX_BUTTONS})
         </p>
         {buttons.map((btn, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
             <select
               value={btn.type}
               onChange={(e) => {
@@ -506,7 +506,7 @@ function QuickReplyEditor({
           <code className="mx-1 rounded bg-muted px-1">pricing_yes</code>.
         </p>
         {qrs.map((qr, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
             <select
               value={qr.content_type || "text"}
               onChange={(e) => {

@@ -1314,7 +1314,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
 
       {/* Subscription status + cancel/downgrade */}
       {currentPlan !== "free" && subscription?.status !== "canceled" && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div>
             <p className="text-sm font-medium text-foreground">Subscription</p>
             <p className="text-xs text-muted-foreground mt-0.5">

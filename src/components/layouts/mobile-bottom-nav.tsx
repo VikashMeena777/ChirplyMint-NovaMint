@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bot, MessageCircle, LayoutDashboard, Settings, Users } from "lucide-react";
@@ -24,12 +25,31 @@ const NAV = [
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  // Keyboard open → slide the nav away so it can't cover the focused
+  // composer (iOS standalone PWAs never resize the layout viewport).
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const isTextEntry = (el: Element | null) =>
+      !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+    const onFocusIn = () => setKeyboardOpen(isTextEntry(document.activeElement));
+    const onFocusOut = () =>
+      setTimeout(() => setKeyboardOpen(isTextEntry(document.activeElement)), 100);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t border-border"
+      className={`md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t border-border transition-transform duration-200 ${
+        keyboardOpen ? "translate-y-full" : "translate-y-0"
+      }`}
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Mobile navigation"
+      aria-hidden={keyboardOpen}
     >
       <div className="flex items-stretch justify-around">
         {NAV.map((item) => {

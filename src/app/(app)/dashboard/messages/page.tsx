@@ -219,7 +219,7 @@ export default function MessagesPage() {
       </div>
 
       {tab === "inbox" && (
-        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 h-[calc(100vh-220px)] min-h-[480px]">
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 h-[calc(100dvh-305px)] md:h-[calc(100vh-220px)] min-h-[420px] md:min-h-[480px]">
           {/* Thread list */}
           <div className={`rounded-2xl bg-card border border-border overflow-hidden flex flex-col ${activeThread ? "hidden md:flex" : "flex"}`}>
             <div className="p-3 border-b border-border">

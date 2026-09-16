@@ -93,7 +93,7 @@ function TagPicker({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[45]" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-8 z-50 w-44 rounded-xl bg-card border border-border shadow-xl p-2 space-y-1">
             {PRESET_TAGS.map((tag) => (
               <button
@@ -404,7 +404,7 @@ export default function LeadsPage() {
             </button>
             {bulkMenuOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setBulkMenuOpen(false)} />
+                <div className="fixed inset-0 z-[45]" onClick={() => setBulkMenuOpen(false)} />
                 <div className="absolute left-0 top-9 z-50 w-40 rounded-xl bg-card border border-border shadow-xl p-2 space-y-1">
                   {PRESET_TAGS.map((tag) => (
                     <button

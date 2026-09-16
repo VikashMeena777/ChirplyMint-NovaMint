@@ -164,7 +164,7 @@ export function Navbar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-x-0 top-20 z-40 p-4 lg:hidden"
+            className="fixed inset-x-0 top-20 z-40 p-4 max-h-[calc(100dvh-6rem)] overflow-y-auto lg:hidden"
           >
             <div className="bg-card rounded-2xl p-6 space-y-4 shadow-xl border border-border">
               {navLinks.map((link) => (

@@ -115,7 +115,7 @@ export function OnboardingTour({ show, onDismiss }: OnboardingTourProps) {
       >
         {/* Modal */}
         <div
-          className="relative w-full max-w-lg rounded-3xl bg-card border border-border shadow-2xl overflow-hidden"
+          className="relative w-full max-w-lg rounded-3xl bg-card border border-border shadow-2xl overflow-hidden max-h-[85dvh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close button */}

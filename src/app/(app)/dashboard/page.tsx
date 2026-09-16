@@ -84,7 +84,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
 {data?.workspace?.isMember && (
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-500/25 bg-sky-500/8 px-4 py-3">
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         {/* API rate-limit gauge (BUC usage) — hidden until a reading exists */}
         {rateLimit.callCount !== null && (
           <span
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border max-w-full px-3 py-1 text-xs font-medium ${
               rateLimit.level === "critical"
                 ? "border-red-500/30 bg-red-500/10 text-red-600"
                 : rateLimit.level === "warning"

@@ -299,6 +299,43 @@
   background-size: 200% auto;
   animation: shimmer 7s linear infinite;
 }
+/* cmdk's CommandDialog renders bare Radix [cmdk-overlay]/[cmdk-dialog]
+   with zero styles — without this the page scroll-locks and the dialog
+   renders unpositioned at the end of the document. */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: oklch(0 0 0 / 50%);
+  backdrop-filter: blur(2px);
+}
+[cmdk-dialog] {
+  position: fixed;
+  left: 50%;
+  top: 20%;
+  transform: translateX(-50%);
+  z-index: 101;
+  width: 100%;
+  max-width: 40rem;
+  outline: none;
+}
+@media (max-width: 640px) {
+  [cmdk-dialog] {
+    top: max(1rem, env(safe-area-inset-top));
+    left: 1rem;
+    right: 1rem;
+    transform: none;
+    width: auto;
+  }
+}
+
+/* Sonner toasts sit above the mobile bottom nav (they overlapped "Settings") */
+@media (max-width: 767px) {
+  [data-sonner-toaster] {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer { animation: none; }
 }

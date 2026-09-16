@@ -93,7 +93,7 @@ export default function AIConversationsPage() {
 
       {/* Inbox */}
       <div className="rounded-2xl bg-card border border-border shadow-sm overflow-hidden">
-        <div className="flex h-[600px]">
+        <div className="flex h-[calc(100dvh-355px)] min-h-[360px] md:h-[600px] md:min-h-0">
           {/* Left Panel — Conversation List */}
           <div className={`${selectedSender ? "hidden md:flex" : "flex"} flex-col w-full md:w-80 lg:w-96 border-r border-border`}>
             {/* Search */}
@@ -231,7 +231,7 @@ export default function AIConversationsPage() {
                                 {!isAssistant && (
                                   <User className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-80" />
                                 )}
-                                <p className="whitespace-pre-wrap">{msg.content as string}</p>
+                                <p className="whitespace-pre-wrap break-words">{msg.content as string}</p>
                               </div>
                             </div>
 

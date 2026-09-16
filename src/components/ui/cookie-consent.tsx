@@ -46,7 +46,7 @@ export function CookieConsent() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="fixed bottom-0 left-0 right-0 z-[100] px-4 pb-4 sm:px-6 sm:pb-6"
+          className="fixed bottom-0 left-0 right-0 z-[100] px-4 pb-4 sm:px-6 sm:pb-6 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
         >
           <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-xl p-5 sm:p-6">
             <div className="flex items-start gap-4">

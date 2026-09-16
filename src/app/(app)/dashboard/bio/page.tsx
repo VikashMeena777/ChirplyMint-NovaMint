@@ -121,6 +121,7 @@ export default function BioBuilderPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [newEmoji, setNewEmoji] = useState("🔗");
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   // Analytics
   const [analytics, setAnalytics] = useState({ totalViews: 0, totalClicks: 0 });
@@ -306,9 +307,9 @@ export default function BioBuilderPage() {
           <div className="space-y-4 text-left max-w-sm mx-auto">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Username / Slug</label>
-              <div className="flex items-center gap-0 border border-border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
-                <span className="px-3 py-2.5 bg-muted text-sm text-muted-foreground border-r border-border shrink-0">
-                  chirplymint.novamintnetworks.in/u/
+              <div className="flex flex-col sm:flex-row sm:items-center gap-0 border border-border rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
+                <span className="px-3 py-2.5 bg-muted text-sm text-muted-foreground border-b sm:border-b-0 sm:border-r border-border shrink-0">
+                  <span className="hidden sm:inline">chirplymint.novamintnetworks.in</span>/u/
                 </span>
                 <input
                   type="text"
@@ -316,7 +317,7 @@ export default function BioBuilderPage() {
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
                   placeholder="yourname"
                   maxLength={30}
-                  className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none"
+                  className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none min-w-0"
                 />
               </div>
             </div>
@@ -419,7 +420,7 @@ export default function BioBuilderPage() {
                         (page.display_name || page.slug).charAt(0).toUpperCase()
                       )}
                     </div>
-                    <label className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                    <label className="absolute inset-0 rounded-full bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
                       {avatarUploading ? (
                         <Loader2 className="w-5 h-5 text-white animate-spin" />
                       ) : (
@@ -436,7 +437,7 @@ export default function BioBuilderPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Profile Photo</p>
-                    <p className="text-xs text-muted-foreground">Hover to upload (max 5MB)</p>
+                    <p className="text-xs text-muted-foreground">Tap the photo to upload (max 5MB)</p>
                     {editAvatarUrl && (
                       <button
                         onClick={() => { setEditAvatarUrl(null); toast.success("Avatar removed. Click Save to apply."); }}
@@ -501,16 +502,24 @@ export default function BioBuilderPage() {
                     <div className="flex gap-2 items-start">
                       {/* Emoji Picker */}
                       <div className="relative group">
-                        <button className="w-10 h-10 rounded-lg border border-border bg-card text-lg flex items-center justify-center hover:bg-muted/60">
+                        <button
+                          type="button"
+                          onClick={() => setEmojiOpen(o => !o)}
+                          className="w-10 h-10 rounded-lg border border-border bg-card text-lg flex items-center justify-center hover:bg-muted/60"
+                          aria-label="Pick emoji"
+                          aria-expanded={emojiOpen}
+                        >
                           {newEmoji}
                         </button>
-                        <div className="absolute top-12 left-0 z-10 hidden group-hover:grid grid-cols-4 gap-1 p-2 bg-card border border-border rounded-xl shadow-lg w-[160px]">
-                          {EMOJIS.map(e => (
-                            <button key={e} onClick={() => setNewEmoji(e)} className="w-8 h-8 rounded-lg hover:bg-muted/60 flex items-center justify-center text-lg">
-                              {e}
-                            </button>
-                          ))}
-                        </div>
+                        {emojiOpen && (
+                          <div className="absolute top-12 left-0 z-10 grid grid-cols-4 gap-1 p-2 bg-card border border-border rounded-xl shadow-lg w-[176px]">
+                            {EMOJIS.map(e => (
+                              <button key={e} type="button" onClick={() => { setNewEmoji(e); setEmojiOpen(false); }} className="w-9 h-9 rounded-lg hover:bg-muted/60 flex items-center justify-center text-lg">
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 space-y-2">
                         <input

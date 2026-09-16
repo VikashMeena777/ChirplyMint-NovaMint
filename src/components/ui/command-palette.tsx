@@ -40,8 +40,14 @@ export function CommandPalette() {
         setOpen((prev) => !prev);
       }
     }
+    // Mobile trigger (no keyboard shortcut on touch devices)
+    const onOpenRequest = () => setOpen(true);
+    document.addEventListener("cm-open-command-palette", onOpenRequest);
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("cm-open-command-palette", onOpenRequest);
+    };
   }, []);
 
   const navigate = useCallback(
@@ -187,5 +193,19 @@ export function CommandPalette() {
         </div>
       </Command>
     </CommandDialog>
+  );
+}
+
+
+/** Tappable search button for touch devices — ⌘K has no mobile equivalent. */
+export function CommandPaletteMobileTrigger() {
+  return (
+    <button
+      onClick={() => document.dispatchEvent(new CustomEvent("cm-open-command-palette"))}
+      className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      aria-label="Open search"
+    >
+      <Search className="w-4 h-4" />
+    </button>
   );
 }
