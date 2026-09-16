@@ -289,9 +289,10 @@ export function Sidebar() {
         />
       )}
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — scrollable when the nav is taller than the screen
+          (short/landscape phones), with the safe-area inset respected */}
       <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ${
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 overflow-y-auto ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
