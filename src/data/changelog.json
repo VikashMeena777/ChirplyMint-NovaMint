@@ -1,6 +1,62 @@
 {
   "entries": [
     {
+      "date": "Sep 16, 2026",
+      "version": "auto",
+      "title": "Full mobile/PWA bug hunt — 3-agent audit, 40+ fixes",
+      "description": "'Screen shifting side to side': (app)/layout main was overflow-auto —",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "'Screen shifting side to side': (app)/layout main was overflow-auto —",
+        "'Inbox cut / composer under navbar': both inboxes used desktop magic",
+        "'Buttons cropped': automation card header row (5 icon buttons + badge,"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "auto",
+      "title": "Team roles system — Viewer/Editor/Admin ladder + fix members seeing nothing",
+      "description": "viewer: read-only (legacy 'member' rows migrated here — zero behavior",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "viewer: read-only (legacy 'member' rows migrated here — zero behavior",
+        "workspace.ts: role in context, roleAtLeast ladder, requireWorkspaceRole",
+        "24 read functions threaded across 12 files (incl. instagram-api for the",
+        "33 write functions guarded: every id-addressed write carries",
+        "getUserPlan resolves the workspace OWNER's plan for members (plan",
+        "team.ts: invites carry a server-validated role through accept; NEW"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "auto",
+      "title": "Fix dead delete buttons — confirm dialogs were imported but never rendered",
+      "description": "Fix dead delete buttons — confirm dialogs were imported but never rendered",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Fix dead delete buttons — confirm dialogs were imported but never rendered"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "auto",
+      "title": "Full SEO foundation — structured data, Canonicals, Content engine, AI-search readiness",
+      "description": "Root layout @graph: Organization (logo, sameAs) + WebSite (site-name",
+      "tag": "security",
+      "icon": "Shield",
+      "highlights": [
+        "Root layout @graph: Organization (logo, sameAs) + WebSite (site-name",
+        "Homepage WebApplication + Offer (price 0 INR — the one rich result a",
+        "/help FAQPage generated from the SAME module the page renders (shared",
+        "/u/[slug] ProfilePage (real avatars only, user-declared sameAs)",
+        "BlogPosting + BreadcrumbList on articles; BreadcrumbList on pillars",
+        "Canonical URL on every route (alternates.canonical); title template in"
+      ]
+    },
+    {
       "date": "Sep 15, 2026",
       "version": "auto",
       "title": "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids",
