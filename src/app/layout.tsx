@@ -62,14 +62,13 @@ export const metadata: Metadata = {
     "Instagram DM bot",
     "social media automation",
   ],
-  // Search Console / Bing Webmaster verification tokens (set on Vercel when
-  // the founder generates them — no tags render until then).
-  verification: {
-    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined,
-    other: process.env.NEXT_PUBLIC_BING_VERIFICATION
-      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_VERIFICATION }
-      : undefined,
-  },
+  // Bing Webmaster verification token (set on Vercel when generated —
+  // nothing renders until then). Google Search Console is verified as a
+  // DOMAIN property via DNS TXT, which covers every subdomain — no HTML
+  // meta tag needed, so no GSC token is read here.
+  verification: process.env.NEXT_PUBLIC_BING_VERIFICATION
+    ? { other: { "msvalidate.01": process.env.NEXT_PUBLIC_BING_VERIFICATION } }
+    : undefined,
   openGraph: {
     title: "ChirplyMint — Automate Instagram DMs & Comments",
     description:
