@@ -18,8 +18,8 @@ export default function AppLayout({
           here + overscroll-contain — added in R64 — swallowed the mouse
           wheel: the wheel chained to this non-scrolling container and
           overscroll-behavior stopped it reaching the document. The document
-          scrolls the app; html's overscroll-behavior-y: none already handles
-          pull-to-refresh.) */}
+          scrolls the app, and the root keeps overscroll-behavior-y at its
+          default so Chrome's pull-to-refresh works.) */}
       <main className="flex-1 min-w-0 overflow-x-clip">
         {/* Top header bar — pl-16 on mobile gives space for the hamburger button */}
         <div className="sticky top-0 z-30 flex items-center justify-end gap-3 pl-16 lg:pl-6 pr-6 lg:pr-8 py-3 bg-muted/30 backdrop-blur-sm border-b border-border/50">

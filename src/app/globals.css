@@ -139,10 +139,13 @@
   html {
     @apply font-sans;
     /* App-like scroll feel, especially in the installed PWA:
-       - no horizontal rubber-banding ("page moving sides")
-       - no pull-to-refresh hijacking drags inside the app */
+       - no horizontal rubber-banding ("page moving sides").
+       overscroll-behavior-y is deliberately left at its default (auto) on
+       the root so Chrome's pull-to-refresh gesture + spinner work — both
+       were dead while it was set to none. Drag-to-refresh inside overlays
+       (the mobile nav drawer) is stopped locally by their own
+       overscroll-contain instead. */
     overscroll-behavior-x: none;
-    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
   }
   /* No page may ever scroll sideways, on any device: every layout is
