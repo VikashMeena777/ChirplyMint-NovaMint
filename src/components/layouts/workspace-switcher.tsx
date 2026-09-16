@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronsUpDown, User, Users, Check } from "lucide-react";
 import { switchWorkspace, getWorkspaceSwitchState } from "@/lib/actions/workspace";
 
@@ -30,6 +30,10 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
   });
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Collapsed rail: the flyout is position:fixed (computed from the button)
+  // so the sidebar's overflow-y-auto can't clip it.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [flyoutPos, setFlyoutPos] = useState<{ top: number; left: number } | null>(null);
   // Until the first server check completes, trust a positive cache but
   // hide on a negative one only after confirmation (prevents flashing
   // hidden → shown for members)
@@ -44,6 +48,15 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
       } catch {}
     });
   }, []);
+
+  // The collapsed flyout is fixed-positioned: close it if anything scrolls
+  // (the rail is scrollable now) so it never detaches from its button.
+  useEffect(() => {
+    if (!open || !collapsed) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", close, { capture: true });
+  }, [open, collapsed]);
 
   // Pre-confirmation: show if the cache says member (optimistic); hide
   // only after the server confirms no membership.
@@ -79,7 +92,20 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
       }`}
     >
       <button
-        onClick={() => setOpen(!open)}
+        ref={btnRef}
+        onClick={() => {
+          const next = !open;
+          if (next && collapsed) {
+            const r = btnRef.current?.getBoundingClientRect();
+            // Align with the rail's OUTER edge (not the button's), so the
+            // flyout never sits under the 72px rail.
+            const railRight = btnRef.current
+              ?.closest("aside")
+              ?.getBoundingClientRect().right;
+            if (r) setFlyoutPos({ top: r.top, left: (railRight ?? r.right) + 8 });
+          }
+          setOpen(next);
+        }}
         title={collapsed ? (active === "team" ? "Team workspace" : "My workspace") : undefined}
         className={
           collapsed
@@ -110,13 +136,19 @@ export function WorkspaceSwitcher({ collapsed = false }: { collapsed?: boolean }
       </button>
 
       {open && (
-        // Collapsed: fly out to the RIGHT of the 72px rail (a dropdown inside
-        // it would be crushed). Expanded: normal below-the-button popover.
+        // Collapsed: fly out to the RIGHT of the 72px rail (fixed so the
+        // rail's overflow-y-auto can't clip it). Expanded: normal
+        // below-the-button popover.
         <div
           className={
             collapsed
-              ? "absolute left-full top-0 ml-2 z-50 w-56 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+              ? "z-50 w-56 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
               : "absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+          }
+          style={
+            collapsed && flyoutPos
+              ? { position: "fixed", top: flyoutPos.top, left: flyoutPos.left }
+              : undefined
           }
         >
           {options.map((o) => (

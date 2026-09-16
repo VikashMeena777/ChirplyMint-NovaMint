@@ -290,9 +290,10 @@ export function Sidebar() {
       )}
 
       {/* Mobile drawer — scrollable when the nav is taller than the screen
-          (short/landscape phones), with the safe-area inset respected */}
+          (short/landscape phones); overscroll-contain keeps its scroll from
+          chaining into the page behind the overlay */}
       <div
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 overflow-y-auto ${
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 overflow-y-auto overscroll-y-contain ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -307,12 +308,14 @@ export function Sidebar() {
       </div>
 
       {/* Desktop sidebar — sticky so it stays visible regardless of page scroll.
-          Collapsed: overflow-visible so the workspace flyout can escape the
-          72px rail (overflow-y-auto would clip it); the icon-only content
-          never needs vertical scrolling. */}
+          overflow-y-auto + overscroll-contain: the wheel over the sidebar
+          scrolls the SIDEBAR alone (when it overflows) and never chains to the
+          page, so hovering the nav can no longer scroll the dashboard behind
+          it. The collapsed rail's workspace flyout positions itself with
+          `fixed` to escape this clipping. */}
       <aside
-        className={`hidden lg:flex flex-col sticky top-0 h-screen border-r border-border bg-card transition-all duration-200 ${
-          collapsed ? "w-[72px] overflow-visible" : "w-[240px] overflow-y-auto"
+        className={`hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto overscroll-y-contain border-r border-border bg-card transition-all duration-200 ${
+          collapsed ? "w-[72px]" : "w-[240px]"
         }`}
       >
         <SidebarContent collapsed={collapsed} />
