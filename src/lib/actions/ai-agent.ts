@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireWorkspaceRole } from "@/lib/workspace";
 import { resolveWorkspaceScope } from "@/lib/workspace";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { revalidatePath } from "next/cache";
 import { agentSetupMissing, assemblePersona } from "@/lib/ai/agent-setup";
@@ -60,11 +61,17 @@ export async function getAIAgent() {
   if (!scope.user) return { data: null, error: "Not authenticated" };
   const { targetId, client: db } = scope;
 
+  // Per-account isolation: one agent per connected account.
+  const accountId = await getSelectedIgAccountId(targetId);
+  if (!accountId) return { data: null, error: null };
+
   const { data, error } = await db
     .from("ai_agents")
     .select("*")
     .eq("user_id", targetId)
-    .single();
+    .eq("instagram_account_id", accountId)
+    .limit(1)
+    .maybeSingle();
 
   if (error && error.code !== "PGRST116") return { data: null, error: error.message };
   return { data: data as AIAgent | null, error: null };
@@ -80,19 +87,27 @@ export async function createAIAgent(agentName: string) {
     return { data: null, error: "AI Agent is a Pro feature — upgrade to Pro to unlock it." };
   }
 
-  // Check if user already has an agent
+  // Per-account isolation: each connected account gets its own agent.
+  const accountId = await getSelectedIgAccountId(targetId);
+  if (!accountId) {
+    return { data: null, error: "Connect an Instagram account first." };
+  }
+
   const { data: existing } = await db
     .from("ai_agents")
     .select("id")
     .eq("user_id", targetId)
-    .single();
+    .eq("instagram_account_id", accountId)
+    .limit(1)
+    .maybeSingle();
 
-  if (existing) return { data: null, error: "You already have an AI agent" };
+  if (existing) return { data: null, error: "This account already has an AI agent" };
 
   const { data, error } = await db
     .from("ai_agents")
     .insert({
       user_id: targetId,
+      instagram_account_id: accountId,
       agent_name: agentName || "Assistant",
       // auto-detect: mirror whatever language the lead writes in (default)
       language: "auto",

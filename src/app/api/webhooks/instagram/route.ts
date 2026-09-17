@@ -1343,6 +1343,9 @@ async function handleIncomingDM(messagingEvent: Record<string, unknown>) {
   } else try {
     const agentResult = await generateAgentReply({
       userId,
+      // Per-account isolation: only the agent of the account that received
+      // this DM may answer it.
+      instagramAccountId: (igAccount as Record<string, unknown>)?.id as string,
       senderIgId: senderId,
       senderUsername: senderId,
       incomingMessage: messageText,

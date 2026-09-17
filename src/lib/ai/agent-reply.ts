@@ -160,6 +160,8 @@ function classifyIntent(message: string): "question" | "casual" | "greeting" | "
  */
 export async function generateAgentReply(params: {
   userId: string;
+  /** Which connected account received this DM — each account has its own agent. */
+  instagramAccountId?: string | null;
   senderIgId: string;
   senderUsername: string;
   incomingMessage: string;
@@ -169,13 +171,18 @@ export async function generateAgentReply(params: {
 } | null> {
   const supabase = getSupabase();
 
-  // 1. Get the user's AI agent config
-  const { data: agent } = await supabase
+  // 1. Get the AI agent for THIS account (per-account isolation: the row is
+  //    keyed by user + account, so activating the agent for one account can
+  //    no longer answer DMs on all of the user's accounts).
+  let agentQuery = supabase
     .from("ai_agents")
     .select("*")
     .eq("user_id", params.userId)
-    .eq("is_active", true)
-    .single();
+    .eq("is_active", true);
+  if (params.instagramAccountId) {
+    agentQuery = agentQuery.eq("instagram_account_id", params.instagramAccountId);
+  }
+  const { data: agent } = await agentQuery.limit(1).maybeSingle();
 
   if (!agent) return null;
 
@@ -362,6 +369,7 @@ CONVERSATION AWARENESS:
 
   // 8. Save incoming message to conversation history
   await supabase.from("ai_conversations").insert({
+    instagram_account_id: params.instagramAccountId ?? null,
     agent_id: config.id,
     user_id: params.userId,
     sender_ig_id: params.senderIgId,
@@ -379,6 +387,7 @@ CONVERSATION AWARENESS:
     (intent === "greeting" || intent === "casual")
   ) {
     await supabase.from("ai_conversations").insert({
+    instagram_account_id: params.instagramAccountId ?? null,
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
@@ -395,6 +404,7 @@ CONVERSATION AWARENESS:
   // nim → groq). Previously Groq-only setups silently got fallback messages.
   if (!process.env.NVIDIA_NIM_API_KEY && !process.env.GROQ_API_KEY) {
     await supabase.from("ai_conversations").insert({
+    instagram_account_id: params.instagramAccountId ?? null,
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
@@ -494,6 +504,7 @@ CONVERSATION AWARENESS:
 
     // Save reply to conversation history
     await supabase.from("ai_conversations").insert({
+    instagram_account_id: params.instagramAccountId ?? null,
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,
@@ -507,6 +518,7 @@ CONVERSATION AWARENESS:
     console.error("[AI Agent] Error generating reply:", error);
 
     await supabase.from("ai_conversations").insert({
+    instagram_account_id: params.instagramAccountId ?? null,
       agent_id: config.id,
       user_id: params.userId,
       sender_ig_id: params.senderIgId,

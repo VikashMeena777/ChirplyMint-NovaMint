@@ -33,6 +33,7 @@ import { BotMessageSquareIcon } from "@/components/icons/bot-message-square/bot-
 import { Link2Icon } from "@/components/icons/link-2/link-2";
 import { PartyPopperIcon } from "@/components/icons/party-popper/party-popper";
 import { WorkspaceSwitcher } from "@/components/layouts/workspace-switcher";
+import { AccountSwitcherHost } from "@/components/layouts/account-switcher-host";
 import { LogoutIcon } from "@/components/icons/logout/logout";
 import { BotIcon } from "@/components/icons/bot/bot";
 import { MessageCircleIcon } from "@/components/icons/message-circle/message-circle";
@@ -159,6 +160,7 @@ export function Sidebar() {
       </div>
 
       <WorkspaceSwitcher collapsed={collapsed} />
+      <AccountSwitcherHost collapsed={collapsed} />
 
       {/* Main nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
