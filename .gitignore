@@ -50,3 +50,6 @@ next-env.d.ts
 perf-*.json
 shots/
 tools/mobile/.audit-session.json
+
+# Mimosa scan hook state (local only — never part of the app)
+.mimosa/
