@@ -747,7 +747,8 @@ export default function CreateAutomationWizard({
                         {igAccounts.length > 1 && (
                           <>Wrong account? Pick a different one above — each account has its own stories.</>
                         )}{" "}
-                        This automation will still trigger on any future story replies.
+                        Stories made by resharing a post or another story aren&apos;t returned by Instagram&apos;s API.
+                        Leaving the selection empty will still trigger this automation on every story reply.
                       </p>
                     </div>
                   ) : (
@@ -794,6 +795,10 @@ export default function CreateAutomationWizard({
                   )}
                   <p className="text-xs text-muted-foreground">
                     💡 Selecting a story is optional — leaving none selected means this automation triggers on <strong>all</strong> story replies.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ℹ️ Stories you create by <strong>resharing a post or another story</strong> (including collab reels) never appear in this
+                    list — Instagram&apos;s API doesn&apos;t return them. Replies to them still trigger this automation normally.
                   </p>
 
                   {/* ── Story-Link Branching (Graph API v26 link_sticker_url) ── */}
