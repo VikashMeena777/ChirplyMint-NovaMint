@@ -1,6 +1,55 @@
 {
   "entries": [
     {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Name the account in the wizard's post/story states (stories were never actually broken)",
+      "description": "Loading states now say \"Loading @handle's stories/posts...\"",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Loading states now say \"Loading @handle's stories/posts...\"",
+        "Empty states say \"@handle has no live stories right now\" and, for",
+        "Same treatment for the posts empty state"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Multi-account wizard showed the wrong account's posts and Stories",
+      "description": "instagram-api.ts: new resolveIgAccount(db, targetId, accountId) helper;",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "instagram-api.ts: new resolveIgAccount(db, targetId, accountId) helper;",
+        "Wizard: passes the selected account to posts, stories, pagination and",
+        "Editing an automation on a secondary account now loads that account's"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Restore Chrome pull-to-refresh on mobile",
+      "description": "Restore Chrome pull-to-refresh on mobile",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Restore Chrome pull-to-refresh on mobile"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Env audit follow-ups — drop GSC meta wiring (domain verified), Remove PAN from the system",
+      "description": "Google Search Console is verified as a DOMAIN property (DNS TXT), which",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "Google Search Console is verified as a DOMAIN property (DNS TXT), which",
+        "PAN removed from the system entirely: the invoice template no longer"
+      ]
+    },
+    {
       "date": "Sep 16, 2026",
       "version": "auto",
       "title": "Full mobile/PWA bug hunt — 3-agent audit, 40+ fixes",
