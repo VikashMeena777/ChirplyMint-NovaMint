@@ -63,17 +63,24 @@ export async function retryFailedDM(dmLogId: string): Promise<{ success: boolean
     };
   }
 
-  // Get the Instagram account's access token
-  const { data: igAccount } = await db
+  // Send from the account the DM originally belonged to (dm_logs carries
+  // instagram_account_id; the dm-retry cron already uses it). Falling back to
+  // the user's first account sent retries from the WRONG Instagram account on
+  // multi-account setups — for legacy rows without the column only.
+  const logAccountId = (dm.instagram_account_id as string) || null;
+  let accountQuery = db
     .from("instagram_accounts")
     .select("access_token, ig_user_id")
-    .eq("user_id", targetId)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+    .eq("user_id", targetId);
+  if (logAccountId) {
+    accountQuery = accountQuery.eq("id", logAccountId);
+  } else {
+    accountQuery = accountQuery.eq("is_active", true).limit(1);
+  }
+  const { data: igAccount } = await accountQuery.single();
 
   if (!igAccount) {
-    return { success: false, error: "No active Instagram account found. Reconnect in Settings." };
+    return { success: false, error: "The Instagram account for this DM is unavailable. Reconnect it in Settings." };
   }
 
   const acc = igAccount as Record<string, string>;

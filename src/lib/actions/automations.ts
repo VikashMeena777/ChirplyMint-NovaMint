@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { canCreateAutomation, type PlanKey } from "@/lib/utils/plan-limits";
 import { revalidatePath } from "next/cache";
+import { findConflict, conflictReason, type ConflictCandidate } from "@/lib/utils/automation-conflicts";
 import { trackServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function getAutomations() {
@@ -132,23 +133,31 @@ export async function createAutomation(formData: FormData) {
     return { error: "Template title is required for button templates" };
 
   // ── DUPLICATE KEYWORD CHECK ──
-  // Prevent two automations from triggering on the same keyword for the same IG account
-  const keywordsToCheck = keyword.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
+  // A keyword only clashes when one comment/story reply could be claimed by
+  // BOTH automations: same account (this query), same channel (comment vs
+  // story) AND overlapping scope. Same keyword on a different account, on a
+  // different post, or on the other channel is allowed.
+  const incomingCandidate: ConflictCandidate = {
+    id: "new",
+    name: name.trim(),
+    keyword,
+    scope_type: scopeType,
+    media_id: mediaId,
+    trigger_type: triggerType,
+  };
   const { data: existingAutomations } = await db
     .from("automations")
-    .select("id, name, keyword")
+    .select("id, name, keyword, scope_type, media_id, trigger_type")
     .eq("user_id", targetId)
     .eq("instagram_account_id", targetAccountId)
     .in("status", ["active", "paused"]);
 
   if (existingAutomations) {
-    for (const existing of existingAutomations) {
-      const e = existing as Record<string, string>;
-      const existingKeywords = (e.keyword || "").split(",").map((k: string) => k.trim().toLowerCase());
-      const duplicates = keywordsToCheck.filter((k: string) => existingKeywords.includes(k));
-      if (duplicates.length > 0) {
+    for (const other of existingAutomations as ConflictCandidate[]) {
+      const clash = findConflict(incomingCandidate, other);
+      if (clash) {
         return {
-          error: `The keyword "${duplicates[0]}" is already used by automation "${e.name}". Each keyword must be unique per Instagram account.`,
+          error: `The keyword "${clash}" is already used by automation "${other.name}" on this account — ${conflictReason(incomingCandidate, other)}. Pick a different keyword, a different post, or the other trigger channel.`,
         };
       }
     }
@@ -393,25 +402,48 @@ export async function updateAutomation(
   if (templateType === "button" && !templateTitle?.trim())
     return { error: "Template title is required for button templates" };
 
-  // Duplicate keyword check — EXCLUDE this automation itself
-  const keywordsToCheck = keyword.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
-  const targetAccountId = ((existing as Record<string, unknown>).instagram_account_id as string) || "";
+  // ── ACCOUNT ──
+  // The edit wizard's account picker must actually take effect: resolve the
+  // picked account (validated against the user's active accounts), falling
+  // back to the automation's current account. Previously this read the OLD
+  // account for the conflict check and never persisted a change, so moving a
+  // (often cloned) automation to another account silently reverted — and
+  // false "keyword already used" errors appeared when the target account was
+  // actually free.
+  const pickedAccountId = (formData.get("instagram_account_id") as string) || "";
+  const { data: ownedAccounts } = await db
+    .from("instagram_accounts")
+    .select("id")
+    .eq("user_id", targetId)
+    .eq("is_active", true);
+  let targetAccountId = ((existing as Record<string, unknown>).instagram_account_id as string) || "";
+  if (pickedAccountId && (ownedAccounts ?? []).some((a) => (a as { id: string }).id === pickedAccountId)) {
+    targetAccountId = pickedAccountId;
+  }
+
+  // Duplicate keyword check — same rules as create, EXCLUDING this row
+  const incomingCandidate: ConflictCandidate = {
+    id,
+    name: name.trim(),
+    keyword,
+    scope_type: scopeType,
+    media_id: mediaId,
+    trigger_type: triggerType,
+  };
   const { data: existingAutomations } = await db
     .from("automations")
-    .select("id, name, keyword")
+    .select("id, name, keyword, scope_type, media_id, trigger_type")
     .eq("user_id", targetId)
     .eq("instagram_account_id", targetAccountId)
     .in("status", ["active", "paused"])
     .neq("id", id);
 
   if (existingAutomations) {
-    for (const other of existingAutomations) {
-      const o = other as Record<string, string>;
-      const otherKeywords = (o.keyword || "").split(",").map((k: string) => k.trim().toLowerCase());
-      const duplicates = keywordsToCheck.filter((k: string) => otherKeywords.includes(k));
-      if (duplicates.length > 0) {
+    for (const other of existingAutomations as ConflictCandidate[]) {
+      const clash = findConflict(incomingCandidate, other);
+      if (clash) {
         return {
-          error: `The keyword "${duplicates[0]}" is already used by automation "${o.name}". Each keyword must be unique per Instagram account.`,
+          error: `The keyword "${clash}" is already used by automation "${other.name}" on this account — ${conflictReason(incomingCandidate, other)}. Pick a different keyword, a different post, or the other trigger channel.`,
         };
       }
     }
@@ -481,6 +513,7 @@ export async function updateAutomation(
     .update({
       name: name.trim(),
       keyword: keyword.trim().toLowerCase(),
+      instagram_account_id: targetAccountId,
       dm_template: dmTemplate.trim(),
       scope_type: scopeType,
       content_type: contentType,

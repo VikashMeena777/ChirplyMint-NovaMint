@@ -203,6 +203,9 @@ export default function AutomationsPage() {
               key={a.id}
               automation={a}
               userPlan={userPlan}
+              accountHandle={
+                igAccounts.find((acc) => acc.id === a.instagram_account_id)?.ig_username ?? null
+              }
               onToggle={handleToggle}
               onDelete={handleDelete}
               onEdit={(automation) => setEditing(automation)}

@@ -549,6 +549,19 @@ export default function CreateAutomationWizard({
               </div>
 
               {/* Account Selector (multi-account) */}
+              {/* An automation can outlive its account (disconnected in
+                  Settings). Editing it would silently keep targeting a dead
+                  account with no explanation — say so, and point at the fix. */}
+              {editAutomation?.instagram_account_id &&
+                !igAccounts.some((acc) => acc.id === editAutomation.instagram_account_id) && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      This automation is connected to an Instagram account that is currently
+                      disconnected. Reconnect it in Settings → Instagram, or pick another account
+                      below to move the automation.
+                    </p>
+                  </div>
+                )}
               {igAccounts.length > 1 && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">

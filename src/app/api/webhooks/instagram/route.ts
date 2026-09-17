@@ -428,9 +428,20 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     query = query.eq("instagram_accounts.ig_user_id", receivingIgId);
   }
 
-  const { data: automations } = await query;
+  const { data: automationsRaw } = await query;
 
-  if (!automations || automations.length === 0) return;
+  if (!automationsRaw || automationsRaw.length === 0) return;
+
+  // Deterministic specificity: post-scoped automations are evaluated BEFORE
+  // account-wide ones, so an account-wide catch-all ("*") can never swallow a
+  // comment that a post-specific automation was created for. Ordering from
+  // PostgREST is otherwise arbitrary (insertion order), which made the winner
+  // of two matching automations luck-dependent.
+  const automations = [...automationsRaw].sort((a, b) => {
+    const rank = (x: Record<string, unknown>) =>
+      (x.scope_type === "media" && x.media_id) ? 0 : 1;
+    return rank(a as Record<string, unknown>) - rank(b as Record<string, unknown>);
+  });
 
   // One comment = max one DM. Without this, a comment matching N
   // automations (overlapping keywords + catch-all) sends N DMs.
@@ -455,10 +466,17 @@ async function handleComment(commentData: Record<string, unknown>, receivingIgId
     const matched = isCatchAll || keywords.some((kw: string) => commentLower.includes(kw));
     if (!matched) continue;
 
-    // Check scope: if automation is for a specific post, match media_id
+    // Check scope: if automation is for specific post(s), match media_id.
+    // The wizard stores multi-post selection as a comma-joined list, so this
+    // must be a membership test — strict equality made every multi-post
+    // automation dead on arrival (it could never match its own posts).
     const scopeType = (automation.scope_type as string) || "account";
     if (scopeType === "media" && automation.media_id) {
-      if (mediaId !== automation.media_id) continue; // Skip — different post
+      const scopedIds = (automation.media_id as string)
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      if (scopedIds.length > 0 && !scopedIds.includes(mediaId)) continue; // different post(s)
     }
 
     const igAccount = automation.instagram_accounts as Record<string, string>;

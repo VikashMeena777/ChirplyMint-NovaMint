@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InstagramIcon } from "@/components/icons/instagram/instagram";
 import {
   Pause,
   Play,
@@ -148,6 +149,10 @@ function PostbackFlowToggle({ automationId, userPlan }: { automationId: string; 
 interface AutomationCardProps {
   automation: Automation;
   userPlan: string;
+  /** Connected account this automation belongs to (shown when the user has
+   *  more than one account — multi-account setups were previously
+   *  indistinguishable on the list). */
+  accountHandle?: string | null;
   onToggle: (id: string, status: string) => void;
   onDelete: (id: string) => void;
   onEdit: (automation: Automation) => void;
@@ -159,6 +164,7 @@ interface AutomationCardProps {
 export default function AutomationCard({
   automation: a,
   userPlan,
+  accountHandle,
   onToggle,
   onDelete,
   onEdit,
@@ -239,8 +245,17 @@ export default function AutomationCard({
         </div>
       </div>
 
-      {/* ── Row 2: Trigger + Features info ── */}
+      {/* ── Row 2: Account + Trigger + Features info ── */}
       <div className="px-5 pb-3 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+        {accountHandle && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-[oklch(0.52_0.19_162/35%)] bg-[oklch(0.52_0.19_162/8%)] px-2 py-0.5 font-medium text-[oklch(0.52_0.19_162)]"
+            title={`Runs on @${accountHandle}`}
+          >
+            <InstagramIcon size={12} />
+            @{accountHandle}
+          </span>
+        )}
         {/* Keyword trigger */}
         <span className="inline-flex items-center gap-1">
           <Tag className="w-3 h-3" />
