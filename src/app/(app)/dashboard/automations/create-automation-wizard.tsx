@@ -163,21 +163,25 @@ export default function CreateAutomationWizard({
   );
   const [postbackFlows, setPostbackFlows] = useState<PostbackFlowForm[]>([]);
 
-  // ── Load posts & stories on mount ──
+  // ── Load posts & stories for the SELECTED account (refetches on switch;
+  //    before this, the loaders ignored the picker and always returned the
+  //    primary account's media) ──
+  const selectedAccountId = formData.instagram_account_id;
+
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
-    const { data, nextCursor: cursor } = await getInstagramPosts();
+    const { data, nextCursor: cursor } = await getInstagramPosts(undefined, selectedAccountId);
     setPosts(data);
     setNextCursor(cursor);
     setLoadingPosts(false);
-  }, []);
+  }, [selectedAccountId]);
 
   const loadStories = useCallback(async () => {
     setLoadingStories(true);
-    const { data } = await getInstagramStories();
+    const { data } = await getInstagramStories(selectedAccountId);
     setStories(data);
     setLoadingStories(false);
-  }, []);
+  }, [selectedAccountId]);
 
   useEffect(() => {
     loadPosts();
@@ -188,7 +192,7 @@ export default function CreateAutomationWizard({
   async function loadMorePosts() {
     if (!nextCursor || loadingMorePosts) return;
     setLoadingMorePosts(true);
-    const { data, nextCursor: cursor } = await getInstagramPosts(nextCursor);
+    const { data, nextCursor: cursor } = await getInstagramPosts(nextCursor, selectedAccountId);
     setPosts((prev) => [...prev, ...data]);
     setNextCursor(cursor);
     setLoadingMorePosts(false);
@@ -197,7 +201,7 @@ export default function CreateAutomationWizard({
   async function handleLoadUrlPost() {
     if (!reelUrl.trim()) return;
     setLoadingUrlPost(true);
-    const { data, error } = await getInstagramPostByUrl(reelUrl.trim());
+    const { data, error } = await getInstagramPostByUrl(reelUrl.trim(), selectedAccountId);
     if (error) {
       toast.error(error);
     } else if (data) {
@@ -551,9 +555,23 @@ export default function CreateAutomationWizard({
                       <button
                         key={acc.id}
                         type="button"
-                        onClick={() =>
-                          setFormData((f) => ({ ...f, instagram_account_id: acc.id }))
-                        }
+                        onClick={() => {
+                          if (formData.instagram_account_id === acc.id) return;
+                          // Switching accounts must drop any post/story picked
+                          // from the previous account — keeping it would save
+                          // one account's media id under another account's
+                          // automation. The posts/stories lists refetch
+                          // automatically (loadPosts/loadStories depend on
+                          // the selected account).
+                          setFormData((f) => ({
+                            ...f,
+                            instagram_account_id: acc.id,
+                            media_id: "",
+                            media_ids: [],
+                            post_url: "",
+                          }));
+                          setReelUrl("");
+                        }}
                         className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
                           formData.instagram_account_id === acc.id
                             ? "border-[oklch(0.52_0.19_162)] bg-[oklch(0.52_0.19_162/5%)] shadow-sm"

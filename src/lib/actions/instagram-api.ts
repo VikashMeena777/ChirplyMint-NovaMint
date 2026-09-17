@@ -1,15 +1,46 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { resolveWorkspaceScope } from "@/lib/workspace";
+import { resolveWorkspaceScope, type WorkspaceScope } from "@/lib/workspace";
 import { fetchInstagramPosts, fetchInstagramPostByUrl, fetchInstagramStories, getBucUsage, type InstagramPost } from "@/lib/instagram/send-dm";
 import { fetchAccountInsights, fetchRecentMedia } from "@/lib/instagram/insights";
+
+/**
+ * Resolve which connected account to read from.
+ *
+ * Multi-account bug fix: these loaders used to hard-code the FIRST active
+ * account (`.limit(1)`), so a user with several accounts always saw the
+ * primary account's posts/stories in the automation wizard no matter which
+ * account was selected. Passing `accountId` (the instagram_accounts row id
+ * from the picker) now targets that account; omitting it keeps the old
+ * "first active account" behaviour.
+ *
+ * Ownership is enforced by the same `.eq("user_id", targetId)` filter, so a
+ * forged accountId belonging to someone else simply resolves to nothing.
+ */
+async function resolveIgAccount(
+  db: WorkspaceScope["client"],
+  targetId: string,
+  accountId?: string
+) {
+  let query = db
+    .from("instagram_accounts")
+    .select("ig_user_id, access_token, page_access_token")
+    .eq("user_id", targetId)
+    .eq("is_active", true);
+  if (accountId) query = query.eq("id", accountId);
+  const { data } = await query.limit(1).single();
+  return data as { ig_user_id: string; access_token: string | null; page_access_token: string | null } | null;
+}
 
 /**
  * Get the current user's recent Instagram posts for the post picker.
  * Now fetches 50 posts (up from 20) and supports pagination.
  */
-export async function getInstagramPosts(afterCursor?: string): Promise<{
+export async function getInstagramPosts(
+  afterCursor?: string,
+  accountId?: string
+): Promise<{
   data: InstagramPost[];
   nextCursor?: string;
   error?: string;
@@ -19,13 +50,7 @@ export async function getInstagramPosts(afterCursor?: string): Promise<{
   const { targetId, client: db } = scope;
 
   // Get the user's active Instagram account
-  const { data: igAccount } = await db
-    .from("instagram_accounts")
-    .select("ig_user_id, access_token")
-    .eq("user_id", targetId)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+  const igAccount = await resolveIgAccount(db, targetId, accountId);
 
   if (!igAccount) {
     return { data: [], error: "No Instagram account connected" };
@@ -45,7 +70,10 @@ export async function getInstagramPosts(afterCursor?: string): Promise<{
  * Fetch a specific Instagram post by its URL.
  * Uses oEmbed + permalink matching to find and return the post.
  */
-export async function getInstagramPostByUrl(postUrl: string): Promise<{
+export async function getInstagramPostByUrl(
+  postUrl: string,
+  accountId?: string
+): Promise<{
   data: InstagramPost | null;
   error?: string;
 }> {
@@ -59,13 +87,7 @@ export async function getInstagramPostByUrl(postUrl: string): Promise<{
     return { data: null, error: "Please enter a valid Instagram post or reel URL." };
   }
 
-  const { data: igAccount } = await db
-    .from("instagram_accounts")
-    .select("ig_user_id, access_token")
-    .eq("user_id", targetId)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+  const igAccount = await resolveIgAccount(db, targetId, accountId);
 
   if (!igAccount) {
     return { data: null, error: "No Instagram account connected" };
@@ -88,7 +110,7 @@ export async function getInstagramPostByUrl(postUrl: string): Promise<{
  * Get the current user's active Instagram stories for the story picker.
  * Stories are only available while live (24-hour window).
  */
-export async function getInstagramStories(): Promise<{
+export async function getInstagramStories(accountId?: string): Promise<{
   data: InstagramPost[];
   error?: string;
 }> {
@@ -96,13 +118,7 @@ export async function getInstagramStories(): Promise<{
   if (!scope.user) return { data: [], error: "Not authenticated" };
   const { targetId, client: db } = scope;
 
-  const { data: igAccount } = await db
-    .from("instagram_accounts")
-    .select("ig_user_id, access_token")
-    .eq("user_id", targetId)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+  const igAccount = await resolveIgAccount(db, targetId, accountId);
 
   if (!igAccount) {
     return { data: [], error: "No Instagram account connected" };
@@ -121,7 +137,7 @@ export async function getInstagramStories(): Promise<{
  * Requires instagram_business_manage_insights (requested at OAuth; until Meta
  * approves it for production, the Graph call may error — the UI surfaces that).
  */
-export async function getContentInsights(): Promise<{
+export async function getContentInsights(accountId?: string): Promise<{
   connected: boolean;
   needsPermission: boolean;
   accountMetrics: Record<string, number>;
@@ -139,13 +155,7 @@ export async function getContentInsights(): Promise<{
   if (!scope.user) return { connected: false, needsPermission: false, accountMetrics: {}, media: [] };
   const { targetId, client: db } = scope;
 
-  const { data: igAccount } = await db
-    .from("instagram_accounts")
-    .select("ig_user_id, access_token, page_access_token")
-    .eq("user_id", targetId)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
+  const igAccount = await resolveIgAccount(db, targetId, accountId);
 
   if (!igAccount) return { connected: false, needsPermission: false, accountMetrics: {}, media: [] };
 
