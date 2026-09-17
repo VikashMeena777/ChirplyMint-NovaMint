@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { resolveWorkspaceScope } from "@/lib/workspace";
 
 export async function getMessages(
@@ -13,12 +14,14 @@ export async function getMessages(
   if (!scope.user) return { data: [], total: 0 };
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   const offset = (page - 1) * limit;
 
   let query = db
     .from("dm_logs")
     .select("*", { count: "exact" })
     .eq("user_id", targetId)
+    .eq("instagram_account_id", accountId)
     .order("sent_at", { ascending: false });
 
   if (search) {
@@ -44,27 +47,32 @@ export async function getMessageStats() {
   if (!scope.user) return { total: 0, sent: 0, pending: 0, failed: 0 };
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   const { count: total } = await db
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", targetId);
+    .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId);
 
   const { count: sent } = await db
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("status", "sent");
 
   const { count: pending } = await db
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("status", "pending");
 
   const { count: failed } = await db
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("status", "failed");
 
   return {

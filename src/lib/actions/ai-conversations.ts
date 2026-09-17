@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { resolveWorkspaceScope } from "@/lib/workspace";
 
 /**
@@ -18,12 +19,14 @@ export async function getConversationList(
   if (!scope.user) return { conversations: [], total: 0 };
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   // Get distinct sender conversations with their latest message
   // We use a raw query approach: fetch recent conversations ordered by time
   let query = db
     .from("ai_conversations")
     .select("id, agent_id, sender_ig_id, sender_username, role, content, created_at", { count: "exact" })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .order("created_at", { ascending: false });
 
   if (search) {
@@ -76,10 +79,12 @@ export async function getConversationThread(
   if (!scope.user) return [];
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   const { data } = await db
     .from("ai_conversations")
     .select("id, agent_id, sender_ig_id, sender_username, role, content, created_at")
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("sender_ig_id", senderIgId)
     .order("created_at", { ascending: true })
     .limit(200);
@@ -99,11 +104,13 @@ export async function getConversationStats(): Promise<{
   if (!scope.user) return { total_conversations: 0, messages_today: 0, total_messages: 0 };
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   // Total messages
   const { count: totalMessages } = await db
     .from("ai_conversations")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", targetId);
+    .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId);
 
   // Messages today
   const todayStart = new Date();
@@ -113,13 +120,15 @@ export async function getConversationStats(): Promise<{
     .from("ai_conversations")
     .select("*", { count: "exact", head: true })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .gte("created_at", todayStart.toISOString());
 
   // Distinct senders (unique conversations)
   const { data: senders } = await db
     .from("ai_conversations")
     .select("sender_ig_id")
-    .eq("user_id", targetId);
+    .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId);
 
   const uniqueSenders = new Set((senders ?? []).map((s) => (s as Record<string, string>).sender_ig_id));
 

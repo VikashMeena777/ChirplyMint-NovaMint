@@ -1,6 +1,7 @@
 "use server";
 
 import { PLANS, canCustomizeBioStyle, canHideBranding, type PlanKey } from "@/lib/utils/plan-limits";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { requireWorkspaceRole } from "@/lib/workspace";
 import { resolveWorkspaceScope } from "@/lib/workspace";
 import { getUserPlan } from "@/lib/actions/dashboard";
@@ -58,11 +59,11 @@ export async function getBioPage() {
   if (!scope.user) return { data: null, error: "Not authenticated" };
   const { targetId, client: db } = scope;
 
-  const { data, error } = await db
-    .from("bio_pages")
-    .select("*")
-    .eq("user_id", targetId)
-    .single();
+  // Per-account isolation: each connected account has its own bio page.
+  const accountId = await getSelectedIgAccountId(targetId);
+  let pageQuery = db.from("bio_pages").select("*").eq("user_id", targetId);
+  if (accountId) pageQuery = pageQuery.eq("instagram_account_id", accountId);
+  const { data, error } = await pageQuery.limit(1).maybeSingle();
 
   if (error && error.code !== "PGRST116") return { data: null, error: error.message };
   return { data: data as BioPage | null, error: null };
@@ -87,18 +88,19 @@ export async function createBioPage(slug: string, displayName: string) {
   if (existing) return { data: null, error: "This username is already taken" };
 
   // Check if user already has a page
-  const { data: userPage } = await db
-    .from("bio_pages")
-    .select("id")
-    .eq("user_id", targetId)
-    .single();
+  // Per-account isolation: one page PER ACCOUNT (slug stays globally unique).
+  const accountId = await getSelectedIgAccountId(targetId);
+  let existingQuery = db.from("bio_pages").select("id").eq("user_id", targetId);
+  if (accountId) existingQuery = existingQuery.eq("instagram_account_id", accountId);
+  const { data: userPage } = await existingQuery.limit(1).maybeSingle();
 
-  if (userPage) return { data: null, error: "You already have a bio page" };
+  if (userPage) return { data: null, error: "This account already has a bio page" };
 
   const { data, error } = await db
     .from("bio_pages")
     .insert({
       user_id: targetId,
+      instagram_account_id: accountId,
       slug: cleanSlug,
       display_name: displayName || cleanSlug,
     })

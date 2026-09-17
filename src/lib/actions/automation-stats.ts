@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { resolveWorkspaceScope } from "@/lib/workspace";
 
 export interface AutomationStat {
@@ -21,6 +22,7 @@ export async function getPerAutomationStats(): Promise<AutomationStat[]> {
   if (!scope.user) return [];
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   // Fetch all active/paused automations
   const { data: automations } = await db
     .from("automations")
@@ -42,6 +44,7 @@ export async function getPerAutomationStats(): Promise<AutomationStat[]> {
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
       .eq("automation_id", autoId)
       .eq("status", "sent");
 
@@ -50,6 +53,7 @@ export async function getPerAutomationStats(): Promise<AutomationStat[]> {
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
       .eq("automation_id", autoId)
       .eq("status", "failed");
 
@@ -58,6 +62,7 @@ export async function getPerAutomationStats(): Promise<AutomationStat[]> {
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
       .eq("automation_id", autoId);
 
     const sent = dmsSent ?? 0;

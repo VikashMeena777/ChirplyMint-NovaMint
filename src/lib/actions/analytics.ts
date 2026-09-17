@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 
 export async function getDailyDMStats(days = 7) {
@@ -14,6 +15,8 @@ export async function getDailyDMStats(days = 7) {
   const ws = await getWorkspaceContext();
   const targetId = ws?.workspaceUserId ?? user.id;
   const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+  // Per-account isolation: charts show the SELECTED account.
+  const accountId = await getSelectedIgAccountId(targetId);
 
   const results: { day: string; label: string; count: number }[] = [];
 
@@ -28,7 +31,7 @@ export async function getDailyDMStats(days = 7) {
     const { count } = await dbClient
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", targetId)
+      .eq("user_id", targetId)      .eq("instagram_account_id", accountId)
       .gte("sent_at", start.toISOString())
       .lt("sent_at", end.toISOString());
 
@@ -53,6 +56,8 @@ export async function getDailyLeadStats(days = 7) {
   const ws = await getWorkspaceContext();
   const targetId = ws?.workspaceUserId ?? user.id;
   const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+  // Per-account isolation: charts show the SELECTED account.
+  const accountId = await getSelectedIgAccountId(targetId);
 
   const results: { day: string; label: string; count: number }[] = [];
 
@@ -67,7 +72,7 @@ export async function getDailyLeadStats(days = 7) {
     const { count } = await dbClient
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", targetId)
+      .eq("user_id", targetId)      .eq("instagram_account_id", accountId)
       .gte("captured_at", start.toISOString())
       .lt("captured_at", end.toISOString());
 
@@ -92,6 +97,8 @@ export async function getTopAutomations(limit = 3) {
   const ws = await getWorkspaceContext();
   const targetId = ws?.workspaceUserId ?? user.id;
   const dbClient = targetId !== user.id ? getWorkspaceAdminClient() : supabase;
+  // Per-account isolation: charts show the SELECTED account.
+  const accountId = await getSelectedIgAccountId(targetId);
 
   // Get active automations with their DM counts
   const { data: automations } = await dbClient

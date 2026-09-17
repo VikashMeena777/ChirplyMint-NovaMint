@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { getWorkspaceContext, requireWorkspaceRole, resolveWorkspaceScope } from "@/lib/workspace";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
@@ -20,12 +21,19 @@ function getAdmin() {
 async function getAccount(userId: string, crossUserClient?: ReturnType<typeof getAdmin>) {
   // Cross-user (team member → owner) reads need the service-role client.
   const supabase = crossUserClient ?? (await createClient());
-  const { data } = await supabase
+  // Per-account isolation: the live inbox follows the account selected in the
+  // sidebar (previously always the first active account, so other accounts'
+  // conversations were invisible).
+  const selectedAccountId = await getSelectedIgAccountId(userId);
+  let query = supabase
     .from("instagram_accounts")
     .select("ig_user_id, page_access_token, access_token")
     .eq("user_id", userId)
-    .eq("is_active", true)
-    .limit(1);
+    .eq("is_active", true);
+  if (selectedAccountId) {
+    query = query.eq("id", selectedAccountId);
+  }
+  const { data } = await query.limit(1);
   const acc = (data || [])[0] as Record<string, string> | undefined;
   if (!acc) return null;
   return { igUserId: acc.ig_user_id, token: acc.page_access_token || acc.access_token };

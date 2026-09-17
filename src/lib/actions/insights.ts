@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessABTesting } from "@/lib/utils/plan-limits";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { resolveWorkspaceScope } from "@/lib/workspace";
 import { getUserPlan } from "@/lib/actions/dashboard";
 import { createClient } from "@/lib/supabase/server";
@@ -45,6 +46,7 @@ export async function getAudienceInsights(): Promise<InsightData> {
   if (!scope.user) return emptyInsightsForStarter();
   const { targetId, client: db } = scope;
 
+  const accountId = await getSelectedIgAccountId(targetId);
   // Insights is a Pro+ feature — return the empty dataset for Starter.
   // (canAccessABTesting is the same pro+ rule; reusing it keeps the helper
   // set small. The UI shows the upgrade gate.)
@@ -69,19 +71,22 @@ export async function getAudienceInsights(): Promise<InsightData> {
     .from("dm_logs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("status", "sent");
 
   // ── Total Leads ──
   const { count: totalLeads } = await db
     .from("leads")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", targetId);
+    .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId);
 
   // ── Top Engagers (users who received the most DMs) ──
   const { data: dmLogs } = await db
     .from("dm_logs")
     .select("recipient_username, sent_at")
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .eq("status", "sent")
     .order("sent_at", { ascending: false })
     .limit(500);
@@ -141,7 +146,8 @@ export async function getAudienceInsights(): Promise<InsightData> {
   const { data: leads } = await db
     .from("leads")
     .select("source")
-    .eq("user_id", targetId);
+    .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId);
 
   const sourceMap = new Map<string, number>();
   for (const lead of leads || []) {
@@ -186,6 +192,7 @@ export async function getAudienceInsights(): Promise<InsightData> {
       .from("dm_logs")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
       .eq("status", "sent")
       .gte("sent_at", start.toISOString())
       .lt("sent_at", end.toISOString());
@@ -194,6 +201,7 @@ export async function getAudienceInsights(): Promise<InsightData> {
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
       .gte("captured_at", start.toISOString())
       .lt("captured_at", end.toISOString());
 

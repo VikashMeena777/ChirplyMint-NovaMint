@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSelectedIgAccountId } from "@/lib/actions/account-context";
 import { requireWorkspaceRole } from "@/lib/workspace";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
 import { logActivity } from "@/lib/utils/activity-logger";
@@ -24,11 +25,17 @@ export async function getLeads(
 
   const offset = (page - 1) * limit;
 
+  // Per-account isolation: the Leads page shows the SELECTED account's leads.
+  const accountId = await getSelectedIgAccountId(targetId);
+
   let query = (targetId !== user.id ? getWorkspaceAdminClient() : supabase)
     .from("leads")
     .select("*", { count: "exact" })
     .eq("user_id", targetId)
+      .eq("instagram_account_id", accountId)
     .order("captured_at", { ascending: false });
+
+  if (accountId) query = query.eq("instagram_account_id", accountId);
 
   if (search) {
     query = query.or(
@@ -55,11 +62,14 @@ export async function exportLeadsCSV() {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated", csv: "" };
 
-  const { data } = await supabase
+  // Per-account isolation: export only the selected account's leads.
+  const accountId = await getSelectedIgAccountId(user.id);
+  let csvQuery = supabase
     .from("leads")
     .select("ig_username, ig_user_id, source, notes, tags, custom_notes, email, phone, engagement, captured_at")
-    .eq("user_id", user.id)
-    .order("captured_at", { ascending: false });
+    .eq("user_id", user.id);
+  if (accountId) csvQuery = csvQuery.eq("instagram_account_id", accountId);
+  const { data } = await csvQuery.order("captured_at", { ascending: false });
 
   if (!data || data.length === 0) {
     return { error: "No leads to export", csv: "" };
@@ -231,10 +241,11 @@ export async function getLeadTags() {
   } = await supabase.auth.getUser();
   if (!user) return { tags: [] };
 
-  const { data } = await supabase
-    .from("leads")
-    .select("tags")
-    .eq("user_id", user.id);
+  // Per-account isolation: tag filter options come from the selected account.
+  const accountId = await getSelectedIgAccountId(user.id);
+  let tagsQuery = supabase.from("leads").select("tags").eq("user_id", user.id);
+  if (accountId) tagsQuery = tagsQuery.eq("instagram_account_id", accountId);
+  const { data } = await tagsQuery;
 
   if (!data) return { tags: [] };
 
