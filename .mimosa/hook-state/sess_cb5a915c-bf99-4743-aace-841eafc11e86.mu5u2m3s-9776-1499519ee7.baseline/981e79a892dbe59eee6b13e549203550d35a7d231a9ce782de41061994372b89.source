@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { PLANS, getEffectiveDMLimit, type PlanKey } from "@/lib/utils/plan-limits";
 import { getWorkspaceContext, getWorkspaceAdminClient } from "@/lib/workspace";
-import { userHasPassword } from "@/lib/auth/password-identity";
 
 export async function getUserPlan(): Promise<PlanKey> {
   const supabase = await createClient();
@@ -159,6 +158,7 @@ export async function getProfile() {
     : providers.includes("email")
       ? "email"
       : "oauth";
+
   return {
     id: user.id,
     email: user.email ?? "",
@@ -172,9 +172,6 @@ export async function getProfile() {
         (profile as Record<string, unknown>)?.dm_topup_balance as number | null
       ),
     authProvider,
-    // Whether destructive actions must ask for a password. Same helper the
-    // action itself uses, so the form and the check can't disagree.
-    hasPassword: userHasPassword(user),
   };
 }
 

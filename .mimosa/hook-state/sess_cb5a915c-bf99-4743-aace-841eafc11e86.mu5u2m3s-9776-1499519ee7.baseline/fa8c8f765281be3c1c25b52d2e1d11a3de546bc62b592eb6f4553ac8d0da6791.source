@@ -50,8 +50,6 @@ interface UserProfile {
   dmCountThisMonth: number;
   dmLimit: number;
   authProvider: "email" | "google" | "oauth";
-  /** Server-computed: does deleting/re-auth require entering a password? */
-  hasPassword?: boolean;
 }
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
@@ -239,7 +237,7 @@ export default function SettingsPage({ section, isMember = false }: { section: T
             <div className="rounded-xl border border-border bg-card p-5 space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Password</h3>
                 <p className="text-xs text-muted-foreground">
-                  {profile?.hasPassword
+                  {profile?.authProvider === "email"
                     ? "Change the password you use to log in."
                     : "You signed in with Google. Setting a password also lets you log in with email."}
                 </p>
@@ -330,10 +328,8 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                   className="w-full h-10 px-3 rounded-lg border border-red-300 dark:border-red-700 bg-card text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
 
-                {/* Step 2: accounts with a password re-enter it; Google-only
-                    accounts see a final warning instead. Driven by the same
-                    server-computed flag the delete action uses. */}
-                {profile?.hasPassword ? (
+                {/* Step 2: Email/password users enter password; OAuth users see a final warning */}
+                {profile?.authProvider === "email" ? (
                   <>
                     <p className="text-sm text-red-700 dark:text-red-400 font-medium">
                       Enter your password to verify:
@@ -373,17 +369,14 @@ export default function SettingsPage({ section, isMember = false }: { section: T
                   <button
                     disabled={
                       deleteConfirmText !== "DELETE" ||
-                      (profile?.hasPassword && !deletePassword) ||
+                      (profile?.authProvider === "email" && !deletePassword) ||
                       deleting
                     }
                     onClick={async () => {
                       setDeleting(true);
                       setDeleteError("");
-                      // Google sign-ups have no password; the action decides
-                      // whether one is required from the session itself.
-                      const result = await deleteAccount(
-                        profile?.hasPassword ? deletePassword : undefined
-                      );
+                      const pw = profile?.authProvider === "email" ? deletePassword : "__oauth_confirmed__";
+                      const result = await deleteAccount(pw);
                       if (result?.error) {
                         setDeleteError(result.error);
                         setDeleting(false);

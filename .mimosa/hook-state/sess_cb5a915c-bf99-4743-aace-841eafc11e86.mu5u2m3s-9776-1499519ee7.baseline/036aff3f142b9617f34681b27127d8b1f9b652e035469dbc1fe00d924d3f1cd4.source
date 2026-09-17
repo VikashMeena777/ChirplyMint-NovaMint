@@ -596,12 +596,9 @@ export async function cloneAutomation(
       name: `${o.name} (copy)`,
       keyword: `${o.keyword}-copy`,
       dm_template: o.dm_template,
-      // A clone starts account-wide: it has no post, so keeping the original
-      // "media" scope left it looking post-scoped in the UI with nothing
-      // selected (and reading as a post-scoped automation forever).
-      scope_type: "account",
+      scope_type: o.scope_type,
       content_type: o.content_type,
-      media_id: null,
+      media_id: null, // post-scoped clones start account-wide
       post_url: null,
       ai_enabled: o.ai_enabled,
       ai_persona: o.ai_persona,

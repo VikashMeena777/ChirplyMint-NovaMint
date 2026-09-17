@@ -4,19 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { logInfo, logError } from "@/lib/utils/logger";
-import { userHasPassword } from "@/lib/auth/password-identity";
 
 /**
  * Delete the current user's account and all associated data.
  * Requires password re-entry for security.
  * Cascading deletes on FK constraints handle child rows.
  * Also removes the auth.users entry so the email is fully freed.
- *
- * The password is optional in the signature because users who signed up with
- * Google have no password to give. Whether one is REQUIRED is decided here
- * from the session's own identities — never from anything the client sends.
  */
-export async function deleteAccount(password?: string) {
+export async function deleteAccount(password: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,13 +21,22 @@ export async function deleteAccount(password?: string) {
     return { error: "Not authenticated" };
   }
 
+  if (!password || password.trim().length === 0) {
+    return { error: "Password is required" };
+  }
+  const isOAuthSentinel = password === "__oauth_confirmed__";
+
   // Verify password before proceeding — ONLY for users who actually have a
-  // password identity, and decided here from the session, never from a value
-  // the client could send to skip the check.
-  if (userHasPassword(user)) {
-    if (!password || password.trim().length === 0) {
-      return { error: "Password is required" };
-    }
+  // password identity. Supabase stores identities per provider; Google-only
+  // users have no password, and app_metadata.providers can list just
+  // "google" (so checking .includes("email") there wrongly put Google users
+  // through password verification — every password failed).
+  const identities = (user.identities || []) as { provider: string }[];
+  const hasPasswordIdentity =
+    user.app_metadata?.providers?.includes("email") ||
+    identities.some((i) => i.provider === "email");
+
+  if (hasPasswordIdentity && !isOAuthSentinel) {
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email!,
       password,
@@ -41,8 +45,8 @@ export async function deleteAccount(password?: string) {
       return { error: "Incorrect password. Please try again." };
     }
   }
-  // OAuth-only users have no password to check; the "type DELETE" gate plus
-  // the live session are their confirmation.
+  // OAuth-only users: the client sends a sentinel; the "type DELETE" gate is
+  // the real confirmation.
 
   try {
     // 1. Delete profile (cascades to automations, leads, dm_logs, etc.)

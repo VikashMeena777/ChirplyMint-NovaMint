@@ -58,7 +58,6 @@ import {
 } from "./automation-types";
 import { StackComposer } from "./stack-composer";
 import { AUTOMATION_RECIPES } from "@/lib/automation-recipes";
-import { parseMediaIds } from "@/lib/utils/automation-conflicts";
 
 interface CreateAutomationWizardProps {
   userPlan: PlanKey;
@@ -94,12 +93,6 @@ function buildEditFormData(a: Automation): FormData {
   } catch {
     branches = [];
   }
-  // The wizard saves a multi-post selection as a comma-joined list in the
-  // single media_id column (the webhook matcher and the conflict rules split
-  // it the same way). Restore it as an array too: the picker's checkmarks
-  // read media_ids, so a saved post came back looking unselected even though
-  // the automation still pointed at it.
-  const mediaIds = parseMediaIds(a.media_id);
   return {
     ...base,
     name: a.name || "",
@@ -107,8 +100,7 @@ function buildEditFormData(a: Automation): FormData {
     dm_template: a.dm_template || "",
     scope_type: (a.scope_type as FormData["scope_type"]) || "account",
     content_type: (a.content_type as FormData["content_type"]) || "all",
-    media_id: mediaIds[0] || "",
-    media_ids: mediaIds,
+    media_id: a.media_id || "",
     post_url: a.post_url || "",
     ai_enabled: !!a.ai_enabled,
     ai_persona: a.ai_persona || "",
@@ -783,15 +775,11 @@ export default function CreateAutomationWizard({
                               ...f,
                               scope_type: "media",
                               media_id: story.id,
-                              // One story replaces the scope — keep the two
-                              // fields in step so saving can't drop the pick
-                              // (media_ids wins on submit).
-                              media_ids: [story.id],
                               post_url: story.permalink,
                             }))
                           }
                           className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all group ${
-                            formData.media_ids.includes(story.id)
+                            formData.media_id === story.id
                               ? "border-[oklch(0.52_0.19_162)] ring-2 ring-[oklch(0.52_0.19_162/30%)]"
                               : "border-transparent hover:border-muted-foreground/30"
                           }`}
@@ -807,7 +795,7 @@ export default function CreateAutomationWizard({
                               <Film className="w-3 h-3 text-white" />
                             </div>
                           )}
-                          {formData.media_ids.includes(story.id) && (
+                          {formData.media_id === story.id && (
                             <div className="absolute inset-0 bg-[oklch(0.52_0.19_162/20%)] flex items-center justify-center">
                               <div className="w-7 h-7 rounded-full bg-[oklch(0.52_0.19_162)] flex items-center justify-center">
                                 <Check className="w-4 h-4 text-white" />
@@ -1043,18 +1031,6 @@ export default function CreateAutomationWizard({
                           </button>
                         ))}
                       </div>
-
-                      {/* A saved selection can point at a post older than this
-                          page of 50 — say so, instead of leaving the count
-                          looking like a stale checkmark. */}
-                      {formData.media_ids.length > 0 &&
-                        !posts.some((p) => formData.media_ids.includes(p.id)) && (
-                          <p className="text-xs text-muted-foreground">
-                            {formData.media_ids.length === 1
-                              ? "The selected post is older than this list — use Load More to see it."
-                              : `All ${formData.media_ids.length} selected posts are older than this list — use Load More to see them.`}
-                          </p>
-                        )}
 
                       {/* Load More Button */}
                       {nextCursor && (
