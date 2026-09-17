@@ -21,14 +21,21 @@ export const metadata: Metadata = {
     "See what's new in ChirplyMint. Feature updates, improvements, and bug fixes.",
 };
 
+/**
+ * Entries describe what changed for the person using ChirplyMint — never
+ * how it was built, and never anything about security work. The generator
+ * in scripts/update-changelog.mjs enforces the same rule, so keep new
+ * entries customer-facing: no file or function names, no database or API
+ * details, no vulnerability talk.
+ */
 interface ChangelogEntry {
   date: string;
   version: string;
   title: string;
-  description: string;
+  description?: string;
   tag: string;
   icon: string;
-  highlights: string[];
+  highlights?: string[];
 }
 
 const ICONS: Record<string, React.ElementType> = {
@@ -39,7 +46,6 @@ const tagStyles: Record<string, { bg: string; text: string }> = {
   feature: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-500" },
   improvement: { bg: "bg-blue-500/10 border-blue-500/20", text: "text-blue-500" },
   fix: { bg: "bg-amber-500/10 border-amber-500/20", text: "text-amber-500" },
-  security: { bg: "bg-rose-500/10 border-rose-500/20", text: "text-rose-500" },
 };
 
 export default function ChangelogPage() {
@@ -67,6 +73,9 @@ export default function ChangelogPage() {
           {changelog.map((entry) => {
             const Icon = ICONS[entry.icon] ?? Sparkles;
             const style = tagStyles[entry.tag] ?? tagStyles.improvement;
+            const highlights = entry.highlights ?? [];
+            const description =
+              entry.description && entry.description !== entry.title ? entry.description : null;
             return (
               <div key={entry.version + entry.date} className="relative pl-12">
                 <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card">
@@ -80,15 +89,19 @@ export default function ChangelogPage() {
                   </span>
                 </div>
                 <h2 className="mt-1.5 text-lg font-bold text-foreground">{entry.title}</h2>
-                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{entry.description}</p>
-                <ul className="mt-3 space-y-1.5">
-                  {entry.highlights.map((h) => (
-                    <li key={h} className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[oklch(0.52_0.19_162)]" />
-                      {h}
-                    </li>
-                  ))}
-                </ul>
+                {description && (
+                  <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{description}</p>
+                )}
+                {highlights.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {highlights.map((h) => (
+                      <li key={h} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[oklch(0.52_0.19_162)]" />
+                        {h}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             );
           })}

@@ -1,571 +1,391 @@
 {
+  "lastCommit": "b4d5587e31a989358046e1d720f3f10d9cd1a729",
   "entries": [
     {
       "date": "Sep 17, 2026",
-      "version": "auto",
-      "title": "Name the account in the wizard's post/story states (stories were never actually broken)",
-      "description": "Loading states now say \"Loading @handle's stories/posts...\"",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Loading states now say \"Loading @handle's stories/posts...\"",
-        "Empty states say \"@handle has no live stories right now\" and, for",
-        "Same treatment for the posts empty state"
-      ]
-    },
-    {
-      "date": "Sep 17, 2026",
-      "version": "auto",
-      "title": "Multi-account wizard showed the wrong account's posts and Stories",
-      "description": "instagram-api.ts: new resolveIgAccount(db, targetId, accountId) helper;",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "instagram-api.ts: new resolveIgAccount(db, targetId, accountId) helper;",
-        "Wizard: passes the selected account to posts, stories, pagination and",
-        "Editing an automation on a secondary account now loads that account's"
-      ]
-    },
-    {
-      "date": "Sep 17, 2026",
-      "version": "auto",
-      "title": "Restore Chrome pull-to-refresh on mobile",
-      "description": "Restore Chrome pull-to-refresh on mobile",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Restore Chrome pull-to-refresh on mobile"
-      ]
-    },
-    {
-      "date": "Sep 17, 2026",
-      "version": "auto",
-      "title": "Env audit follow-ups — drop GSC meta wiring (domain verified), Remove PAN from the system",
-      "description": "Google Search Console is verified as a DOMAIN property (DNS TXT), which",
+      "version": "30",
+      "title": "Every Instagram account now has its own space",
+      "description": "Connect multiple Instagram accounts and keep each one fully separate — its own AI agent, inbox, leads, analytics and link-in-bio page.",
       "tag": "feature",
-      "icon": "Sparkles",
-      "highlights": [
-        "Google Search Console is verified as a DOMAIN property (DNS TXT), which",
-        "PAN removed from the system entirely: the invoice template no longer"
-      ]
-    },
-    {
-      "date": "Sep 16, 2026",
-      "version": "auto",
-      "title": "Full mobile/PWA bug hunt — 3-agent audit, 40+ fixes",
-      "description": "'Screen shifting side to side': (app)/layout main was overflow-auto —",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "'Screen shifting side to side': (app)/layout main was overflow-auto —",
-        "'Inbox cut / composer under navbar': both inboxes used desktop magic",
-        "'Buttons cropped': automation card header row (5 icon buttons + badge,"
-      ]
-    },
-    {
-      "date": "Sep 16, 2026",
-      "version": "auto",
-      "title": "Team roles system — Viewer/Editor/Admin ladder + fix members seeing nothing",
-      "description": "viewer: read-only (legacy 'member' rows migrated here — zero behavior",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "viewer: read-only (legacy 'member' rows migrated here — zero behavior",
-        "workspace.ts: role in context, roleAtLeast ladder, requireWorkspaceRole",
-        "24 read functions threaded across 12 files (incl. instagram-api for the",
-        "33 write functions guarded: every id-addressed write carries",
-        "getUserPlan resolves the workspace OWNER's plan for members (plan",
-        "team.ts: invites carry a server-validated role through accept; NEW"
-      ]
-    },
-    {
-      "date": "Sep 16, 2026",
-      "version": "auto",
-      "title": "Fix dead delete buttons — confirm dialogs were imported but never rendered",
-      "description": "Fix dead delete buttons — confirm dialogs were imported but never rendered",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Fix dead delete buttons — confirm dialogs were imported but never rendered"
-      ]
-    },
-    {
-      "date": "Sep 16, 2026",
-      "version": "auto",
-      "title": "Full SEO foundation — structured data, Canonicals, Content engine, AI-search readiness",
-      "description": "Root layout @graph: Organization (logo, sameAs) + WebSite (site-name",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "Root layout @graph: Organization (logo, sameAs) + WebSite (site-name",
-        "Homepage WebApplication + Offer (price 0 INR — the one rich result a",
-        "/help FAQPage generated from the SAME module the page renders (shared",
-        "/u/[slug] ProfilePage (real avatars only, user-declared sameAs)",
-        "BlogPosting + BreadcrumbList on articles; BreadcrumbList on pillars",
-        "Canonical URL on every route (alternates.canonical); title template in"
-      ]
-    },
-    {
-      "date": "Sep 15, 2026",
-      "version": "auto",
-      "title": "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids",
-      "description": "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids",
-      "tag": "feature",
-      "icon": "Sparkles",
-      "highlights": [
-        "Revert R59 de-slop pass — restore aurora design, Keep only the fine background grids"
-      ]
-    },
-    {
-      "date": "Sep 15, 2026",
-      "version": "auto",
-      "title": "De-slop the marketing site — editorial type system, Grid + light instead of aurora blobs, ",
-      "description": "Typography: real display scale (hero clamp 3-5.5rem, -0.04em tracking,",
-      "tag": "feature",
-      "icon": "Sparkles",
-      "highlights": [
-        "Typography: real display scale (hero clamp 3-5.5rem, -0.04em tracking,",
-        "Hero: left-aligned editorial composition, fine hairline grid + ONE",
-        "Sections: hairline border-t separators, left-aligned headers,",
-        "Cards: rounded-lg borderless bg-muted/40 surfaces; ONE bordered card",
-        "Removed ~110 lines of aurora machinery; all animations, copy, phone"
-      ]
-    },
-    {
-      "date": "Sep 15, 2026",
-      "version": "auto",
-      "title": "Link-in-Bio redesign — featured CTA, Theme tokens, Restrained motion + fix tracking that n",
-      "description": "Anatomy per the research: header (avatar → name → one-liner → share",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "Anatomy per the research: header (avatar → name → one-liner → share",
-        "Motion, restrained per bio.link's production values: one 1.2s fade-up",
-        "Theme system rebuilt on a Campsite-style token model (bg, text,",
-        "Mobile-first for Instagram's in-app browser: safe-area insets,",
-        "Share button (copies the page link), refined branding chip.",
-        "Builder theme swatches updated to the new palettes."
-      ]
-    },
-    {
-      "date": "Sep 15, 2026",
-      "version": "auto",
-      "title": "Twitter bird → official X logo in the footer",
-      "description": "Twitter bird → official X logo in the footer",
-      "tag": "feature",
-      "icon": "Sparkles",
-      "highlights": [
-        "Twitter bird → official X logo in the footer"
-      ]
-    },
-    {
-      "date": "Sep 14, 2026",
-      "version": "auto",
-      "title": "Annual-plan purchase buttons respect the current plan + server-side purchase guards",
-      "description": "Pro Annual: disabled with 'Included in Business' for Business",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Pro Annual: disabled with 'Included in Business' for Business",
-        "Business Annual: 'Current plan (annual)' (disabled) for Business-annual",
-        "Annual state inferred from the subscription period end (>150 days",
-        "Business subscribers cannot buy Pro or Pro Annual (would be paying",
-        "Nobody with an active ANNUAL subscription can buy an annual plan"
-      ]
-    },
-    {
-      "date": "Sep 14, 2026",
-      "version": "auto",
-      "title": "Annual-plan display bug + AI inbox showing numeric IG ids",
-      "description": "The billing banner (and the cancel + resume banners) formatted the",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "The billing banner (and the cancel + resume banners) formatted the",
-        "The DM usage widget hardcoded a 'Resets in N days' monthly countdown"
-      ]
-    },
-    {
-      "date": "Sep 14, 2026",
-      "version": "auto",
-      "title": "Server-side plan enforcement everywhere + confirmation dialogs for destructive actions",
-      "description": "AI Agent (Pro+): createAIAgent, updateAIAgent and",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "AI Agent (Pro+): createAIAgent, updateAIAgent and",
-        "'Advanced AI' (Business) was pure marketing copy — now real: Business",
-        "A/B testing + Postback Flow Builder (Pro+): createABVariant,",
-        "Lead export: CSV is Pro+; webhook export + test are Business-only",
-        "Follow-check: free plan forces require_follow=true SERVER-side in",
-        "DM quota hole: AI replies, postback responses, story-reply DMs,"
-      ]
-    },
-    {
-      "date": "Sep 14, 2026",
-      "version": "auto",
-      "title": "Gate Meta-pending features, Refresh pricing/help/roadmap, Compliance accuracy",
-      "description": "src/lib/features.ts — central META_APPROVAL flags; flipping one constant",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "src/lib/features.ts — central META_APPROVAL flags; flipping one constant",
-        "Dashboard blocks: the Auto-react toggle in the automation wizard and the",
-        "Backend guards (defense in depth): all five auto-react call sites in the",
-        "Plan feature lists: Drip Steps removed from all tiers; Shared Team",
-        "Help center: fixed WRONG prices (said ₹999/₹2,999), the permission list",
-        "Roadmap: Drip moved from 'Shipped' to in-progress with the approval"
-      ]
-    },
-    {
-      "date": "Sep 13, 2026",
-      "version": "auto",
-      "title": "AI agent onboarding system — the agent cannot activate (or reply) without real information",
-      "description": "6-step wizard (business type → who you are → content & offers →",
-      "tag": "feature",
-      "icon": "Sparkles",
-      "highlights": [
-        "6-step wizard (business type → who you are → content & offers →",
-        "Persona assembly: structured answers (about, topics, offers) build",
-        "THREE activation gates (defense in depth):",
-        "Migration: structured fields (business_type, about_text,",
-        "previewAgentReply action: sandbox test with unsaved values, no DB",
-        "Gate unit tests: placeholder gated, real passes, hand-edited-empty"
-      ]
-    },
-    {
-      "date": "Sep 13, 2026",
-      "version": "auto",
-      "title": "Mobile + installed-PWA fixes — no sideways scroll, Keyboard-aware layout, Responsive table",
-      "description": "overflow-x: clip on html+body — a page can NEVER scroll sideways on",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "overflow-x: clip on html+body — a page can NEVER scroll sideways on",
-        "Viewport export: viewportFit 'cover' (draw under notches in the",
-        "overscroll-behavior: none on html — kills horizontal rubber-banding",
-        "Analytics Per-Automation table: min-width 640px so the existing",
-        "AI-agent conversations stat row: 3 cards at every width were ~105px",
-        "Insights stat cards: tighter padding on phones + min-w-0."
-      ]
-    },
-    {
-      "date": "Sep 13, 2026",
-      "version": "auto",
-      "title": "Rebuild the AI agent reply system — premium, Coherent, Fast",
-      "description": "The agent's prompt had no capability framing, a weak buried",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "The agent's prompt had no capability framing, a weak buried",
-        "All replies were running on the Groq fallback: the NIM key in Vercel",
-        "provider chain reordered: Groq primary, NIM deepseek-v4-flash",
-        "reasoning-model token bug: gpt-oss spends hidden",
-        "system prompt rebuilt: explicit 'what you help followers with'",
-        "repeated-question detector (normalized match against recent user"
-      ]
-    },
-    {
-      "date": "Sep 13, 2026",
-      "version": "auto",
-      "title": "AI agent fixes + motion tuning — NIM primary restored, Auto-detect default, Demo keeps mov",
-      "description": "Root cause of '[AI-FALLBACK] Primary unavailable': the NVIDIA NIM key in",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Root cause of '[AI-FALLBACK] Primary unavailable': the NVIDIA NIM key in",
-        "Language 'Auto-detect' is now the default everywhere: new agents insert",
-        "The during-scroll freeze now applies ONLY to the big background",
-        "The demo timeline no longer holds its step during scroll — the phone"
-      ]
-    },
-    {
-      "date": "Sep 12, 2026",
-      "version": "auto",
-      "title": "Scroll performance, Round two — freeze ambient motion during scroll, De-frost flat surface",
-      "description": "AmbientPause (extended): ambient CSS loops (auroras, particles,",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "AmbientPause (extended): ambient CSS loops (auroras, particles,",
-        "The phone demo's three infinite Motion loops (typing dots, idle",
-        "Drifting auroras get compositor layers AFTER first paint",
-        "15 backdrop-blur surfaces that sit over FLAT backgrounds (cards,",
-        "content-visibility: auto on the four below-fold sections with CLS"
-      ]
-    },
-    {
-      "date": "Sep 12, 2026",
-      "version": "auto",
-      "title": "Homepage performance — scroll +26-111% fps on throttled devices, Zero visual change",
-      "description": "AmbientPause (new): a 40-line IntersectionObserver pauses every",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "AmbientPause (new): a 40-line IntersectionObserver pauses every",
-        "Three above-the-fold backdrop-blur surfaces that sat over drifting",
-        "9 giant filter:blur() blobs (up to 180px radius) converted to",
-        "will-change removed from auroras: a standing hint forced ~22MB of",
-        "scroll-smooth removed from html: it fought Lenis's lerp and made",
-        "Unused ScrollTrigger plugin dropped (registered + updated on every"
-      ]
-    },
-    {
-      "date": "Sep 12, 2026",
-      "version": "auto",
-      "title": "Security hardening — Strix vulnerability fixes (6 confirmed, 2 low)",
-      "description": "next 16.2.4 → 16.3.5, remediating CVE-2026-44574 (middleware auth",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "next 16.2.4 → 16.3.5, remediating CVE-2026-44574 (middleware auth",
-        "SSRF in leads-export webhook (vuln-0003): exportLeadsWebhook and",
-        "Referral reward abuse (vuln-0006): capped at 5 rewarded referrals per",
-        "Cashfree webhook fail-open (vuln-0004): the empty-payments path now",
-        "Auth rate-limiter fails open on Redis outage (vuln-0001): added an",
-        "Weak password entropy (vuln-0002): common-password blocklist added —"
-      ]
-    },
-    {
-      "date": "Sep 12, 2026",
-      "version": "auto",
-      "title": "Auto-changelog batches — publish only when 4+ rounds accumulate",
-      "description": "Auto-changelog batches — publish only when 4+ rounds accumulate",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Auto-changelog batches — publish only when 4+ rounds accumulate"
-      ]
-    },
-    {
-      "date": "Sep 11, 2026",
-      "version": "auto",
-      "title": "Workspace switcher polish, Trial banner gating, Changelog title casing",
-      "description": "Switcher label fix: the team owner's name is now always resolved —",
-      "tag": "fix",
-      "icon": "Zap",
-      "highlights": [
-        "Switcher label fix: the team owner's name is now always resolved —",
-        "Switcher flicker fix: state is cached in localStorage and hydrated",
-        "Free trial banner now only appears for users who can actually start",
-        "Auto-changelog titles now get professional casing (first letter +"
-      ]
-    },
-    {
-      "date": "Sep 11, 2026",
-      "version": "auto",
-      "title": "Switcher for owner+member users, Team tab back for all plans, Animated Google button",
-      "description": "Workspace switcher no longer disappears for team owners who are ALSO",
-      "tag": "security",
-      "icon": "Shield",
-      "highlights": [
-        "Workspace switcher no longer disappears for team owners who are ALSO",
-        "Team & API tab is visible for ALL plans again — clicking it as a",
-        "Google auth button rebuilt with real tactile feedback: hover lift,",
-        "/dashboard/settings verified end-to-end on PRODUCTION with a real"
-      ]
-    },
-    {
-      "date": "Sep 12, 2026",
-      "version": "3.5",
       "icon": "Users",
-      "tag": "feature",
-      "title": "Team Workspaces, Public API & Docs",
-      "description": "Business plans get shared team workspaces with roles, a public read-only API with documentation, and a safer free trial.",
       "highlights": [
-        "Team members see the owner's workspace read-only with a clear banner",
-        "API keys: revoke AND delete, last-used display",
-        "Public API docs page with copy-paste examples (/dashboard/api-docs)",
-        "Free trial now strictly for new accounts — once ever, never after a paid plan",
-        "Team & API section locked to Business plans with an upgrade path"
+        "Switch accounts from the sidebar — the whole dashboard follows the account you pick",
+        "Each account has its own AI agent, so a persona set up for one never answers DMs on another",
+        "Leads, messages, analytics and insights are shown per account",
+        "Each account can have its own link-in-bio page"
       ]
     },
     {
-      "date": "Sep 11, 2026",
-      "version": "3.4",
-      "icon": "CreditCard",
+      "date": "Sep 17, 2026",
+      "version": "29",
+      "title": "Keyword rules that make sense for multiple accounts",
+      "description": "Keywords can now be reused wherever they don't overlap, and automations behave predictably when more than one could match a comment.",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Use the same keyword on a different account, on a different post, or for a story trigger",
+        "Automations set for one specific post take priority over account-wide ones",
+        "Automations set for several posts now trigger on every one of them"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "28",
+      "title": "Accounts are labelled on every automation",
+      "description": "When you run more than one account, each automation now shows which account it belongs to.",
       "tag": "improvement",
-      "title": "Rebuilt Cancel & Downgrade System",
-      "description": "Full control over your subscription: see exactly when it ends, cancel at period end or immediately, resume in one click, and switch Business to Pro anytime.",
+      "icon": "Sparkles",
       "highlights": [
-        "Billing shows 'active until <date>' and 'cancels on <date>' banners",
-        "Two-choice cancel: keep features until the end, or drop to Starter today",
-        "One-click Resume while a cancellation is pending",
-        "Business to Pro switch keeps your paid period end date",
-        "Purchased top-up DMs survive every plan change, renewal, and downgrade",
-        "DM limit now always shows plan + purchased top-ups"
+        "Clear account badge on every automation card",
+        "The post and story pickers name the account they're showing",
+        "A warning appears if an automation's account has been disconnected"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "27",
+      "title": "Pull-to-refresh works again on mobile",
+      "description": "Swiping down from the top of the page refreshes normally in Chrome and other mobile browsers.",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Native pull-to-refresh restored",
+        "Sideways page shifting stays fixed"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "26",
+      "title": "Mobile and installed-app polish",
+      "description": "A full pass over the phone experience — no sideways scrolling, nothing hidden behind the bottom bar, comfortable tap targets.",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "The screen no longer moves side to side on any page",
+        "The message composer and inbox sit clear of the bottom navigation",
+        "Buttons are no longer cut off on narrow screens",
+        "The app menu scrolls on short screens and moves aside when the keyboard opens"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "25",
+      "title": "Roles for team members",
+      "description": "Invite teammates as Viewer, Editor or Admin — each role sees and can do exactly what it should.",
+      "tag": "feature",
+      "icon": "Users",
+      "highlights": [
+        "Viewer sees everything, changes nothing",
+        "Editor can reply to messages, manage leads and edit automations",
+        "Admin adds automation deletion, AI persona and broadcasts",
+        "Billing, Instagram connections and API keys stay with the owner"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "24",
+      "title": "Delete confirmations restored",
+      "description": "Deleting an automation or a lead now asks for confirmation before anything happens.",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Clear confirmation dialog with the consequences spelled out",
+        "Applies to automations and leads"
+      ]
+    },
+    {
+      "date": "Sep 16, 2026",
+      "version": "23",
+      "title": "Easier to find in search engines",
+      "description": "Practical guides, comparison pages and richer search results — so people looking for Instagram DM automation can find ChirplyMint.",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "New guides: comment-to-DM automation, sending PDFs in DMs, ManyChat pricing in India and free-plan limits",
+        "An honest ManyChat comparison with rupee pricing",
+        "Richer search results for the app itself"
+      ]
+    },
+    {
+      "date": "Sep 15, 2026",
+      "version": "22",
+      "title": "Link-in-Bio, redesigned",
+      "description": "A premium link-in-bio page with themes, fonts and a featured link, plus accurate click and view counts.",
+      "tag": "feature",
+      "icon": "Link2",
+      "highlights": [
+        "12 themes and 12 fonts — including display and handwriting styles",
+        "Featured first link with a subtle shine",
+        "Views and clicks are now counted reliably"
+      ]
+    },
+    {
+      "date": "Sep 15, 2026",
+      "version": "21",
+      "title": "A look that matches the product",
+      "description": "Typography, colour and layout refreshed across the site, with the link-in-bio builder brought in line.",
+      "tag": "improvement",
+      "icon": "Sparkles",
+      "highlights": [
+        "Cleaner type scale and spacing",
+        "Consistent colour system across every page"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "20",
+      "title": "Plan changes are clearer",
+      "description": "Upgrading, downgrading and cancelling now explain exactly what happens before you confirm.",
+      "tag": "improvement",
+      "icon": "CreditCard",
+      "highlights": [
+        "A confirmation dialog spells out the consequences of every plan change",
+        "Warning before you cancel or delete anything",
+        "Top-ups apply to your balance immediately"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "19",
+      "title": "Annual billing explained properly",
+      "description": "Annual plans show their real end date and correct prices, and the right buttons appear for the plan you're on.",
+      "tag": "fix",
+      "icon": "CreditCard",
+      "highlights": [
+        "Dates include the year, so an annual plan no longer looks like it expires in days",
+        "Buy buttons respect the plan you're already on",
+        "Top-ups and switches are clearly labelled"
+      ]
+    },
+    {
+      "date": "Sep 14, 2026",
+      "version": "18",
+      "title": "Clearer pricing and policy pages",
+      "description": "Pricing, help, roadmap and policy pages now match what the product actually does today.",
+      "tag": "improvement",
+      "icon": "Sparkles",
+      "highlights": [
+        "Accurate feature lists per plan",
+        "Upcoming features clearly marked as pending approval",
+        "Privacy, terms and data policy reviewed"
+      ]
+    },
+    {
+      "date": "Sep 13, 2026",
+      "version": "17",
+      "title": "Guided AI agent setup",
+      "description": "The AI agent now walks you through the details it needs — and stays off until it has them, so it never replies with placeholder answers.",
+      "tag": "feature",
+      "icon": "Bot",
+      "highlights": [
+        "Six-step setup with a live test chat",
+        "The agent only activates once your details are complete",
+        "Persona, tone, language and FAQs in one place"
+      ]
+    },
+    {
+      "date": "Sep 13, 2026",
+      "version": "16",
+      "title": "Better AI replies",
+      "description": "Conversations with the AI agent are noticeably more natural — on-topic answers, mixed Hindi and English handled properly, no repeated questions.",
+      "tag": "improvement",
+      "icon": "Bot",
+      "highlights": [
+        "Longer memory within a conversation",
+        "Replies in the language your customer writes in",
+        "Fewer generic or repetitive answers"
+      ]
+    },
+    {
+      "date": "Sep 12, 2026",
+      "version": "15",
+      "title": "Smoother scrolling and faster pages",
+      "description": "The homepage and dashboard load and scroll smoothly, even on lower-end phones — with no visual changes.",
+      "tag": "improvement",
+      "icon": "Zap",
+      "highlights": [
+        "Faster first load",
+        "Smoother scrolling on lower-end phones",
+        "Same look, same animations"
+      ]
+    },
+    {
+      "date": "Sep 12, 2026",
+      "version": "14",
+      "title": "Team workspaces, API and developer docs",
+      "description": "Share one workspace with your team, connect your own tools through the API, and read the full developer documentation.",
+      "tag": "feature",
+      "icon": "Users",
+      "highlights": [
+        "Invite teammates and switch between team and personal workspace",
+        "Create API keys with the permissions you choose",
+        "Webhooks to send new leads to your own tools",
+        "Complete API documentation inside the dashboard"
       ]
     },
     {
       "date": "Sep 11, 2026",
-      "version": "3.3",
-      "icon": "Sparkles",
-      "tag": "feature",
-      "title": "Premium Design Overhaul",
-      "description": "A research-driven redesign: buttery smooth scrolling, masked headline animations, a live product demo, and a new color system.",
+      "version": "13",
+      "title": "Cancellation and downgrade, explained",
+      "description": "Changing or cancelling a plan now tells you exactly what happens, and when.",
+      "tag": "improvement",
+      "icon": "CreditCard",
       "highlights": [
-        "Live animated Instagram DM demo in the hero (tap, PDF, lead captured)",
-        "Smooth inertia scrolling and word-by-word headline reveals",
-        "Funnel rings chart: watch comments become customers",
-        "Premium fonts (Space Grotesk + Inter) that actually load",
-        "Dark-mode greenise ambience across the whole page",
-        "Settings split into clean URLs: /settings/account, /billing, /team and more"
+        "What you keep and what changes, before you confirm",
+        "Resume option if you change your mind",
+        "No surprise charges"
+      ]
+    },
+    {
+      "date": "Sep 11, 2026",
+      "version": "12",
+      "title": "Design refresh across the product",
+      "description": "A more polished interface on the marketing site and inside the dashboard.",
+      "tag": "improvement",
+      "icon": "Sparkles",
+      "highlights": [
+        "Refined layout, motion and detail work",
+        "Consistent styling between site and app"
       ]
     },
     {
       "date": "Sep 10, 2026",
-      "version": "3.2",
+      "version": "11",
+      "title": "Reliability and account-safety improvements",
+      "description": "Behind-the-scenes work on how accounts and sessions are protected. Nothing changes about the way you sign in.",
+      "tag": "improvement",
       "icon": "Shield",
-      "tag": "security",
-      "title": "Payments Hardened & Passwords Enforced",
-      "description": "One shared payment-fulfilment path (no more top-up misses), server-enforced password rules everywhere, and lawful invoices.",
       "highlights": [
-        "+500 DM top-ups now always apply — display AND enforcement fixed",
-        "Password rules (8+ chars, uppercase, number) enforced on the server: signup, change, reset",
-        "Sequential GST-compliant invoices with one-click download",
-        "Team invite emails + on-domain password reset (no more phishing warnings)",
-        "Instagram connect loop fixed — success shows once, URL cleans itself"
+        "Ongoing safeguards around your account",
+        "No action needed — everything works exactly as before"
       ]
     },
     {
       "date": "Sep 9, 2026",
-      "version": "3.1",
-      "icon": "MessageCircle",
+      "version": "10",
+      "title": "Real inbox, recipes and onboarding",
+      "description": "Reply to your Instagram DMs from inside ChirplyMint, start automations from ready-made recipes, and get guided through setup.",
       "tag": "feature",
-      "title": "Real Inbox, Recipes & Onboarding",
-      "description": "A real Instagram inbox with manual replies and AI pause, 10 niche recipe templates, and a guided first-run checklist.",
+      "icon": "MessageCircle",
       "highlights": [
-        "Inbox: live conversations, reply manually, pause the AI per person",
-        "10 ready-made automation recipes (fitness, stores, musicians and more)",
-        "Test-mode sends the real DM to YOUR Instagram — safe, nothing public",
-        "Onboarding checklist on the dashboard",
-        "Annual plans (2 months free) and 99-rupee DM top-ups"
+        "Live conversation inbox with the full history",
+        "One-tap AI pause when you want to reply personally",
+        "Recipe templates to start from",
+        "Step-by-step account onboarding"
       ]
     },
     {
       "date": "May 10, 2026",
-      "version": "2.8",
-      "title": "Enhanced Account Security & Theme Toggle",
-      "icon": "Shield",
-      "tag": "security",
-      "description": "Smarter account deletion flow based on your login method, plus a new dark/light/system theme switcher right in the sidebar.",
+      "version": "9",
+      "title": "Dark mode",
+      "description": "A dark theme that follows your device, plus ongoing account-safety improvements.",
+      "tag": "feature",
+      "icon": "Sparkles",
       "highlights": [
-        "Google OAuth users see a clear confirmation dialog — no fake password prompt",
-        "Email/password users must verify their actual password to delete",
-        "New Sun/Moon/Monitor theme toggle in the sidebar",
-        "Upgrade CTA now links to the Pricing page for better conversion"
+        "Light and dark themes",
+        "Follow your system setting, or choose manually"
       ]
     },
     {
       "date": "May 5, 2026",
-      "version": "2.7",
-      "title": "Automated Engagement Email System",
-      "icon": "Mail",
+      "version": "8",
+      "title": "Automated email reports",
+      "description": "Weekly performance summaries and milestone emails — with one-click unsubscribe.",
       "tag": "feature",
-      "description": "7 professional branded email templates triggered by user actions and milestones. Plus a daily cron for inactive nudges and win-back campaigns.",
+      "icon": "Mail",
       "highlights": [
-        "Instagram Connected, First DM, and 100 DM Milestone celebration emails",
-        "Plan Upgraded & Approaching Limit transactional emails",
-        "Daily cron sends Inactive Nudge (7-day) and Win-Back (30-day) emails",
-        "Smart cooldown prevents email fatigue — max 1 engagement email per 7 days"
+        "Weekly and milestone notifications",
+        "Choose which emails you receive"
       ]
     },
     {
       "date": "Apr 26, 2026",
-      "version": "2.6",
-      "title": "Multi-Account Instagram Support",
-      "icon": "Users",
+      "version": "7",
+      "title": "Multiple Instagram accounts",
+      "description": "Connect and manage several Instagram accounts from one ChirplyMint login.",
       "tag": "feature",
-      "description": "Connect and manage multiple Instagram accounts from a single ChirplyMint dashboard. Switch between accounts seamlessly.",
+      "icon": "Users",
       "highlights": [
-        "Connect unlimited IG accounts (plan-dependent limits)",
-        "Per-account automation targeting",
-        "Account switcher in the dashboard",
-        "Individual token refresh per account"
+        "Up to 10 accounts depending on your plan",
+        "Pick the account when creating an automation"
       ]
     },
     {
       "date": "Apr 15, 2026",
-      "version": "2.5",
-      "title": "AI Agent & Smart Inbox",
-      "icon": "Bot",
+      "version": "6",
+      "title": "AI agent and smart inbox",
+      "description": "An AI assistant that answers DMs in your voice, with an inbox that shows every conversation.",
       "tag": "feature",
-      "description": "AI-powered conversational agent that handles DMs intelligently with context awareness and customizable personality.",
+      "icon": "Bot",
       "highlights": [
-        "Custom AI personality configuration",
-        "Context-aware DM responses using your business info",
-        "AI Inbox to review and manage AI conversations",
-        "Smart handoff to human when confidence is low"
+        "Trained on your tone and FAQs",
+        "View and manage conversations",
+        "Hand over to a human anytime"
       ]
     },
     {
       "date": "Apr 5, 2026",
-      "version": "2.4",
-      "title": "Drip Sequences & Postback Flows",
-      "icon": "Zap",
+      "version": "5",
+      "title": "Drip sequences and flow builder",
+      "description": "Build multi-step DM conversations with scheduled follow-ups and button-driven flows.",
       "tag": "feature",
-      "description": "Multi-step automated DM sequences with delays, conditions, and postback button flows for interactive conversations.",
+      "icon": "Zap",
       "highlights": [
-        "Create multi-step drip sequences with custom delays",
-        "Postback button flows for interactive DM experiences",
-        "A/B testing on automation messages",
-        "Per-sequence analytics and conversion tracking"
+        "Scheduled follow-up messages",
+        "Button and quick-reply flows",
+        "Track where each lead is in the sequence"
       ]
     },
     {
       "date": "Mar 25, 2026",
-      "version": "2.3",
-      "title": "Link-in-Bio Builder",
-      "icon": "Link2",
+      "version": "4",
+      "title": "Link-in-Bio builder",
+      "description": "A public page for all your links, with themes and click tracking.",
       "tag": "feature",
-      "description": "Beautiful, customizable link-in-bio pages with analytics. No external tools needed.",
+      "icon": "Link2",
       "highlights": [
-        "Drag-and-drop link ordering",
-        "Custom themes, colors, and avatar",
-        "Click analytics per link",
-        "SEO-optimized public profile pages"
+        "Custom link page at your own address",
+        "Themes, emoji and reordering",
+        "See views and clicks"
       ]
     },
     {
       "date": "Mar 15, 2026",
-      "version": "2.2",
-      "title": "Advanced Analytics Dashboard",
+      "version": "3",
+      "title": "Analytics dashboard",
+      "description": "See how your automations perform — DMs sent, leads captured and conversion over time.",
+      "tag": "feature",
       "icon": "BarChart3",
-      "tag": "improvement",
-      "description": "Deep insights into your automation performance with charts, trends, and per-automation breakdowns.",
       "highlights": [
-        "Daily DM send volume and lead capture charts",
-        "Per-automation performance comparison",
-        "Conversion rate tracking",
-        "Weekly email reports with key metrics"
+        "Daily and weekly trends",
+        "Per-automation performance",
+        "Best times to send"
       ]
     },
     {
       "date": "Mar 1, 2026",
-      "version": "2.1",
-      "title": "Lead Capture & CRM",
-      "icon": "Users",
+      "version": "2",
+      "title": "Lead capture and CRM",
+      "description": "Every commenter becomes a contact you can tag, note and export.",
       "tag": "feature",
-      "description": "Automatically capture leads from DM conversations. Tag, filter, export, and manage your pipeline.",
+      "icon": "Users",
       "highlights": [
-        "Auto-capture leads from comment triggers",
-        "Tagging system (Hot, Warm, Cold, VIP, Customer)",
-        "CSV export and webhook integrations",
-        "Bulk operations for lead management"
+        "Automatic lead capture",
+        "Tags, notes and engagement scoring",
+        "CSV export"
       ]
     },
     {
       "date": "Feb 15, 2026",
-      "version": "2.0",
-      "title": "ChirplyMint Launch 🚀",
-      "icon": "Sparkles",
+      "version": "1",
+      "title": "ChirplyMint Launch",
+      "description": "Automate Instagram comments into DMs — build an automation, pick a keyword, and let it run.",
       "tag": "feature",
-      "description": "The initial public launch of ChirplyMint — automate Instagram DMs from comment keywords with AI-powered responses.",
+      "icon": "Sparkles",
       "highlights": [
-        "Comment keyword trigger → auto DM",
-        "AI-powered message generation",
-        "Real-time DM delivery tracking",
-        "Free, Pro, and Business plans"
+        "Keyword-triggered automatic DMs",
+        "Text, button and rich replies",
+        "Free plan to get started"
       ]
     }
   ]

@@ -1,8 +1,21 @@
+# Auto-append changelog entries when a release round is pushed to main.
+#
+# The changelog is PUBLIC and customer-facing. A round only appears if its
+# commit body carries a "Changelog:" block written for customers:
+#
+#   Round 73: weekly digest emails
+#
+#   Changelog [feature]: Weekly performance digests
+#   Digests arrive every Monday and summarise replies, leads and top posts.
+#   - Pick the day and time your digest is sent
+#
+#   ...rest of the body, ignored...
+#
+# Commits without that block publish nothing, and the generator drops any
+# line that names files, functions, databases, frameworks or security work.
+# See scripts/update-changelog.mjs for the full rules before editing either.
 name: Update changelog
 
-# Auto-append changelog entries when a release round is pushed to main.
-# Commit subjects matching "Round N: <title>" become a new entry; the body's
-# bullet list becomes the highlights. Sensitive content is filtered.
 on:
   push:
     branches: [main]
