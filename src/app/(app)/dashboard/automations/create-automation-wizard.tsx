@@ -167,6 +167,10 @@ export default function CreateAutomationWizard({
   //    before this, the loaders ignored the picker and always returned the
   //    primary account's media) ──
   const selectedAccountId = formData.instagram_account_id;
+  // Named in the media sections so "no stories / no posts" can never read as
+  // a bug on a multi-account setup — it's almost always the OTHER account.
+  const selectedAccountHandle =
+    igAccounts.find((a) => a.id === selectedAccountId)?.ig_username ?? null;
 
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
@@ -726,14 +730,23 @@ export default function CreateAutomationWizard({
                   {loadingStories ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-sm text-muted-foreground">Loading your stories...</span>
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        Loading {selectedAccountHandle ? `@${selectedAccountHandle}'s` : "your"} stories...
+                      </span>
                     </div>
                   ) : stories.length === 0 ? (
                     <div className="p-6 text-center rounded-xl border border-dashed border-border">
                       <Film className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm font-medium text-foreground mb-1">No active stories</p>
+                      <p className="text-sm font-medium text-foreground mb-1">
+                        {selectedAccountHandle
+                          ? `@${selectedAccountHandle} has no live stories right now`
+                          : "No active stories"}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        Stories only appear here while they&apos;re live (24h window).
+                        Stories only appear here while they&apos;re live (Meta&apos;s 24-hour window).{" "}
+                        {igAccounts.length > 1 && (
+                          <>Wrong account? Pick a different one above — each account has its own stories.</>
+                        )}{" "}
                         This automation will still trigger on any future story replies.
                       </p>
                     </div>
@@ -934,12 +947,19 @@ export default function CreateAutomationWizard({
                   {loadingPosts ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                      <span className="ml-2 text-sm text-muted-foreground">Loading your posts...</span>
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        Loading {selectedAccountHandle ? `@${selectedAccountHandle}'s` : "your"} posts...
+                      </span>
                     </div>
                   ) : posts.length === 0 ? (
                     <div className="p-6 text-center rounded-xl border border-dashed border-border">
                       <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">No posts found. Make sure your Instagram is connected.</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedAccountHandle
+                          ? `No posts found for @${selectedAccountHandle}.`
+                          : "No posts found. Make sure your Instagram is connected."}{" "}
+                        {igAccounts.length > 1 && <>Try switching accounts above — posts are per account.</>}
+                      </p>
                     </div>
                   ) : (
                     <>
