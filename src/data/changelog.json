@@ -3,6 +3,61 @@
     {
       "date": "Sep 17, 2026",
       "version": "auto",
+      "title": "Per-account isolation, Phase 2 — every surface follows the selected account",
+      "description": "Leads: list, CSV export, and the tag-filter options",
+      "tag": "feature",
+      "icon": "Sparkles",
+      "highlights": [
+        "Leads: list, CSV export, and the tag-filter options",
+        "AI Inbox: conversation list, per-thread view, and all stat counters",
+        "Messages (log tab): the DM log list and its sent/pending/failed stats",
+        "Inbox (live Conversations API): threads, thread messages and replies now",
+        "Analytics: daily DM + lead series and top-automation queries",
+        "Insights: audience insights (keywords, peak hours, top engagers)"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Per-account isolation, Phase 1 — migration + AI agent scoped to its account + account swit",
+      "description": "Migration 20260917_per_account_isolation.sql (applied live, idempotent):",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Migration 20260917_per_account_isolation.sql (applied live, idempotent):",
+        "ai_agents + instagram_account_id, UNIQUE(user_id) → UNIQUE(user_id,",
+        "ai_conversations + instagram_account_id (113/113 backfilled from the",
+        "leads + instagram_account_id, and UNIQUE(user_id, ig_user_id) →",
+        "bio_pages + instagram_account_id (one page per account)",
+        "indexes for the new filters; dm_logs account+time index"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Multi-account automation fixes — false keyword conflicts, Account reverts, Dead multi-post",
+      "description": "Multi-account automation fixes — false keyword conflicts, Account reverts, Dead multi-post",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Multi-account automation fixes — false keyword conflicts, Account reverts, Dead multi-post"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
+      "title": "Document Instagram's reshare-stories limitation in the story picker",
+      "description": "Story picker now states the limitation and that leaving the selection",
+      "tag": "fix",
+      "icon": "Zap",
+      "highlights": [
+        "Story picker now states the limitation and that leaving the selection",
+        "The empty state repeats it (plus the R68 account handle + switch hint)"
+      ]
+    },
+    {
+      "date": "Sep 17, 2026",
+      "version": "auto",
       "title": "Name the account in the wizard's post/story states (stories were never actually broken)",
       "description": "Loading states now say \"Loading @handle's stories/posts...\"",
       "tag": "fix",
