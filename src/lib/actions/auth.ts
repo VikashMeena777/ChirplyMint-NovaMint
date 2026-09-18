@@ -1,6 +1,5 @@
 "use server";
 
-import { logInfo } from "@/lib/utils/logger";
 import { getPasswordResetHtml } from "@/lib/email/templates/password-reset";
 import { validatePasswordPolicy } from "@/lib/utils/password-policy";
 import { sendEmail } from "@/lib/email/send";
@@ -11,8 +10,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/utils/activity-logger";
 import { checkRateLimit, getAuthLimiter } from "@/lib/utils/rate-limiter";
-import { headers } from "next/headers";
-import { getWelcomeOnboardingHtml } from "@/lib/email/templates/onboarding-day1";
+import { headers, cookies } from "next/headers";
 import { trackServerEvent, identifyServerUser } from "@/lib/analytics/posthog-server";
 
 
@@ -55,7 +53,9 @@ export async function login(formData: FormData) {
   redirect("/dashboard");
 }
 
-export async function signup(formData: FormData) {
+export async function signup(
+  formData: FormData
+): Promise<{ error: string } | { needsEmailConfirmation: true; email: string }> {
   // Rate limit: 5 signup attempts per 15 minutes per IP
   const ip = await getClientIp();
   const authLimiter = getAuthLimiter();
@@ -76,7 +76,20 @@ export async function signup(formData: FormData) {
   const policyError = validatePasswordPolicy(password);
   if (policyError) return { error: policyError };
 
-  const { error } = await supabase.auth.signUp({
+  // Park the referral code where /api/auth/callback will find it. It can only
+  // be applied once the account exists AND has a session — which, with email
+  // confirmation on, doesn't happen until the link is clicked.
+  const refCode = (formData.get("referral_code") as string | null)?.trim().toUpperCase();
+  if (refCode) {
+    const cookieStore = await cookies();
+    cookieStore.set("pending_referral", encodeURIComponent(refCode), {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+  }
+
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -91,24 +104,92 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    logActivity(user.id, "auth.signup", { method: "email" }).catch(() => {});
-    identifyServerUser(user.id, { email, name, plan: "free" });
-    trackServerEvent(user.id, "user.signed_up", { method: "email" });
+  // No identities means the address is already registered — Supabase sends no
+  // email and deliberately returns a user-shaped response so we can't tell
+  // signups apart from resends. Don't count it, don't welcome it.
+  const isAlreadyRegistered =
+    Array.isArray(data.user?.identities) && data.user.identities.length === 0;
 
-    // Send welcome email immediately (fire-and-forget)
-    sendWelcomeEmail(user.id, email, name).catch((err) => {
-      console.error("[Onboarding] Failed to send welcome email:", err);
-    });
+  if (data.user && !isAlreadyRegistered) {
+    logActivity(data.user.id, "auth.signup", {
+      method: "email",
+      verified: !!data.session,
+    }).catch(() => {});
+    identifyServerUser(data.user.id, { email, name, plan: "free" });
+    trackServerEvent(data.user.id, "user.signed_up", { method: "email" });
+  }
+
+  // Email confirmation is ON (mailer_autoconfirm = false), so signUp returns
+  // NO session: the account exists but can't be used until the link in the
+  // email is clicked. Redirecting to /dashboard here is what used to bounce
+  // people to /login with no explanation and lose them.
+  if (!data.session) {
+    return { needsEmailConfirmation: true, email };
   }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
 }
 
-export async function signInWithGoogle() {
+/**
+ * Re-send the "confirm your email" link. Used by the signup screen (nothing
+ * arrived) and by the login screen (someone tried to sign in before they
+ * confirmed).
+ */
+export async function resendConfirmation(
+  email: string
+): Promise<{ success?: true; error?: string }> {
+  const ip = await getClientIp();
+  const authLimiter = getAuthLimiter();
+  const rateCheck = await checkRateLimit(authLimiter, `auth:resend:${ip}`);
+  if (!rateCheck.allowed) {
+    return { error: "Too many attempts. Please try again in a few minutes." };
+  }
+
+  const clean = (email || "").trim().toLowerCase();
+  if (!clean || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
+    return { error: "Enter a valid email address" };
+  }
+
   const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: clean,
+    options: {
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+    },
+  });
+
+  if (error) {
+    if (/already\s+confirmed|already\s+been\s+confirmed/i.test(error.message)) {
+      return { error: "That email is already confirmed — just sign in." };
+    }
+    // Supabase throttles per address (~60s between emails). Say what to do
+    // instead of relaying "you can only request this after 26 seconds".
+    if (/rate limit|after \d+ seconds|security purposes/i.test(error.message)) {
+      return { error: "That link was just sent — give it a minute before asking for another." };
+    }
+    console.error("[Signup] Resend confirmation failed:", error.message);
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function signInWithGoogle(referralCode?: string) {
+  const supabase = await createClient();
+
+  // Same cookie the email path sets — a Google signup skips the signup action
+  // entirely, so arriving via /signup?ref=… and choosing Google dropped the
+  // code before this.
+  if (referralCode?.trim()) {
+    const cookieStore = await cookies();
+    cookieStore.set("pending_referral", encodeURIComponent(referralCode.trim().toUpperCase()), {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -143,41 +224,11 @@ export async function signOut() {
  * Checks onboarding_email_step — only sends if at step 0.
  * Advances to step 1 so the cron doesn't duplicate it.
  */
-async function sendWelcomeEmail(userId: string, email: string, name: string) {
-  if (!email) return;
-
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  // Check current onboarding step
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("onboarding_email_step")
-    .eq("id", userId)
-    .single();
-
-  const step = (profile as Record<string, unknown>)?.onboarding_email_step as number;
-  if (step !== 0) return; // Already past welcome email
-
-  // Send welcome email
-  const displayName = name || "there";
-  await sendEmail({
-    to: email,
-    subject: "Welcome to ChirplyMint! 🚀 Here's how to get started",
-    html: getWelcomeOnboardingHtml(displayName),
-  });
-
-  // Advance to step 1, schedule next email in 2 days
-  const nextAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-  await admin.from("profiles").update({
-    onboarding_email_step: 1,
-    onboarding_email_next_at: nextAt.toISOString(),
-  }).eq("id", userId);
-
-  logInfo("Onboarding", "✉️ Welcome email sent", { email });
-}
+// NOTE: the welcome email lives in /api/auth/callback (sendWelcomeIfNew) and
+// fires the moment someone confirms their address — that's the first point a
+// new account can actually sign in. The copy that used to sit here never ran:
+// signUp() returns no session while confirmation is required, so getUser()
+// was always null.
 
 export async function changePassword(newPassword: string): Promise<{ error?: string }> {
   const supabase = await createClient();

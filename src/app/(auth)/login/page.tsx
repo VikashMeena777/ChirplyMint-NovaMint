@@ -1,28 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GoogleButton } from "@/components/auth/google-button";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
-import { login } from "@/lib/actions/auth";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2, MailWarning } from "lucide-react";
+import { login, resendConfirmation } from "@/lib/actions/auth";
 import { toast } from "sonner";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Set when Supabase says the address exists but isn't confirmed yet — the
+  // exact state a new signup lands in, and previously a dead end.
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // The confirm-email callback bounces here when a link is expired or reused.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "auth_callback_failed") {
+      toast.error("That confirmation link has expired or was already used. Sign in, or ask for a new link below.");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") || "");
     const result = await login(formData);
 
     if (result?.error) {
-      toast.error(result.error);
       setIsLoading(false);
+      if (/email not confirmed|not confirmed/i.test(result.error)) {
+        setUnconfirmedEmail(email);
+        return;
+      }
+      toast.error(result.error);
     }
   };
+
+  async function handleResend() {
+    if (!unconfirmedEmail) return;
+    setResending(true);
+    const res = await resendConfirmation(unconfirmedEmail);
+    setResending(false);
+    if (res.error) toast.error(res.error);
+    else toast.success("New link sent — check your inbox and spam folder.");
+  }
 
   return (
     <div className="space-y-6">
@@ -35,6 +61,32 @@ export default function LoginPage() {
       </div>
 
       <GoogleButton />
+
+      {unconfirmedEmail && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <MailWarning className="w-5 h-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                Your email isn&apos;t confirmed yet
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The account exists but can&apos;t sign in until you click the confirmation link we
+                emailed to <span className="font-medium text-foreground break-all">{unconfirmedEmail}</span>.
+                Check spam or promotions too — it often lands there.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            className="w-full h-10 flex items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-card text-sm font-semibold text-foreground transition-colors hover:bg-amber-500/10 disabled:opacity-60"
+          >
+            {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send me a new confirmation link"}
+          </button>
+        </div>
+      )}
 
       {/* Divider */}
       <div className="relative">

@@ -12,13 +12,22 @@ import { springSnappy, springTap } from "@/components/motion/transitions";
  * and a loading spinner while the OAuth redirect is being prepared —
  * so it never feels dead/static when tapped.
  */
-export function GoogleButton({ label = "Continue with Google" }: { label?: string }) {
+export function GoogleButton({
+  label = "Continue with Google",
+  referralCode,
+}: {
+  label?: string;
+  referralCode?: string;
+}) {
   const [busy, setBusy] = useState(false);
 
   async function handleClick() {
     if (busy) return;
     setBusy(true);
-    const result = await signInWithGoogle();
+    // The code is parked server-side (see signInWithGoogle) because a referral
+    // can only be applied once the account exists — which happens on the
+    // OAuth callback, not here.
+    const result = await signInWithGoogle(referralCode);
     if (result?.error) {
       toast.error(result.error);
       setBusy(false);
