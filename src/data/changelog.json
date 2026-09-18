@@ -1,6 +1,56 @@
 {
-  "lastCommit": "b4d5587e31a989358046e1d720f3f10d9cd1a729",
+  "lastCommit": "9cc013bfd354467ec936fd970e47c599e599f723",
   "entries": [
+    {
+      "date": "Sep 18, 2026",
+      "version": "34",
+      "title": "Confirmation links always land you in your dashboard",
+      "description": "Some links could sign you in and then leave you on the homepage.",
+      "tag": "fix",
+      "icon": "BarChart3",
+      "highlights": [
+        "Every confirmation link now finishes the handoff and opens your dashboard",
+        "When a link genuinely can't be completed, it says so and offers a fresh one"
+      ]
+    },
+    {
+      "date": "Sep 18, 2026",
+      "version": "33",
+      "title": "Signing up now tells you to confirm your email",
+      "description": "New accounts get a clear \"check your inbox\" screen instead of a login page.",
+      "tag": "fix",
+      "icon": "MessageCircle",
+      "highlights": [
+        "Shows which address the confirmation link went to",
+        "One-click resend if it doesn't arrive",
+        "Signing in before confirming now explains what to do instead of just failing"
+      ]
+    },
+    {
+      "date": "Sep 18, 2026",
+      "version": "32",
+      "title": "Saved posts stay selected when you reopen an automation",
+      "description": "Reopening an automation now shows the posts it targets, already ticked.",
+      "tag": "fix",
+      "icon": "Users",
+      "highlights": [
+        "Post and story selections come back exactly as you saved them",
+        "A note appears if a selected post is older than the list on screen",
+        "A cloned automation starts account-wide instead of claiming a post it"
+      ]
+    },
+    {
+      "date": "Sep 18, 2026",
+      "version": "31",
+      "title": "Clearer release notes",
+      "description": "Each update now says what changed for you, in plain language.",
+      "tag": "improvement",
+      "icon": "Bot",
+      "highlights": [
+        "Release notes no longer contain technical jargon",
+        "Older entries rewritten to match"
+      ]
+    },
     {
       "date": "Sep 17, 2026",
       "version": "30",
