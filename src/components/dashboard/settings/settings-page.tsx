@@ -29,7 +29,7 @@ import { deleteAccount } from "@/lib/actions/account";
 import { isUnlimitedDM, getPlanDisplayData } from "@/lib/utils/plan-limits";
 import { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } from "@/lib/actions/dashboard";
 import { toast } from "sonner";
-import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, getTrialEligibility, type InvoiceRow, type SubscriptionStatusRow } from "@/lib/actions/billing";
+import { startFreeTrial, getInvoices, getSubscriptionStatus, cancelPlanAtPeriodEnd, cancelImmediately, downgradeToPro, resumePlan, getTrialEligibility, type InvoiceRow, type SubscriptionStatusRow, type TrialEligibility } from "@/lib/actions/billing";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   inviteTeamMember,
@@ -1149,6 +1149,25 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+/**
+ * Why the free trial isn't available, in the customer's words. The eligibility
+ * check has always known this — it was simply never shown, so "no button"
+ * looked the same whether the trial was used up, the account was too old, or
+ * (the common one) Instagram wasn't connected yet.
+ */
+function trialBlockedNote(reason: string): string | null {
+  switch (reason) {
+    case "already_used":
+      return "You've already used your free Pro trial — that's the one per account. You can upgrade any time below.";
+    case "paid_before":
+      return "Free trials are for accounts that haven't been on a paid plan before.";
+    case "not_new":
+      return "Free trials are for accounts in their first 30 days.";
+    default:
+      return null;
+  }
+}
+
 function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null; onProfileRefresh: () => Promise<void> }) {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
@@ -1158,7 +1177,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionStatusRow | null>(null);
-  const [trialEligible, setTrialEligible] = useState<boolean | null>(null); // null = still checking
+  const [trial, setTrial] = useState<TrialEligibility | null>(null); // null = still checking
   const [downgrading, setDowngrading] = useState(false);
   const [showSwitchToPro, setShowSwitchToPro] = useState(false);
 
@@ -1176,7 +1195,7 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
   useEffect(() => {
     getInvoices().then(setInvoices);
     getSubscriptionStatus().then(setSubscription);
-    getTrialEligibility().then((e) => setTrialEligible(e.eligible));
+    getTrialEligibility().then(setTrial);
   }, []);
 
   async function handleStartTrial() {
@@ -1377,8 +1396,11 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
         </div>
       )}
 
-      {/* Free trial banner — only for users who can actually start it */}
-      {currentPlan === "free" && trialEligible === true && (
+      {/* Free trial. Shown in EVERY state, because "no banner" used to be the
+          answer for three different situations — and the one people hit most
+          (no Instagram connected yet) looked identical to the trial not
+          existing at all. */}
+      {currentPlan === "free" && trial?.eligible === true && (
         <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">🎁 Try Pro free for 7 days</p>
@@ -1394,6 +1416,28 @@ function BillingTab({ profile, onProfileRefresh }: { profile: UserProfile | null
             {startingTrial ? "Starting…" : "Start free trial"}
           </button>
         </div>
+      )}
+
+      {currentPlan === "free" && trial?.reason === "connect_instagram" && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">🎁 Your 7-day Pro trial is ready</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              It unlocks as soon as an Instagram account is connected — the trial runs the automation,
+              so there has to be an account for it to run on. Once per account, no card needed.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/settings/instagram"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[oklch(0.52_0.19_162)] to-[oklch(0.45_0.2_158)] text-white text-sm font-semibold shadow-lg shrink-0 text-center"
+          >
+            Connect Instagram
+          </Link>
+        </div>
+      )}
+
+      {currentPlan === "free" && trial && !trial.eligible && trialBlockedNote(trial.reason) && (
+        <p className="text-xs text-muted-foreground">{trialBlockedNote(trial.reason)}</p>
       )}
 
       {/* Annual option + top-up */}
