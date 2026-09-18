@@ -72,6 +72,16 @@ export async function GET(request: Request) {
         continue;
       }
 
+      // Never email an address that hasn't been confirmed. Before this, a fresh
+      // signup started the whole sequence immediately, so the welcome mail went
+      // out to people who had not clicked their confirmation link — and the
+      // sequence was spent before they ever arrived. Skipping WITHOUT advancing
+      // the step means the drip starts the moment they confirm.
+      if (!authUser?.user?.email_confirmed_at) {
+        skipped++;
+        continue;
+      }
+
       let subject = "";
       let html = "";
       let shouldSkip = false;

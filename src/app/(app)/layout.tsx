@@ -3,13 +3,24 @@ import { MobileBottomNav } from "@/components/layouts/mobile-bottom-nav";
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { CommandPalette, CommandPaletteMobileTrigger } from "@/components/ui/command-palette";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { OnboardingWrapper } from "@/components/dashboard/onboarding-wrapper";
+import { ConfirmedNotice } from "@/components/auth/confirmed-notice";
+import { InAppBrowserNotice } from "@/components/auth/in-app-browser-notice";
+import { headers } from "next/headers";
+import { isInAppBrowser, chromeHomeIntentUrl } from "@/lib/utils/in-app-browser";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Detected on the server so the notice never flashes in late. Reading the
+  // user-agent HERE (not in the root layout) keeps the marketing pages
+  // statically rendered.
+  const hdrs = await headers();
+  const ua = hdrs.get("user-agent");
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const showInAppNotice = isInAppBrowser(ua) && host.length > 0;
+
   return (
     <div className="flex min-h-screen bg-muted/30">
       <Sidebar />
@@ -35,7 +46,12 @@ export default function AppLayout({
       </main>
       <MobileBottomNav />
       <CommandPalette />
-      <OnboardingWrapper />
+      {/* Confirms the email step out loud — people used to arrive here with no
+          signal that the link had worked. */}
+      <ConfirmedNotice />
+      {showInAppNotice && (
+        <InAppBrowserNotice host={host} chromeIntent={chromeHomeIntentUrl(host, ua)} />
+      )}
     </div>
   );
 }

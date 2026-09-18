@@ -8,7 +8,7 @@ import { PLANS, type PlanKey } from "@/lib/utils/plan-limits";
 import { toast } from "sonner";
 
 const steps = [
-  { id: 1, title: "Your Business", icon: Building2 },
+  { id: 1, title: "About you", icon: Building2 },
   { id: 2, title: "Instagram", icon: MessageCircle },
   { id: 3, title: "Choose Plan", icon: Zap },
 ];
@@ -45,23 +45,37 @@ export default function OnboardingPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        // Almost always: this was opened in a mail app's browser, whose session
+        // doesn't exist anywhere else. Send them to sign in rather than
+        // leaving them on a screen that can't save.
+        toast.error("Your session expired. Please sign in again.");
+        router.replace("/login");
+        return;
+      }
 
       // Only write profile fields the DB grants allow users to set.
       // `plan` is NEVER written here — paid plans are granted server-side
       // after a verified Cashfree payment (see /api/payments/*).
-      const { error } = await supabase
+      // .select() matters: a write that matches no row returns success, so
+      // without reading the row back a blocked save looked identical to a
+      // successful one — the user stayed stuck on this screen.
+      const { data: updated, error } = await supabase
         .from("profiles")
         .update({
           business_name: businessName || null,
           instagram_handle: igHandle || null,
           onboarding_complete: true,
         })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select("onboarding_complete");
 
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        throw new Error("Profile update did not apply");
+      }
 
-      toast.success("Welcome to ChirplyMint! 🎉");
+      toast.success("You're all set! 🎉");
       if (selectedPlan === "free") {
         router.push("/dashboard");
       } else {
@@ -71,8 +85,9 @@ export default function OnboardingPage() {
         );
         router.push("/dashboard/settings");
       }
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+    } catch (err) {
+      console.error("[Onboarding] Could not finish setup:", err);
+      toast.error("We couldn't save that — please try again. If it keeps failing, reload the page.");
     } finally {
       setSaving(false);
     }
@@ -118,33 +133,38 @@ export default function OnboardingPage() {
 
         {/* Card */}
         <div className="rounded-2xl bg-card border border-border shadow-sm p-6">
-          {/* Step 1: Business Info */}
+          {/* Step 1: Who you are — creators and businesses both sign up */}
           {step === 1 && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  Tell us about your business
+                  Tell us about you
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This helps us personalize your experience.
+                  Creator, freelancer or a full business — it all works here. This just personalizes
+                  your dashboard.
                 </p>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Business / Brand Name <span className="text-red-500">*</span>
+                  Your name or brand
                 </label>
                 <input
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Sunrise Café"
+                  placeholder="e.g. Priya Sharma, or Sunrise Café"
                   className={`w-full h-11 px-4 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.19_162)] focus:border-transparent placeholder:text-muted-foreground/50 ${
                     businessName.length > 0 && businessName.trim().length < 2
                       ? "border-red-400"
                       : "border-border"
                   }`}
                 />
-                {businessName.length > 0 && businessName.trim().length < 2 && (
-                  <p className="text-xs text-red-500">Business name must be at least 2 characters.</p>
+                {businessName.length > 0 && businessName.trim().length < 2 ? (
+                  <p className="text-xs text-red-500">Please use at least 2 characters.</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Your own name is fine — it shows on your receipts and emails.
+                  </p>
                 )}
               </div>
               <button
@@ -256,12 +276,14 @@ export default function OnboardingPage() {
           )}
         </div>
 
-        {/* Skip */}
+        {/* Skip takes the same path as finishing — the only difference is what
+            it writes. It used to look inert because a failed save was silent. */}
         <button
           onClick={handleComplete}
-          className="w-full text-center text-xs text-muted-foreground mt-4 hover:text-foreground transition-colors"
+          disabled={saving}
+          className="w-full text-center text-xs text-muted-foreground mt-4 hover:text-foreground transition-colors disabled:opacity-60"
         >
-          Skip for now
+          {saving ? "Setting up…" : "Skip for now — take me to the dashboard"}
         </button>
       </div>
     </div>

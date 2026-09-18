@@ -61,14 +61,23 @@ export async function GET(request: Request) {
         });
       }
 
+      // Mark a FRESH confirmation so the destination can say so. A plain
+      // Google sign-in confirms nothing new, and shouldn't announce it.
+      let destination = next;
+      const confirmedAt = authUser?.email_confirmed_at ? new Date(authUser.email_confirmed_at).getTime() : 0;
+      const justConfirmed = confirmedAt > 0 && Date.now() - confirmedAt < 2 * 60 * 1000;
+      if (justConfirmed) {
+        destination += destination.includes("?") ? "&verified=1" : "?verified=1";
+      }
+
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
       if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${destination}`);
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        return NextResponse.redirect(`https://${forwardedHost}${destination}`);
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${destination}`);
       }
     }
   }
