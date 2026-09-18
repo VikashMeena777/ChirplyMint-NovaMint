@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { CookieConsent } from "@/components/ui/cookie-consent";
+import { AuthFragmentHandler } from "@/components/auth/auth-fragment-handler";
 import { Toaster } from "sonner";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE_URL, siteGraph } from "@/lib/seo";
@@ -116,6 +117,10 @@ export default function RootLayout({
             (site name in Google results). Rendered from the root layout so
             the homepage can never miss it. */}
         <JsonLd data={siteGraph()} />
+        {/* Confirmation links can come back with the session in the URL
+            fragment, which the server never sees — this finishes that handoff
+            instead of leaving someone signed in on a public page. */}
+        <AuthFragmentHandler />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

@@ -15,11 +15,15 @@ export default function LoginPage() {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
-  // The confirm-email callback bounces here when a link is expired or reused.
+  // The confirm-email callback bounces here when it couldn't complete the
+  // handoff: the link expired, was already used, or was opened in a different
+  // browser (the PKCE verifier lives in the one that signed up).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "auth_callback_failed") {
-      toast.error("That confirmation link has expired or was already used. Sign in, or ask for a new link below.");
+      toast.error(
+        "That link couldn't sign you in — confirmation links expire, and they only work in the browser you signed up in. Try signing in, or send yourself a new link below."
+      );
     }
   }, []);
 
